@@ -6,7 +6,7 @@
 use bevy::prelude::*;
 
 use crate::components::ui_markers::{CanvasScrollingPane, ReactionCanvasRoot};
-use crate::components::VesselCard;
+use crate::components::{Draggable, VesselCard};
 use crate::resources::player_progress::PlayerProgress;
 use crate::resources::recipe_database::RecipeDatabase;
 use crate::resources::ui_fonts::UiFonts;
@@ -189,6 +189,7 @@ pub fn nav_input_system(
 /// selection; with nothing else to close it opens settings.
 pub fn escape_system(
     keys: Res<ButtonInput<KeyCode>>,
+    named: Res<ButtonInput<bevy::input::keyboard::Key>>,
     mut codex: ResMut<CodexState>,
     mut rlib: ResMut<ReactionLibState>,
     mut tree: ResMut<TechTreeState>,
@@ -197,9 +198,10 @@ pub fn escape_system(
     mut credits: ResMut<crate::ui::credits::CreditsUi>,
     pads: Query<&Gamepad>,
 ) {
-    // a controller's B and Start do what Esc does
+    // a controller's B and Start do what Esc does, and so does a phone's Back
     let pad = pads.iter().any(|g| g.just_pressed(GamepadButton::East) || g.just_pressed(GamepadButton::Start));
-    if !keys.just_pressed(KeyCode::Escape) && !pad {
+    let back = named.just_pressed(bevy::input::keyboard::Key::BrowserBack);
+    if !keys.just_pressed(KeyCode::Escape) && !pad && !back {
         return;
     }
     if credits.open {
@@ -405,6 +407,53 @@ pub fn scroll_max(node: &ComputedNode) -> Vec2 {
     ((node.content_size - node.size + node.scrollbar_size) * node.inverse_scale_factor()).max(Vec2::ZERO)
 }
 
+/// What hit testing reads of a node.
+type HitParts = (
+    &'static ComputedNode,
+    &'static UiGlobalTransform,
+    Option<&'static bevy::ui::CalculatedClip>,
+    Option<&'static InheritedVisibility>,
+);
+
+/// The topmost visible node at a point in physical window pixels.
+fn node_at(p: Vec2, stack: &bevy::ui::UiStack, hits: &Query<HitParts>) -> Option<Entity> {
+    stack.uinodes.iter().rev().copied().find(|e| {
+        let Ok((node, tf, clip, vis)) = hits.get(*e) else { return false };
+        vis.is_none_or(|v| v.get())
+            && node.size.x > 0.0
+            && node.contains_point(*tf, p)
+            && clip.is_none_or(|c| c.clip.contains(p))
+    })
+}
+
+/// Scroll the first panel at or around `e` that can still move by `d` (UI pixels; positive
+/// shows what is above and to the left, as the wheel turned up does). At the end of an
+/// inner list the movement passes on to the panel around it.
+fn scroll_out_from(
+    mut e: Entity,
+    d: Vec2,
+    parents: &Query<&ChildOf>,
+    scrollers: &mut Query<(&Node, &ComputedNode, &mut ScrollPosition)>,
+) {
+    loop {
+        if let Ok((node, cn, mut sp)) = scrollers.get_mut(e) {
+            let max = scroll_max(cn);
+            let can_x = node.overflow.x == OverflowAxis::Scroll && d.x != 0.0;
+            let can_y = node.overflow.y == OverflowAxis::Scroll && d.y != 0.0;
+            let want = Vec2::new(if can_x { sp.0.x - d.x } else { sp.0.x }, if can_y { sp.0.y - d.y } else { sp.0.y })
+                .clamp(Vec2::ZERO, max);
+            if (can_x || can_y) && want != sp.0 {
+                sp.0 = want;
+                return;
+            }
+        }
+        match parents.get(e) {
+            Ok(c) => e = c.parent(),
+            Err(_) => return,
+        }
+    }
+}
+
 /// The wheel scrolls whatever scrolling panel is under the cursor (Shift scrolls
 /// sideways), and never past its end, so there is no dead zone to scroll back through.
 /// At the end of an inner list the wheel moves on to the panel around it.
@@ -413,7 +462,7 @@ pub fn wheel_scroll_system(
     keys: Res<ButtonInput<KeyCode>>,
     windows: Query<&Window, With<bevy::window::PrimaryWindow>>,
     stack: Res<bevy::ui::UiStack>,
-    hits: Query<(&ComputedNode, &UiGlobalTransform, Option<&bevy::ui::CalculatedClip>, Option<&InheritedVisibility>)>,
+    hits: Query<HitParts>,
     parents: Query<&ChildOf>,
     mut scrollers: Query<(&Node, &ComputedNode, &mut ScrollPosition)>,
 ) {
@@ -434,33 +483,67 @@ pub fn wheel_scroll_system(
     }
     let Some(win) = windows.iter().next() else { return };
     let Some(cursor) = win.cursor_position() else { return };
-    let p = cursor * win.scale_factor();
-    // the topmost visible node under the cursor
-    let top = stack.uinodes.iter().rev().copied().find(|e| {
-        let Ok((node, tf, clip, vis)) = hits.get(*e) else { return false };
-        vis.is_none_or(|v| v.get())
-            && node.size.x > 0.0
-            && node.contains_point(*tf, p)
-            && clip.is_none_or(|c| c.clip.contains(p))
-    });
-    let Some(mut e) = top else { return };
-    // walk out to the first panel that can still move in that direction
-    loop {
-        if let Ok((node, cn, mut sp)) = scrollers.get_mut(e) {
-            let max = scroll_max(cn);
-            let can_x = node.overflow.x == OverflowAxis::Scroll && d.x != 0.0;
-            let can_y = node.overflow.y == OverflowAxis::Scroll && d.y != 0.0;
-            let want = Vec2::new(if can_x { sp.0.x - d.x } else { sp.0.x }, if can_y { sp.0.y - d.y } else { sp.0.y })
-                .clamp(Vec2::ZERO, max);
-            if (can_x || can_y) && want != sp.0 {
-                sp.0 = want;
-                return;
+    if let Some(top) = node_at(cursor * win.scale_factor(), &stack, &hits) {
+        scroll_out_from(top, d, &parents, &mut scrollers);
+    }
+}
+
+/// A finger that swiped a shelf tile instead of lifting it (see systems/drag_drop.rs):
+/// the panel around the tile scrolls by this much.
+#[derive(Message, Clone, Copy, Debug)]
+pub struct TouchScroll {
+    pub from: Entity,
+    /// how far the finger moved, in window pixels
+    pub moved: Vec2,
+}
+
+/// A finger drags the list or panel it lands on, the way the wheel scrolls it. Things that
+/// are dragged around (shelf tiles, vessels, the chips in them, the bench itself) are left
+/// to the drag code, which hands a swiped shelf tile back here as a TouchScroll.
+pub fn touch_scroll_system(
+    touches: Res<Touches>,
+    mut held: Local<bevy::platform::collections::HashMap<u64, Entity>>,
+    mut swipes: MessageReader<TouchScroll>,
+    windows: Query<&Window, With<bevy::window::PrimaryWindow>>,
+    ui_scale: Res<UiScale>,
+    stack: Res<bevy::ui::UiStack>,
+    hits: Query<HitParts>,
+    dragged: Query<(), Or<(With<Draggable>, With<CanvasScrollingPane>)>>,
+    parents: Query<&ChildOf>,
+    mut scrollers: Query<(&Node, &ComputedNode, &mut ScrollPosition)>,
+) {
+    let s = ui_scale.0.max(0.01);
+    if let Some(win) = windows.iter().next() {
+        for t in touches.iter_just_pressed() {
+            let Some(top) = node_at(t.position() * win.scale_factor(), &stack, &hits) else { continue };
+            let mut e = top;
+            let on_dragged = loop {
+                if dragged.contains(e) {
+                    break true;
+                }
+                match parents.get(e) {
+                    Ok(c) => e = c.parent(),
+                    Err(_) => break false,
+                }
+            };
+            if !on_dragged {
+                held.insert(t.id(), top);
             }
         }
-        match parents.get(e) {
-            Ok(c) => e = c.parent(),
-            Err(_) => return,
+    }
+    for t in touches.iter() {
+        if let Some(&e) = held.get(&t.id()) {
+            let d = t.delta();
+            if d != Vec2::ZERO {
+                scroll_out_from(e, d / s, &parents, &mut scrollers);
+            }
         }
+    }
+    for t in touches.iter_just_released().chain(touches.iter_just_canceled()) {
+        held.remove(&t.id());
+    }
+    for m in swipes.read() {
+        scroll_out_from(m.from, m.moved / s, &parents, &mut scrollers);
     }
 }
 

@@ -13,6 +13,11 @@ thiserror = "2.0.17"
 # Steam achievements, only in builds made with `--features steam`
 steamworks = { version = "0.13.1", optional = true }
 
+# The Android build (android/) shares this Cargo.lock and target folder. Commands run here
+# still build only the game; the Android workflow builds android/.
+[workspace]
+members = ["android"]
+
 [features]
 # Steam integration (achievements); needs the Steam client running to do anything
 steam = ["dep:steamworks"]

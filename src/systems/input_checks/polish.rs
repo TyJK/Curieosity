@@ -1,15 +1,18 @@
 // src/systems/input_checks/polish.rs
 //
 // Interaction checks for sound, the keyboard and controllers, hover states, saves, the
-// credits and achievements. A child of input_checks.rs, so it shares its check language
-// (targets, ops, verifies) and helpers.
+// credits, achievements and touch screens. A child of input_checks.rs, so it shares its
+// check language (targets, ops, verifies) and helpers.
 use bevy::input::gamepad::{GamepadConnection, GamepadConnectionEvent, RawGamepadButtonChangedEvent, RawGamepadEvent};
+use bevy::input::keyboard::NativeKeyCode;
+use bevy::input::touch::{TouchInput, TouchPhase};
 
 use super::*;
 use crate::resources::player_progress::SaveClock;
 use crate::systems::achievements::Achievements;
+use crate::systems::drag_drop::{Swiping, LIFT_HOLD};
 use crate::systems::sound::{Cue, SoundLog};
-use crate::ui::codex::{CodexCloseButton, CodexTextCredit};
+use crate::ui::codex::{CodexCloseButton, CodexScrollable, CodexTextCredit};
 use crate::ui::credits::{CreditLink, CreditsButton, CreditsRoot, SECTIONS};
 use crate::ui::focus::{FocusRing, NoFocus};
 use crate::ui::onboarding::next_step_look;
@@ -127,6 +130,249 @@ fn earned(ids: &'static [&'static str]) -> Verify {
             Err(format!("not earned: {missing:?}"))
         }
     })
+}
+
+// ---------------------------------------------------------------------------------------
+// Touch screens: the checks' finger sends the touch messages a phone's window would
+// ---------------------------------------------------------------------------------------
+const FINGER: u64 = 7;
+
+/// Where the checks' finger is, where it is heading, and when it came down.
+#[derive(Resource, Clone, Copy)]
+struct Finger {
+    at: Vec2,
+    from: Vec2,
+    to: Vec2,
+    since: f64,
+}
+
+fn finger(w: &mut World, phase: TouchPhase, at: Vec2) {
+    let Some(window) = w.query_filtered::<Entity, With<PrimaryWindow>>().iter(w).next() else { return };
+    // the window sends both: input reads the one, picking the other
+    let ev = TouchInput { phase, position: at, window, force: None, id: FINGER };
+    w.write_message(ev);
+    w.write_message(bevy::window::WindowEvent::TouchInput(ev));
+    let now = w.resource::<Time<Real>>().elapsed_secs_f64();
+    let mut f = w.get_resource::<Finger>().copied().unwrap_or(Finger { at, from: at, to: at, since: now });
+    if phase == TouchPhase::Started {
+        f = Finger { at, from: at, to: at, since: now };
+    }
+    f.at = at;
+    w.insert_resource(f);
+}
+
+/// Where a finger goes after it lands.
+enum Slide {
+    To(Target),
+    By(Vec2),
+}
+
+/// A finger lands on `from`, rests `hold` seconds, slides (in six moves, a frame apart)
+/// and lifts.
+fn finger_slide(from: Target, slide: Slide, hold: f64) -> Vec<Op> {
+    let mut ops = vec![Op::Until(
+        verify(move |w| {
+            let p = (from.find)(w).ok_or_else(|| format!("could not find {} on screen", from.name))?;
+            finger(w, TouchPhase::Started, p);
+            Ok(())
+        }),
+        30,
+    )];
+    ops.push(match slide {
+        Slide::To(t) => Op::Until(
+            verify(move |w| {
+                let p = (t.find)(w).ok_or_else(|| format!("could not find {} on screen", t.name))?;
+                w.resource_mut::<Finger>().to = p;
+                Ok(())
+            }),
+            30,
+        ),
+        Slide::By(d) => setup(move |w| {
+            let mut f = w.resource_mut::<Finger>();
+            f.to = f.from + d;
+        }),
+    });
+    if hold > 0.0 {
+        ops.push(Op::Until(
+            verify(move |w| {
+                let held = w.resource::<Time<Real>>().elapsed_secs_f64() - w.resource::<Finger>().since;
+                if held >= hold {
+                    Ok(())
+                } else {
+                    Err(format!("the finger was held only {held:.2} s"))
+                }
+            }),
+            600,
+        ));
+    }
+    for i in 1..=6 {
+        ops.push(setup(move |w| {
+            let f = *w.resource::<Finger>();
+            finger(w, TouchPhase::Moved, f.from.lerp(f.to, i as f32 / 6.0));
+        }));
+    }
+    ops.push(Op::Wait(2));
+    ops.push(setup(|w| {
+        let at = w.resource::<Finger>().at;
+        finger(w, TouchPhase::Ended, at);
+    }));
+    ops.push(Op::Wait(3));
+    ops
+}
+
+/// A finger taps a target.
+fn finger_tap(t: Target) -> Vec<Op> {
+    vec![
+        Op::Until(
+            verify(move |w| {
+                let p = (t.find)(w).ok_or_else(|| format!("could not find {} on screen", t.name))?;
+                finger(w, TouchPhase::Started, p);
+                Ok(())
+            }),
+            30,
+        ),
+        Op::Wait(2),
+        setup(|w| {
+            let at = w.resource::<Finger>().at;
+            finger(w, TouchPhase::Ended, at);
+        }),
+        Op::Wait(3),
+    ]
+}
+
+/// A phone's Back button, pressed and let go.
+fn back_button() -> Vec<Op> {
+    let key = |state: ButtonState| {
+        setup(move |w| {
+            let Some(window) = w.query_filtered::<Entity, With<PrimaryWindow>>().iter(w).next() else { return };
+            w.write_message(KeyboardInput {
+                key_code: KeyCode::Unidentified(NativeKeyCode::Android(4)),
+                logical_key: Key::BrowserBack,
+                state,
+                text: None,
+                repeat: false,
+                window,
+            });
+        })
+    };
+    vec![key(ButtonState::Pressed), Op::Wait(1), key(ButtonState::Released), Op::Wait(2)]
+}
+
+fn shelf_scroll(w: &mut World) -> f32 {
+    w.query_filtered::<&ScrollPosition, With<InventoryScroll>>().iter(w).next().map_or(0.0, |s| s.0.y)
+}
+
+fn touch_checks() -> Vec<Check> {
+    use CardPart::*;
+    use ProcessType::Heat;
+    let mut v = Vec::new();
+    v.push(check(
+        "Touch",
+        "A finger swiping up the shelf scrolls it and lifts nothing",
+        vec![
+            setup(discover_everything),
+            Op::Wait(20),
+            setup(|w| {
+                for mut sp in w.query_filtered::<&mut ScrollPosition, With<InventoryScroll>>().iter_mut(w) {
+                    sp.0 = Vec2::ZERO;
+                }
+            }),
+            Op::Wait(2),
+        ]
+        .into_iter()
+        .chain(finger_slide(marked::<ShelfTile>("the first shelf tile"), Slide::By(Vec2::new(0.0, -120.0)), 0.0))
+        .chain([
+            Op::Until(
+                verify(|w| if shelf_scroll(w) > 20.0 { Ok(()) } else { Err("the shelf did not scroll".into()) }),
+                30,
+            ),
+            Op::Expect(verify(|w| {
+                let ghosts = w.query::<&DragGhostNode>().iter(w).count();
+                let swiping = w.query::<&Swiping>().iter(w).count();
+                match (ghosts, swiping) {
+                    (0, 0) => Ok(()),
+                    _ => Err(format!("{ghosts} tile copies following the finger, {swiping} tiles still swiping")),
+                }
+            })),
+        ])
+        .collect(),
+    ));
+    v.push(check(
+        "Touch",
+        "Holding a shelf tile lifts it, and dropped on a vessel it goes in",
+        vec![setup(new_game), setup(|w| place(w, Heat, 0)), Op::Wait(5)]
+            .into_iter()
+            .chain(finger_slide(tile("Wood"), Slide::To(card_part(Heat, Art)), LIFT_HOLD + 0.15))
+            .chain([Op::Until(has_chip(Heat, "Wood"), 30)])
+            .collect(),
+    ));
+    v.push(check(
+        "Touch",
+        "Tapping a tile and then a vessel puts it in",
+        vec![setup(new_game), setup(|w| place(w, Heat, 0)), Op::Wait(5)]
+            .into_iter()
+            .chain(finger_tap(tile("Wood")))
+            .chain([Op::Until(
+                verify(|w| match (w.resource::<SelectedSubstance>().0, sub_id(w, "Wood")) {
+                    (Some(a), Some(b)) if a == b => Ok(()),
+                    (s, _) => Err(format!("selected {s:?} after tapping Wood")),
+                }),
+                30,
+            )])
+            .chain(finger_tap(card_part(Heat, Art)))
+            .chain([Op::Until(has_chip(Heat, "Wood"), 30)])
+            .collect(),
+    ));
+    v.push(check(
+        "Touch",
+        "A finger dragging the substance list scrolls it",
+        vec![
+            setup(discover_everything),
+            Op::Wait(10),
+            Op::Click(nav(View::Substances)),
+            Op::Until(state("Substance Library open", |w| w.resource::<CodexState>().open), 30),
+            Op::Wait(10),
+        ]
+        .into_iter()
+        .chain(finger_slide(
+            marked::<CodexEntry>("the first entry in the list"),
+            Slide::By(Vec2::new(0.0, -150.0)),
+            0.0,
+        ))
+        .chain([
+            Op::Until(
+                verify(|w| {
+                    let y = w
+                        .query::<(&CodexScrollable, &ScrollPosition)>()
+                        .iter(w)
+                        .find(|(c, _)| c.is_left)
+                        .map_or(0.0, |(_, s)| s.0.y);
+                    if y > 20.0 {
+                        Ok(())
+                    } else {
+                        Err(format!("the list is at {y}"))
+                    }
+                }),
+                30,
+            ),
+            Op::Key(KeyCode::Escape),
+            Op::Wait(3),
+        ])
+        .collect(),
+    ));
+    v.push(check(
+        "Touch",
+        "A phone's Back button closes a view",
+        vec![
+            Op::Click(nav(View::Reactions)),
+            Op::Until(state("Reaction Library open", |w| w.resource::<ReactionLibState>().open), 30),
+        ]
+        .into_iter()
+        .chain(back_button())
+        .chain([Op::Until(state("Reaction Library closed", |w| !w.resource::<ReactionLibState>().open), 30)])
+        .collect(),
+    ));
+    v
 }
 
 pub(super) fn polish_checks() -> Vec<Check> {
@@ -639,5 +885,6 @@ pub(super) fn polish_checks() -> Vec<Check> {
             Op::Wait(10),
         ],
     ));
+    v.extend(touch_checks());
     v
 }

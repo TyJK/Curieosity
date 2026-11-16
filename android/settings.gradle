@@ -1,0 +1,19 @@
+// The Android app around the game: it packs the native library (built by cargo-ndk into
+// app/src/main/jniLibs) and the game's assets folder into an APK. See the Android workflow.
+pluginManagement {
+    repositories {
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+    }
+}
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
+rootProject.name = "Curieosity"
+include ':app'
