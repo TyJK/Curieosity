@@ -86,6 +86,14 @@ pub struct AutoplayConfig {
     /// a checkpoint screenshot every this many steps
     pub every: usize,
     pub out_dir: PathBuf,
+    /// the window size in logical pixels (`--window 915x412` plays at a phone's size)
+    pub window: (u32, u32),
+    /// true when `--window` was given: the interface size then follows the screen, as it
+    /// does on a phone's first run
+    pub fit_screen: bool,
+    /// `--scale 1.0`: play at this interface size instead (how a phone looks after the
+    /// player changes the size)
+    pub scale: Option<f32>,
 }
 
 impl AutoplayConfig {
@@ -99,10 +107,17 @@ impl AutoplayConfig {
         let out_dir = value("--out")
             .map(PathBuf::from)
             .unwrap_or_else(|| PathBuf::from("target").join("review").join(format!("run_{}", timestamp())));
+        let window = value("--window").and_then(|v| {
+            let (w, h) = v.split_once('x')?;
+            Some((w.trim().parse().ok()?, h.trim().parse().ok()?))
+        });
         Some(Self {
             limit: value("--steps").and_then(|s| s.parse().ok()),
             every: value("--every").and_then(|s| s.parse().ok()).unwrap_or(75).max(1),
             out_dir,
+            window: window.unwrap_or((1280, 720)),
+            scale: value("--scale").and_then(|v| v.parse().ok()),
+            fit_screen: window.is_some() && value("--scale").is_none(),
         })
     }
 }

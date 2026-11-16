@@ -625,9 +625,15 @@ pub fn next_step_system(
     mut title_q: Query<&mut Text, (With<NextStepTitle>, Without<NextStepBody>)>,
     mut body_q: Query<&mut Text, (With<NextStepBody>, Without<NextStepTitle>)>,
     mut last: Local<Option<(u32, bool)>>,
+    room: (Res<crate::ui::inventory::Dock>, ResMut<crate::ui::toasts::ToastRoom>),
 ) {
     let Some(db) = db else { return };
     let Ok((mut node, mut show, computed)) = card.single_mut() else { return };
+    let (dock, mut toast_room) = room;
+    let card_bottom = Val::Px(dock.h + 12.0);
+    if node.bottom != card_bottom {
+        node.bottom = card_bottom;
+    }
     let (codex, rlib, tree) = views;
     let wanted =
         settings.as_ref().is_none_or(|s| s.next_step) && progress.ready && !(codex.open || rlib.open || tree.open);
@@ -648,10 +654,15 @@ pub fn next_step_system(
         0.0
     };
     if let Ok(mut t) = toast_stack.single_mut() {
-        let want = Val::Px(theme::DOCK_H + 14.0 + lift);
+        let want = Val::Px(dock.h + 14.0 + lift);
         if t.bottom != want {
             t.bottom = want;
         }
+    }
+    // each pop-up takes about 50 px: as many as fit between the card and the header
+    let fit = (((dock.bench - lift - 14.0) / 50.0).floor().max(1.0) as usize).min(4);
+    if toast_room.0 != fit {
+        toast_room.0 = fit;
     }
     let Some(r) = step else {
         *last = None;

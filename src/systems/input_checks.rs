@@ -62,8 +62,8 @@ use crate::ui::settings::{Field, SettingStep, SettingToggle, Settings, SettingsA
 use crate::ui::shell::scroll_max;
 use crate::ui::shell::{BenchGrid, NavTab, SettingsButton, View};
 use crate::ui::tech_tree::{
-    TechCloseButton, TechGraphView, TechListView, TechMode, TechModeButton, TechNodeButton, TechOpenInLibrary,
-    TechScrollable, TechTreeState,
+    SelectionLink, TechCloseButton, TechGraphView, TechLinks, TechListView, TechMode, TechModeButton, TechNeedBadge,
+    TechNeedButton, TechNodeButton, TechOpenInLibrary, TechScrollable, TechTreeState,
 };
 use crate::ui::toasts::{ToastKind, Toasts};
 use crate::GameData;
@@ -667,6 +667,52 @@ fn marked<C: Component>(name: &str) -> Target {
         point_in(w, e, 0.5, 0.5)
     })
 }
+
+/// How many steps the tech tree's needs check looks at.
+const TECH_SAMPLES: usize = 8;
+
+/// A step the tech tree checks pick to select: the six with the most needs, then the first
+/// and the last step of the tree.
+fn sampled_step(w: &mut World, i: usize) -> Option<u32> {
+    let mut by_needs: Vec<(usize, u32)> = w.resource::<TechLinks>().needs.iter().map(|(&k, v)| (v.len(), k)).collect();
+    by_needs.sort_by(|a, b| b.cmp(a));
+    let db = w.resource::<RecipeDatabase>();
+    let mut picks: Vec<u32> = by_needs.iter().take(TECH_SAMPLES - 2).map(|&(_, k)| k).collect();
+    picks.extend(db.authored.first().map(|r| r.id));
+    picks.extend(db.authored.last().map(|r| r.id));
+    picks.get(i).copied()
+}
+
+/// The selected step shows everything it needs: a selection line for each of its links, a
+/// chip for each need in the detail bar, and a badge counting the needs with no overview line.
+fn needs_shown(w: &mut World, i: usize) -> Result<(), String> {
+    let Some(step) = sampled_step(w, i) else { return Ok(()) };
+    let links = w.resource::<TechLinks>();
+    let touching = links.all.iter().filter(|(a, b)| *a == step || *b == step).count();
+    let needs = links.needs.get(&step).cloned().unwrap_or_default();
+    let undrawn = needs.iter().filter(|n| !n.drawn).count();
+    let segments = w.query_filtered::<(), With<SelectionLink>>().iter(w).count();
+    let chips = w.query::<&TechNeedButton>().iter(w).count();
+    let badge = w.query::<&TechNeedBadge>().iter(w).find(|b| b.step == step).map(|b| b.count);
+    let mut wrong = Vec::new();
+    if segments != touching * 3 {
+        wrong.push(format!("{segments} line segments for {touching} links"));
+    }
+    if chips != needs.len() {
+        wrong.push(format!("{chips} need chips for {} needs", needs.len()));
+    }
+    if badge.unwrap_or(0) != undrawn {
+        wrong.push(format!("badge {badge:?} for {undrawn} needs without a line"));
+    }
+    match wrong.is_empty() {
+        true => Ok(()),
+        false => Err(format!("step {step}: {}", wrong.join("; "))),
+    }
+}
+
+/// The step a tapped need should lead to.
+#[derive(Resource)]
+struct ExpectedStep(Option<u32>);
 
 fn sidebar_button(p: ProcessType) -> Target {
     target(format!("the {} button in the vessel list", vessel_name(&p)), move |w| {
@@ -2140,6 +2186,61 @@ pub fn all_checks(world: &mut World) -> Vec<Check> {
             Op::Wait(10),
             Op::Click(marked::<TechNodeButton>("a step in the graph")),
             Op::Until(state("a step selected", |w| w.resource::<TechTreeState>().selected.is_some()), 30),
+        ],
+    ));
+    // Every prerequisite is expressed: checked on the steps that need the most (and the
+    // first and last), whatever the content holds.
+    let mut ops = vec![
+        setup(new_game),
+        setup(|w| w.resource_mut::<TechTreeState>().open = true),
+        Op::Until(state("the tree's links worked out", |w| !w.resource::<TechLinks>().needs.is_empty()), 60),
+    ];
+    for i in 0..TECH_SAMPLES {
+        ops.push(setup(move |w| {
+            let id = sampled_step(w, i);
+            w.resource_mut::<TechTreeState>().selected = id;
+        }));
+        ops.push(Op::Wait(3));
+        ops.push(Op::Until(verify(move |w| needs_shown(w, i)), 30));
+    }
+    ops.push(Op::Shot("a selected step: its links, badge and needs"));
+    v.push(check("Tech Tree", "Every step shows all it needs: links when selected, a badge, a chip each", ops));
+    v.push(check(
+        "Tech Tree",
+        "Tapping a need goes to the step that makes it",
+        vec![
+            setup(new_game),
+            setup(|w| {
+                w.resource_mut::<TechTreeState>().open = true;
+            }),
+            Op::Until(state("the tree's links worked out", |w| !w.resource::<TechLinks>().needs.is_empty()), 60),
+            setup(|w| {
+                let id = sampled_step(w, 0);
+                w.resource_mut::<TechTreeState>().selected = id;
+            }),
+            Op::Wait(4),
+            setup(|w| {
+                let maker = first::<TechNeedButton>(w, |b| b.0.is_some())
+                    .and_then(|e| w.get::<TechNeedButton>(e))
+                    .and_then(|b| b.0);
+                w.insert_resource(ExpectedStep(maker));
+            }),
+            Op::Click(target("the first need with a maker".to_string(), |w| {
+                let e = first::<TechNeedButton>(w, |b| b.0.is_some())?;
+                point_in(w, e, 0.5, 0.5)
+            })),
+            Op::Until(
+                verify(|w| {
+                    let want = w.get_resource::<ExpectedStep>().and_then(|x| x.0);
+                    let got = w.resource::<TechTreeState>().selected;
+                    if want.is_some() && got == want {
+                        Ok(())
+                    } else {
+                        Err(format!("selected {got:?}, wanted the maker {want:?}"))
+                    }
+                }),
+                30,
+            ),
         ],
     ));
     v.push(check(

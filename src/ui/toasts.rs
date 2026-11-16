@@ -61,6 +61,18 @@ pub struct Toast {
 
 const MAX_VISIBLE: usize = 4;
 
+/// How many pop-ups fit on the bench right now: four on a tall screen, fewer on a phone so
+/// the stack never climbs over the header. Kept by the next-step card's system, which
+/// knows how much room it takes itself.
+#[derive(Resource)]
+pub struct ToastRoom(pub usize);
+
+impl Default for ToastRoom {
+    fn default() -> Self {
+        Self(MAX_VISIBLE)
+    }
+}
+
 pub fn spawn_toast_stack(mut commands: Commands) {
     commands.spawn((
         ToastStack,
@@ -89,7 +101,15 @@ pub fn spawn_toasts_system(
     fonts: Option<Res<UiFonts>>,
     assets: Res<AssetServer>,
     stack_q: Query<(Entity, Option<&Children>), With<ToastStack>>,
+    room: Res<ToastRoom>,
 ) {
+    let cap = room.0.clamp(1, MAX_VISIBLE);
+    // the room shrank (a smaller screen, a bigger interface): the oldest go first
+    if let Ok((_, Some(children))) = stack_q.single() {
+        for child in children.iter().take(children.len().saturating_sub(cap)) {
+            commands.entity(child).try_despawn();
+        }
+    }
     if toasts.0.is_empty() {
         return;
     }
@@ -100,9 +120,9 @@ pub fn spawn_toasts_system(
     let (Some(fonts), Ok((stack, children))) = (fonts, stack_q.single()) else { return };
 
     // Drop the oldest visible toasts if the queue would overflow the stack.
-    let visible = children.map(|c| c.len()).unwrap_or(0);
-    let incoming = toasts.0.len().min(MAX_VISIBLE);
-    let excess = (visible + incoming).saturating_sub(MAX_VISIBLE);
+    let visible = children.map(|c| c.len()).unwrap_or(0).min(cap);
+    let incoming = toasts.0.len().min(cap);
+    let excess = (visible + incoming).saturating_sub(cap);
     if let Some(children) = children {
         for child in children.iter().take(excess) {
             commands.entity(child).despawn();
@@ -110,7 +130,7 @@ pub fn spawn_toasts_system(
     }
 
     let queued: Vec<(ToastKind, String)> = toasts.0.drain(..).collect();
-    let skip = queued.len().saturating_sub(MAX_VISIBLE);
+    let skip = queued.len().saturating_sub(cap);
     commands.entity(stack).with_children(|parent| {
         for (kind, text) in queued.into_iter().skip(skip) {
             let accent = kind.accent();

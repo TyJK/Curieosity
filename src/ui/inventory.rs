@@ -21,6 +21,69 @@ pub struct InventoryContent;
 #[derive(Component)]
 pub struct InventoryScroll;
 
+/// The shelf dock along the bottom of the screen.
+#[derive(Component)]
+pub struct ShelfDock;
+
+/// How tall the shelf dock is: its full height on a tall screen, down to one row of tiles
+/// on a short one (a phone held sideways), so the bench keeps its room. In interface pixels.
+#[derive(Resource, Clone, Copy, PartialEq, Debug)]
+pub struct Dock {
+    pub h: f32,
+    /// the bench's height, between the header and the dock
+    pub bench: f32,
+}
+
+impl Default for Dock {
+    fn default() -> Self {
+        Self { h: theme::DOCK_H, bench: 720.0 - theme::HEADER_H - theme::DOCK_H }
+    }
+}
+
+/// The shelf's bar and one full row of tiles.
+const DOCK_MIN: f32 = 156.0;
+
+/// The dock's height on a screen this tall (interface pixels).
+pub fn dock_height(screen_h: f32) -> f32 {
+    (screen_h * 0.36).clamp(DOCK_MIN, theme::DOCK_H)
+}
+
+/// Sizes the dock to the screen, and moves the bench and the vessel list to sit on it.
+#[allow(clippy::type_complexity)]
+pub fn fit_dock_system(
+    windows: Query<&Window, With<bevy::window::PrimaryWindow>>,
+    ui_scale: Res<UiScale>,
+    mut dock: ResMut<Dock>,
+    mut nodes: Query<
+        (&mut Node, Has<ShelfDock>),
+        Or<(
+            With<ShelfDock>,
+            With<crate::components::ui_markers::ReactionCanvasRoot>,
+            With<crate::ui::process_toolbar::VesselSidebar>,
+        )>,
+    >,
+) {
+    let Ok(w) = windows.single() else { return };
+    let screen = w.height() / ui_scale.0.max(0.01);
+    if screen < 1.0 {
+        return;
+    }
+    let h = dock_height(screen);
+    let want = Dock { h, bench: screen - theme::HEADER_H - h };
+    if *dock != want {
+        *dock = want;
+    }
+    for (mut node, is_dock) in &mut nodes {
+        if is_dock {
+            if node.height != Val::Px(h) {
+                node.height = Val::Px(h);
+            }
+        } else if node.bottom != Val::Px(h) {
+            node.bottom = Val::Px(h);
+        }
+    }
+}
+
 /// Marks a category tab button.
 #[derive(Component)]
 pub struct CategoryTab(pub InvCategory);
@@ -155,6 +218,7 @@ pub fn spawn_inventory_panel(mut commands: Commands, fonts: Res<UiFonts>, assets
                 border: UiRect::top(Val::Px(1.0)),
                 ..default()
             },
+            ShelfDock,
             BackgroundColor(theme::BG),
             BorderColor::all(theme::LINE),
             Name::new("InventoryPanel"),
@@ -479,7 +543,7 @@ pub fn spawn_shelf_tile(
                 });
                 item.spawn((theme::label(fonts, sym, 30.0, Weight::Semibold, c), Pickable::IGNORE));
                 item.spawn((
-                    theme::label(fonts, short(&sub.name, 13), theme::XS, Weight::Regular, theme::TEXT_2),
+                    theme::label(fonts, short(&sub.name, 13), theme::XS, Weight::Regular, theme::TEXT),
                     Pickable::IGNORE,
                 ));
             } else {
@@ -494,13 +558,14 @@ pub fn spawn_shelf_tile(
                     9..=12 => 11.5,
                     _ => 9.5,
                 };
-                let name = short(&sub.name, 15);
+                // names stay readable on a phone: never below 11 px, in near-white
+                let name = short(&sub.name, 14);
                 if names_first {
-                    item.spawn((theme::label(fonts, name, 11.5, Weight::Semibold, theme::TEXT), Pickable::IGNORE));
+                    item.spawn((theme::label(fonts, name, 12.0, Weight::Semibold, theme::TEXT), Pickable::IGNORE));
                     item.spawn((
                         Text::new(label),
-                        TextFont { font: fonts.main.clone(), font_size: 9.5, ..default() },
-                        TextColor(theme::TEXT_3),
+                        TextFont { font: fonts.main.clone(), font_size: 11.0, ..default() },
+                        TextColor(theme::TEXT_2),
                         Node { max_width: Val::Px(80.0), ..default() },
                         Pickable::IGNORE,
                     ));
@@ -512,7 +577,7 @@ pub fn spawn_shelf_tile(
                         Node { max_width: Val::Px(80.0), ..default() },
                         Pickable::IGNORE,
                     ));
-                    item.spawn((theme::label(fonts, name, 9.0, Weight::Regular, theme::TEXT_3), Pickable::IGNORE));
+                    item.spawn((theme::label(fonts, name, theme::XS, Weight::Regular, theme::TEXT), Pickable::IGNORE));
                 }
             }
         })
@@ -700,8 +765,8 @@ pub fn spawn_vessel_chip(
                 ));
                 col.spawn((
                     Text::new(ing.name.clone()),
-                    TextFont { font: fonts.main.clone(), font_size: 10.0, ..default() },
-                    TextColor(theme::TEXT_2),
+                    TextFont { font: fonts.main.clone(), font_size: theme::XS, ..default() },
+                    TextColor(theme::TEXT),
                     Node { max_width: Val::Px(150.0), ..default() },
                     Pickable::IGNORE,
                 ));

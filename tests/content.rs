@@ -20,6 +20,7 @@ use chem_alchemy::systems::achievements::{achievement_list, achievements_csv};
 use chem_alchemy::ui::credits::{text_credit, SECTIONS, TEXT_SOURCES};
 use chem_alchemy::ui::process_toolbar::{vessel_art_path, VESSELS};
 use chem_alchemy::ui::settings::Settings;
+use chem_alchemy::ui::tech_tree::plan_links;
 
 struct Content {
     subs: Substances,
@@ -144,6 +145,47 @@ fn the_whole_tree_can_be_played_through() {
     assert_eq!(pt.steps.len(), c.db.authored.len());
     let canon_unknown: Vec<u32> = c.db.canon.iter().filter(|id| !pt.known.contains(id)).copied().collect();
     assert!(canon_unknown.is_empty(), "substances in play that can never be found: {canon_unknown:?}");
+}
+
+/// The tech tree expresses every prerequisite: each ingredient or catalyst a step needs
+/// beyond the starting shelf is listed among its needs, comes from a step (and is linked
+/// from it) or from a milestone, and is either drawn in the overview or counted on the
+/// step's badge.
+#[test]
+fn every_prerequisite_shows_in_the_tech_tree() {
+    let c = content();
+    let plan = plan_links(&c.db);
+    let links: HashSet<(u32, u32)> = plan.links().into_iter().collect();
+    let overview: HashSet<(u32, u32)> = plan.overview.iter().copied().collect();
+    let start: HashSet<u32> = c.db.start.iter().copied().collect();
+    let mut bad = Vec::new();
+    for r in &c.db.authored {
+        let needs = plan.needs.get(&r.id).cloned().unwrap_or_default();
+        for s in r.reactants.iter().map(|s| s.substance_id).chain(r.required_catalyst()) {
+            if start.contains(&s) {
+                continue;
+            }
+            let Some(n) = needs.iter().find(|n| n.substance == s) else {
+                bad.push(format!("{}: {} is not among its needs", r.name, name(c, s)));
+                continue;
+            };
+            match n.from {
+                Some(p) if !links.contains(&(p, r.id)) => {
+                    bad.push(format!("{}: no link from the step that makes {}", r.name, name(c, s)))
+                }
+                Some(p) if n.drawn && !overview.contains(&(p, r.id)) => {
+                    bad.push(format!("{}: {} counts as drawn but has no overview line", r.name, name(c, s)))
+                }
+                None if !n.granted => bad.push(format!("{}: nothing makes or grants {}", r.name, name(c, s))),
+                _ => {}
+            }
+        }
+        let undrawn = needs.iter().filter(|n| !n.drawn).count();
+        if plan.undrawn(r.id) != undrawn {
+            bad.push(format!("{}: badge {} for {undrawn} needs without a line", r.name, plan.undrawn(r.id)));
+        }
+    }
+    assert!(bad.is_empty(), "{} prerequisites the tech tree doesn't show:\n{}", bad.len(), bad.join("\n"));
 }
 
 #[test]

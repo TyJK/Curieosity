@@ -221,14 +221,25 @@ pub struct FiredMilestones {
 }
 
 /// `%APPDATA%\Curieosity\progress.ron` on Windows, `~/.local/share/curieosity/progress.ron`
-/// elsewhere. Kept out of the project folder.
+/// elsewhere, and the app's own storage on Android. Kept out of the project folder.
 pub fn save_path() -> PathBuf {
-    let base = std::env::var_os("APPDATA")
-        .map(|p| PathBuf::from(p).join("Curieosity"))
+    let base = app_storage()
+        .or_else(|| std::env::var_os("APPDATA").map(|p| PathBuf::from(p).join("Curieosity")))
         .or_else(|| std::env::var_os("XDG_DATA_HOME").map(|p| PathBuf::from(p).join("curieosity")))
         .or_else(|| std::env::var_os("HOME").map(|p| PathBuf::from(p).join(".local/share/curieosity")))
         .unwrap_or_else(|| PathBuf::from("."));
     base.join("progress.ron")
+}
+
+/// Android: the app's private storage, kept until the app is uninstalled.
+#[cfg(target_os = "android")]
+fn app_storage() -> Option<PathBuf> {
+    bevy::android::ANDROID_APP.get().and_then(|app| app.internal_data_path())
+}
+
+#[cfg(not(target_os = "android"))]
+fn app_storage() -> Option<PathBuf> {
+    None
 }
 
 /// The copy of the save taken when the game started.

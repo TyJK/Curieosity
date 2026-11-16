@@ -1,0 +1,67 @@
+# Builds the Android app: an APK to install by hand. Start it from the Actions tab
+# ("Android", then "Run workflow"); pushing a v* tag builds it too. The APK is the run's
+# artifact, kept for 30 days.
+#
+# With the repository secret ANDROID_KEYSTORE (a keystore, base64-encoded) every build is
+# signed with the same key, so a new APK installs over the last and keeps the progress.
+# Without it each build gets a key of its own, and installing it means removing the old
+# app first (which deletes its progress).
+name: Android
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  apk:
+    name: APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: android
+      - name: cargo-ndk
+        run: cargo install cargo-ndk --version 4.1.2 --locked
+      # The runner's Android NDK (ANDROID_NDK_HOME) compiles and links it. The sound
+      # library needs the NDK's C++ runtime, libc++_shared.so, next to the game's.
+      - name: The game, as the app's native library
+        working-directory: android
+        run: cargo ndk -t arm64-v8a -P 26 --link-libcxx-shared -o app/src/main/jniLibs build --profile dist -p curieosity_android
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.7"
+      - name: Signing key
+        env:
+          KEYSTORE: ${{ secrets.ANDROID_KEYSTORE }}
+        run: |
+          if [ -n "$KEYSTORE" ]; then
+            echo "$KEYSTORE" | base64 -d > "$RUNNER_TEMP/curieosity.keystore"
+            echo "CURIEOSITY_KEYSTORE=$RUNNER_TEMP/curieosity.keystore" >> "$GITHUB_ENV"
+            echo "Signing with the repository's key."
+          else
+            echo "::warning::No ANDROID_KEYSTORE secret: this APK has a key of its own, so it cannot update an installed copy (remove that first)."
+          fi
+      - name: The APK
+        working-directory: android
+        run: gradle assembleRelease --no-daemon
+      - name: Name it
+        run: cp android/app/build/outputs/apk/release/app-release.apk "Curieosity-${GITHUB_REF_NAME//\//-}-${{ github.run_number }}.apk"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Curieosity-android-${{ github.run_number }}
+          path: Curieosity-*.apk
+          compression-level: 0
+          retention-days: 30

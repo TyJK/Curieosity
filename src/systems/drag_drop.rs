@@ -11,13 +11,16 @@
 // and the click that goes with a selection: with a substance selected on the shelf,
 // clicking a vessel puts it in.
 //
+// On a touch screen a finger swiping across the shelf scrolls it; holding a tile for a
+// moment first lifts it instead (tapping it and then a vessel works too).
+//
 // Where a drop lands is read from bevy_picking's hover map for the pointer that did the
 // dragging, walking up from whatever is under it to the card. That makes the whole card a
 // drop target, and it works the same for the mouse and for the review run's virtual
 // pointer. Positions from the pointer are window pixels; nodes are UI pixels, so every
 // distance is divided by the interface size (UiScale).
 use bevy::ecs::system::SystemParam;
-use bevy::picking::hover::HoverMap;
+use bevy::picking::hover::{HoverMap, PreviousHoverMap};
 use bevy::picking::pointer::{PointerId, PointerPress};
 use bevy::prelude::*;
 
@@ -31,6 +34,7 @@ use crate::resources::player_progress::PlayerProgress;
 use crate::resources::ui_fonts::UiFonts;
 use crate::ui::detail_panel::SelectedSubstance;
 use crate::ui::inventory::{element_tile_color, is_element_formula, spawn_vessel_chip, ChipRole};
+use crate::ui::shell::TouchScroll;
 use crate::ui::theme::{self, Weight};
 use crate::GameData;
 
@@ -88,6 +92,17 @@ const GHOST_W: f32 = 132.0;
 const GHOST_H: f32 = 40.0;
 /// Pointer travel (window px) before a press counts as a drag rather than a click.
 const MOVE_SLOP: f32 = 4.0;
+/// How long a finger holds a shelf tile before moving for the move to lift it (seconds);
+/// a quicker move swipes the shelf.
+pub const LIFT_HOLD: f64 = 0.3;
+
+/// When a finger came down on a shelf tile.
+#[derive(Component)]
+struct FingerDown(f64);
+
+/// A shelf tile a finger is swiping across rather than lifting.
+#[derive(Component)]
+pub struct Swiping;
 
 fn attach_drag_observers_to_draggables(
     mut commands: Commands,
@@ -100,6 +115,7 @@ fn attach_drag_observers_to_draggables(
         commands
             .entity(entity)
             .try_insert((Outline::default(), GlobalZIndex::default(), Pickable::default()))
+            .observe(finger_down)
             .observe(start_drag)
             .observe(update_drag)
             .observe(stop_drag_ingredient);
@@ -188,6 +204,7 @@ pub fn classify_chain(
 #[derive(SystemParam)]
 pub struct DropProbe<'w, 's> {
     hover: Res<'w, HoverMap>,
+    previous: Res<'w, PreviousHoverMap>,
     parents: Query<'w, 's, &'static ChildOf>,
     children: Query<'w, 's, &'static Children>,
     cards: Query<'w, 's, (), With<VesselCard>>,
@@ -223,9 +240,15 @@ impl DropProbe<'_, '_> {
         )
     }
 
-    /// The drop spot under a pointer right now (topmost hit first).
+    /// The drop spot under a pointer right now (topmost hit first). A finger is gone by
+    /// the time its lift is handled, so for a finger it is where it was a frame before.
     pub fn under(&self, pointer: PointerId) -> Option<DropSpot> {
-        let hits = self.hover.get(&pointer)?;
+        let now = self.hover.get(&pointer).filter(|h| !h.is_empty());
+        let hits = match (now, pointer) {
+            (Some(h), _) => h,
+            (None, PointerId::Touch(_)) => self.previous.get(&pointer)?,
+            (None, _) => return None,
+        };
         let mut hits: Vec<(Entity, f32)> = hits.iter().map(|(e, h)| (*e, h.depth)).collect();
         hits.sort_by(|a, b| a.1.total_cmp(&b.1));
         hits.into_iter().find_map(|(e, _)| self.classify(e).0)
@@ -235,12 +258,22 @@ impl DropProbe<'_, '_> {
 // ---------------------------------------------------------------------------------------
 // Dragging
 // ---------------------------------------------------------------------------------------
+fn finger_down(trigger: On<Pointer<Press>>, mut commands: Commands, time: Res<Time<Real>>) {
+    if matches!(trigger.pointer_id, PointerId::Touch(_)) {
+        commands.entity(trigger.entity).try_insert(FingerDown(time.elapsed_secs_f64()));
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
 fn start_drag(
     mut trigger: On<Pointer<DragStart>>,
     mut commands: Commands,
     existing: Query<&DragGhost>,
     mut vessel_query: Query<(&mut Outline, &mut GlobalZIndex, &Node), With<VesselCard>>,
     mut tile_query: Query<(&mut Outline, &mut GlobalZIndex, &Ingredient), Without<VesselCard>>,
+    chips: Query<(), Or<(With<InVessel>, With<InCatalystZone>)>>,
+    fingers: Query<&FingerDown>,
+    time: Res<Time<Real>>,
     ui_scale: Res<UiScale>,
     fonts: Res<UiFonts>,
     assets: Res<AssetServer>,
@@ -259,6 +292,14 @@ fn start_drag(
         return;
     }
 
+    // a finger moving straight off a shelf tile swipes the shelf
+    if matches!(trigger.pointer_id, PointerId::Touch(_)) && !chips.contains(e) {
+        let held = fingers.get(e).map(|f| time.elapsed_secs_f64() - f.0).unwrap_or(0.0);
+        if held < LIFT_HOLD {
+            commands.entity(e).try_insert(Swiping);
+            return;
+        }
+    }
     let Ok((mut outline, mut z, ing)) = tile_query.get_mut(e) else { return };
     // never two copies of one tile
     if let Ok(old) = existing.get(e) {
@@ -339,12 +380,18 @@ fn update_drag(
     mut vessel_query: Query<(&mut Node, &DragStartPos), With<VesselCard>>,
     ghosts: Query<&DragGhost>,
     mut ghost_nodes: Query<&mut Node, Without<VesselCard>>,
+    swiping: Query<(), With<Swiping>>,
+    mut swipes: MessageWriter<TouchScroll>,
     ui_scale: Res<UiScale>,
 ) {
     let s = ui_scale.0.max(0.01);
     let e = trigger.entity;
     if trigger.distance.length() > MOVE_SLOP {
         commands.entity(e).try_insert(DragMoved);
+    }
+    if swiping.contains(e) {
+        swipes.write(TouchScroll { from: e, moved: trigger.delta });
+        return;
     }
     if let Ok((mut node, start)) = vessel_query.get_mut(e) {
         let d = trigger.distance / s;
@@ -373,6 +420,7 @@ fn stop_drag_ingredient(
     homes: Query<(Option<&InVessel>, Option<&InCatalystZone>)>,
     moved: Query<(), With<DragMoved>>,
     ghosts: Query<&DragGhost>,
+    swiping: Query<(), With<Swiping>>,
     probe: DropProbe,
     catalysts: Query<(Entity, &InCatalystZone)>,
     fonts: Res<UiFonts>,
@@ -386,7 +434,12 @@ fn stop_drag_ingredient(
     }
     // DragEnd comes after the release's Click, so the flag can go now
     let was_moved = moved.contains(e);
-    commands.entity(e).remove::<DragMoved>();
+    commands.entity(e).remove::<(DragMoved, FingerDown)>();
+    // a swipe across the shelf only scrolled it
+    if swiping.contains(e) {
+        commands.entity(e).remove::<Swiping>();
+        return;
+    }
     let Ok((mut outline, mut z, ing)) = tiles.get_mut(e) else { return };
     outline.color = Color::NONE;
     z.0 = 0;

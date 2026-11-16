@@ -12,6 +12,11 @@
 //   * Everything is DERIVED from the RecipeDatabase at runtime: nodes = authored reactions;
 //     edges = producer -> consumer between them (skipping ubiquitous utility substances and
 //     high-fan-in ones so the graph stays a clean spine).
+//   * Every prerequisite is expressed (plan_links): each ingredient or catalyst a step needs
+//     beyond the starting shelf either has a line in the overview, or is counted on the
+//     step's "+N" badge. Selecting a step draws all its links on top in the selection colour
+//     (from the earliest step that makes each one), and the detail bar lists each need with
+//     the step it comes from, one tap away.
 //   * The graph pans with the wheel (Shift for sideways) or by dragging the background.
 use bevy::prelude::*;
 use bevy::ui::ScrollPosition;
@@ -447,6 +452,147 @@ pub fn tech_mode_system(
 // ---------------------------------------------------------------------------------------
 // Populate both views (rebuilt on open / discovery change)
 // ---------------------------------------------------------------------------------------
+/// Substances so common an overview line from their makers would knot the graph: water,
+/// oxygen, carbon dioxide, hydrogen. They are still prerequisites (see plan_links).
+const UTILITY: &[u32] = &[8, 5, 12, 1];
+
+/// One ingredient or catalyst a step needs that the shelf does not start with.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Need {
+    pub substance: u32,
+    pub catalyst: bool,
+    /// the earliest other step that makes it
+    pub from: Option<u32>,
+    /// a milestone hands it out
+    pub granted: bool,
+    /// an overview line already shows where it comes from
+    pub drawn: bool,
+}
+
+/// The tech graph's links, worked out from the content alone.
+#[derive(Default)]
+pub struct LinkPlan {
+    /// the lines the overview always draws (producer, consumer): reactants made by at most
+    /// two steps, apart from the utility substances
+    pub overview: Vec<(u32, u32)>,
+    /// step -> everything it needs beyond the starting shelf, in recipe order
+    pub needs: HashMap<u32, Vec<Need>>,
+}
+
+impl LinkPlan {
+    /// Every link: the overview's, and one from the earliest maker of each need.
+    pub fn links(&self) -> Vec<(u32, u32)> {
+        let mut all = self.overview.clone();
+        for (&step, needs) in &self.needs {
+            all.extend(needs.iter().filter_map(|n| n.from.map(|p| (p, step))));
+        }
+        all.sort();
+        all.dedup();
+        all
+    }
+
+    /// How many of a step's needs have no overview line: the number on its badge.
+    pub fn undrawn(&self, step: u32) -> usize {
+        self.needs.get(&step).map_or(0, |n| n.iter().filter(|n| !n.drawn).count())
+    }
+}
+
+/// Every prerequisite of every step, and which of them the overview draws.
+pub fn plan_links(db: &RecipeDatabase) -> LinkPlan {
+    let start: std::collections::HashSet<u32> = db.start.iter().copied().collect();
+    let granted: std::collections::HashSet<u32> = db.milestones.iter().flat_map(|m| m.grant.iter().copied()).collect();
+    // makers of each substance, in tree order (era, then id)
+    let mut makers: HashMap<u32, Vec<u32>> = HashMap::new();
+    for r in &db.authored {
+        for p in &r.products {
+            let v = makers.entry(p.substance_id).or_default();
+            if !v.contains(&r.id) {
+                v.push(r.id);
+            }
+        }
+    }
+    let mut plan = LinkPlan::default();
+    for r in &db.authored {
+        let inputs =
+            r.reactants.iter().map(|s| (s.substance_id, false)).chain(r.required_catalyst().map(|c| (c, true)));
+        let mut seen = Vec::new();
+        for (s, catalyst) in inputs {
+            if seen.contains(&s) {
+                continue;
+            }
+            seen.push(s);
+            let all = makers.get(&s).map_or(&[][..], |v| v.as_slice());
+            let others: Vec<u32> = all.iter().copied().filter(|&p| p != r.id).collect();
+            let drawn = !catalyst && !UTILITY.contains(&s) && all.len() <= 2 && !others.is_empty();
+            if drawn {
+                plan.overview.extend(others.iter().map(|&p| (p, r.id)));
+            }
+            if !start.contains(&s) {
+                plan.needs.entry(r.id).or_default().push(Need {
+                    substance: s,
+                    catalyst,
+                    from: others.first().copied(),
+                    granted: granted.contains(&s),
+                    drawn,
+                });
+            }
+        }
+    }
+    plan.overview.sort();
+    plan.overview.dedup();
+    plan
+}
+
+/// The last graph build's links and where each step sits, so a selection can draw its own
+/// links and the detail bar can list its needs without rebuilding the graph.
+#[derive(Resource, Default)]
+pub struct TechLinks {
+    /// (producer, consumer): every link (LinkPlan::links)
+    pub all: Vec<(u32, u32)>,
+    /// step -> what it needs
+    pub needs: HashMap<u32, Vec<Need>>,
+    /// step id -> (era, column, row)
+    at: HashMap<u32, (usize, usize, usize)>,
+    graph: Option<Entity>,
+    /// a step to scroll into view (a need's chip was tapped)
+    reveal: Option<u32>,
+}
+
+/// The "+N" on a step: how many of its needs have no overview line.
+#[derive(Component)]
+pub struct TechNeedBadge {
+    pub step: u32,
+    pub count: usize,
+}
+
+/// A need in the detail bar; tapping it goes to the step that makes it.
+#[derive(Component)]
+pub struct TechNeedButton(pub Option<u32>);
+
+/// One segment of a selected step's links.
+#[derive(Component)]
+pub struct SelectionLink;
+
+/// The three segments of the elbow from one step's right edge to another's left edge, as
+/// (left, top, width, height), `t` thick.
+fn elbow(
+    (se, sc, sr): (usize, usize, usize),
+    (te, tc, tr): (usize, usize, usize),
+    t: f32,
+) -> [(f32, f32, f32, f32); 3] {
+    let sx2 = col_x(sc, se) + NODE_W;
+    let scy = node_y(sr) + NODE_H / 2.0;
+    let tx1 = col_x(tc, te);
+    let tcy = node_y(tr) + NODE_H / 2.0;
+    let midx = if tx1 > sx2 { tx1 - GUTTER } else { sx2 + GUTTER };
+    let h = t / 2.0;
+    [
+        (sx2.min(midx), scy - h, (sx2 - midx).abs().max(t), t),
+        (midx - h, scy.min(tcy) - h, t, (tcy - scy).abs() + t),
+        (midx.min(tx1), tcy - h, (midx - tx1).abs().max(t), t),
+    ]
+}
+
 struct NodeInfo {
     id: u32,
     name: String,
@@ -481,6 +627,7 @@ pub fn populate_tech_views_system(
     fonts: Res<UiFonts>,
     assets: Res<AssetServer>,
     mut prev_open: Local<bool>,
+    mut links: ResMut<TechLinks>,
 ) {
     let just_opened = state.open && !*prev_open;
     let should = state.open && (just_opened || progress.is_changed() || unlocks.is_changed());
@@ -501,7 +648,6 @@ pub fn populate_tech_views_system(
 
     // Producer map over EARLIER authored reactions only (keeps the depth pass acyclic).
     // Utility substances that appear everywhere never create depth or edges.
-    const UTILITY: &[u32] = &[8, 5, 12, 1]; // Water, Oxygen, CO2, Hydrogen
     let mut producers: HashMap<u32, Vec<usize>> = HashMap::new();
     let mut depth: Vec<usize> = vec![0; rxns.len()];
     for (i, r) in rxns.iter().enumerate() {
@@ -562,34 +708,14 @@ pub fn populate_tech_views_system(
         t.0 = format!("{} of {} steps done  ·  {} ready to make", done_total, nodes.len(), avail_total);
     }
 
-    // Edges: producer -> consumer, for meaningful (low fan-in, non-utility) intermediates.
-    let mut all_producers: HashMap<u32, Vec<u32>> = HashMap::new();
-    for r in &rxns {
-        for p in &r.products {
-            all_producers.entry(p.substance_id).or_default().push(r.id);
-        }
-    }
-    let mut edges: Vec<(u32, u32)> = Vec::new();
-    for r in &rxns {
-        for sp in &r.reactants {
-            let sid = sp.substance_id;
-            if UTILITY.contains(&sid) {
-                continue;
-            }
-            if let Some(prods) = all_producers.get(&sid) {
-                if prods.len() > 2 {
-                    continue; // high fan-in => treat as a utility, skip
-                }
-                for &p in prods {
-                    if p != r.id {
-                        edges.push((p, r.id));
-                    }
-                }
-            }
-        }
-    }
-    edges.sort();
-    edges.dedup();
+    // Links: the overview's lines, and everything each step needs (plan_links).
+    let plan = plan_links(db);
+    let edges = plan.overview.clone();
+    let undrawn: HashMap<u32, usize> = plan.needs.keys().map(|&k| (k, plan.undrawn(k))).collect();
+    links.all = plan.links();
+    links.needs = plan.needs;
+    links.at = pos.clone();
+    links.graph = graph_q.single().ok().map(|(e, _)| e);
 
     // ---- build the GRAPH ----
     let content_h = BAND_H + PAD * 2.0 + max_rows as f32 * ROW_H;
@@ -705,18 +831,8 @@ pub fn populate_tech_views_system(
                     (Some(NodeState::Completed), Some(NodeState::Available)) => theme::GOLD.with_alpha(0.6),
                     _ => theme::LINE.with_alpha(0.9),
                 };
-                let sx2 = col_x(sc, se) + NODE_W;
-                let scy = node_y(sr) + NODE_H / 2.0;
-                let tx1 = col_x(tc, te);
-                let tcy = node_y(tr) + NODE_H / 2.0;
-                let midx = if tx1 > sx2 { tx1 - GUTTER } else { sx2 + GUTTER };
-                // Elbow: source-right -> midx, midx to target row, midx -> target-left. (left, top, w, h)
-                let segs: [(f32, f32, f32, f32); 3] = [
-                    (sx2.min(midx), scy - 1.0, (sx2 - midx).abs(), 2.0),
-                    (midx - 1.0, scy.min(tcy), 2.0, (tcy - scy).abs()),
-                    (midx.min(tx1), tcy - 1.0, (midx - tx1).abs(), 2.0),
-                ];
-                for (left, top, w, h) in segs {
+                // Elbow: source-right -> midx, midx to target row, midx -> target-left.
+                for (left, top, w, h) in elbow((se, sc, sr), (te, tc, tr), 2.0) {
                     parent.spawn((
                         Node {
                             position_type: PositionType::Absolute,
@@ -743,6 +859,8 @@ pub fn populate_tech_views_system(
                 let mut node = parent.spawn((
                     Button,
                     TechNodeButton(n.id, n.state),
+                    // over every line, including a selection's
+                    ZIndex(2),
                     Node {
                         position_type: PositionType::Absolute,
                         left: Val::Px(col_x(n.col, n.epoch)),
@@ -788,6 +906,34 @@ pub fn populate_tech_views_system(
                         ));
                     });
                     b.spawn(theme::icon(assets, state_icon(n.state), 12.0, state_accent(n.state)));
+                    // needs with no line here: select the step to see them all
+                    if let Some(&count) = undrawn.get(&n.id).filter(|&&c| c > 0) {
+                        b.spawn((
+                            TechNeedBadge { step: n.id, count },
+                            Node {
+                                position_type: PositionType::Absolute,
+                                left: Val::Px(-11.0),
+                                top: Val::Px(NODE_H / 2.0 - 10.0),
+                                min_width: Val::Px(20.0),
+                                height: Val::Px(20.0),
+                                padding: UiRect::horizontal(Val::Px(4.0)),
+                                align_items: AlignItems::Center,
+                                justify_content: JustifyContent::Center,
+                                border: UiRect::all(Val::Px(1.0)),
+                                ..default()
+                            },
+                            BorderRadius::all(Val::Px(10.0)),
+                            BackgroundColor(theme::mix(theme::BG, theme::CYAN, 0.25)),
+                            BorderColor::all(theme::CYAN),
+                            Pickable::IGNORE,
+                        ))
+                        .with_children(|t| {
+                            t.spawn((
+                                theme::label(fonts, format!("+{count}"), 10.0, Weight::Bold, theme::TEXT),
+                                Pickable::IGNORE,
+                            ));
+                        });
+                    }
                 });
             }
         });
@@ -925,9 +1071,67 @@ pub fn populate_tech_views_system(
 // ---------------------------------------------------------------------------------------
 // Selection + hover look + detail bar
 // ---------------------------------------------------------------------------------------
+/// Scrolls the graph to a step asked for (a need's chip was tapped), centring it.
+pub fn tech_reveal_system(
+    mut links: ResMut<TechLinks>,
+    mut scroll_q: Query<(&TechScrollable, &mut ScrollPosition, &ComputedNode)>,
+) {
+    let Some(id) = links.reveal else { return };
+    links.reveal = None;
+    let Some(&(e, c, r)) = links.at.get(&id) else { return };
+    let centre = Vec2::new(col_x(c, e) + NODE_W / 2.0, node_y(r) + NODE_H / 2.0);
+    for (m, mut sp, cn) in &mut scroll_q {
+        if m.graph {
+            let view = cn.size * cn.inverse_scale_factor();
+            sp.0 = (centre - view / 2.0).max(Vec2::ZERO);
+        }
+    }
+}
+
+/// The selected step's links, over the overview's: brighter and thicker, under the steps.
+/// Redrawn when the selection changes or the graph is rebuilt.
+pub fn tech_selection_links_system(
+    mut commands: Commands,
+    state: Res<TechTreeState>,
+    links: Res<TechLinks>,
+    old: Query<Entity, With<SelectionLink>>,
+) {
+    if !state.is_changed() && !links.is_changed() {
+        return;
+    }
+    for e in &old {
+        commands.entity(e).try_despawn();
+    }
+    let (Some(sel), Some(graph)) = (state.selected, links.graph) else { return };
+    let Ok(mut g) = commands.get_entity(graph) else { return };
+    g.with_children(|g| {
+        for &(a, b) in links.all.iter().filter(|(a, b)| *a == sel || *b == sel) {
+            let (Some(&pa), Some(&pb)) = (links.at.get(&a), links.at.get(&b)) else { continue };
+            for (left, top, w, h) in elbow(pa, pb, 3.0) {
+                g.spawn((
+                    SelectionLink,
+                    Node {
+                        position_type: PositionType::Absolute,
+                        left: Val::Px(left),
+                        top: Val::Px(top),
+                        width: Val::Px(w),
+                        height: Val::Px(h),
+                        ..default()
+                    },
+                    BackgroundColor(theme::CYAN),
+                    ZIndex(1),
+                    Pickable::IGNORE,
+                ));
+            }
+        }
+    });
+}
+
 pub fn tech_node_click_system(
     nodes: Query<(&Interaction, &TechNodeButton), (Changed<Interaction>, With<Button>)>,
     entries: Query<(&Interaction, &TechListEntry), (Changed<Interaction>, With<Button>)>,
+    needs: Query<(&Interaction, &TechNeedButton), (Changed<Interaction>, With<Button>)>,
+    mut links: ResMut<TechLinks>,
     mut state: ResMut<TechTreeState>,
     mut looks: Query<(&TechNodeButton, &Interaction, &mut BackgroundColor, &mut BorderColor)>,
     mut rows: Query<(&TechListEntry, &mut Skin)>,
@@ -941,6 +1145,13 @@ pub fn tech_node_click_system(
     for (i, e) in &entries {
         if *i == Interaction::Pressed {
             sel = Some(e.0);
+        }
+    }
+    // a need's chip: select the step that makes it, and bring it into view
+    for (i, n) in &needs {
+        if let (Interaction::Pressed, Some(p)) = (*i, n.0) {
+            sel = Some(p);
+            links.reveal = Some(p);
         }
     }
     let changed = sel != state.selected;
@@ -974,6 +1185,7 @@ pub fn update_tech_detail_system(
     fonts: Res<UiFonts>,
     assets: Res<AssetServer>,
     mut built_for: Local<Option<(Option<u32>, bool)>>,
+    links: Res<TechLinks>,
 ) {
     let Ok(bar) = bar_q.single() else {
         return;
@@ -982,7 +1194,7 @@ pub fn update_tech_detail_system(
         return;
     };
     let key = (state.selected, state.open);
-    if *built_for == Some(key) && !progress.is_changed() && !unlocks.is_changed() {
+    if *built_for == Some(key) && !progress.is_changed() && !unlocks.is_changed() && !links.is_changed() {
         return;
     }
     *built_for = Some(key);
@@ -1018,12 +1230,7 @@ pub fn update_tech_detail_system(
     let st = node_state(r, &progress, &unlocks);
     let accent = theme::process_color(&r.process);
     let e = r.epoch.unwrap_or(0);
-    let missing: Vec<String> = r
-        .reactants
-        .iter()
-        .filter(|s| !progress.discovered.contains(&s.substance_id))
-        .map(|s| subs.0.get(&s.substance_id).map(|x| x.name.clone()).unwrap_or_else(|| format!("#{}", s.substance_id)))
-        .collect();
+    let needs = links.needs.get(&r.id).cloned().unwrap_or_default();
     let process_locked = !unlocks.0.contains(&r.process);
     let known = r.reactants.iter().chain(r.products.iter()).all(|s| progress.discovered.contains(&s.substance_id));
 
@@ -1074,22 +1281,73 @@ pub fn update_tech_detail_system(
                 TextFont { font: fonts.symbols.clone(), font_size: 14.0, ..default() },
                 TextColor(theme::mix(accent, theme::TEXT, 0.55)),
             ));
-            let (line, color) = match st {
-                NodeState::Locked => {
-                    let mut why = String::new();
-                    if process_locked {
-                        why.push_str(&format!("Unlock the {} first. ", vessel_name(&r.process)));
+            let warm = Color::srgb(1.0, 0.72, 0.55);
+            if process_locked && st == NodeState::Locked {
+                c.spawn(theme::para(
+                    fonts,
+                    format!("Unlock the {} first.", vessel_name(&r.process)),
+                    theme::SM,
+                    warm,
+                    Val::Px(900.0),
+                ));
+            }
+            if needs.is_empty() {
+                // everything it takes is on the shelf from the start
+                let color = if st == NodeState::Available { theme::GOLD } else { theme::TEXT_2 };
+                c.spawn(theme::para(fonts, hint_string(r, subs), theme::SM, color, Val::Px(900.0)));
+            } else {
+                // every need, with the step it comes from: green once on the shelf
+                c.spawn(Node {
+                    flex_wrap: FlexWrap::Wrap,
+                    align_items: AlignItems::Center,
+                    column_gap: Val::Px(6.0),
+                    row_gap: Val::Px(4.0),
+                    ..default()
+                })
+                .with_children(|row| {
+                    row.spawn(theme::label(fonts, "NEEDS", theme::XS, Weight::Bold, theme::TEXT_3));
+                    for n in &needs {
+                        let name = subs
+                            .0
+                            .get(&n.substance)
+                            .map(|x| x.name.clone())
+                            .unwrap_or_else(|| format!("#{}", n.substance));
+                        let from = match n.from {
+                            Some(p) => {
+                                db.authored.iter().find(|x| x.id == p).map(|x| x.name.clone()).unwrap_or_default()
+                            }
+                            None if n.granted => "a milestone".to_string(),
+                            None => "no step yet".to_string(),
+                        };
+                        let what = if n.catalyst { format!("{name} (catalyst)") } else { name };
+                        let have = progress.discovered.contains(&n.substance);
+                        let accent = if have { theme::GREEN } else { warm };
+                        row.spawn((
+                            Button,
+                            TechNeedButton(n.from),
+                            Node {
+                                padding: UiRect::axes(Val::Px(8.0), Val::Px(3.0)),
+                                border: UiRect::all(Val::Px(1.0)),
+                                ..default()
+                            },
+                            BorderRadius::all(Val::Px(10.0)),
+                            BackgroundColor(theme::mix(theme::BG, accent, 0.14)),
+                            BorderColor::all(accent.with_alpha(0.7)),
+                        ))
+                        .with_children(|t| {
+                            t.spawn((
+                                theme::label(
+                                    fonts,
+                                    format!("{what}  ←  {from}"),
+                                    theme::XS,
+                                    Weight::Regular,
+                                    theme::TEXT,
+                                ),
+                                Pickable::IGNORE,
+                            ));
+                        });
                     }
-                    if !missing.is_empty() {
-                        why.push_str(&format!("Still need: {}.", missing.join(", ")));
-                    }
-                    (why, Color::srgb(1.0, 0.72, 0.55))
-                }
-                NodeState::Available => (hint_string(r, subs), theme::GOLD),
-                NodeState::Completed => (hint_string(r, subs), theme::TEXT_2),
-            };
-            if !line.is_empty() {
-                c.spawn(theme::para(fonts, line, theme::SM, color, Val::Px(900.0)));
+                });
             }
         });
         if known {

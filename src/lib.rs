@@ -8,6 +8,7 @@ use data::{
 pub mod assets;
 pub mod components;
 pub mod data;
+pub mod game;
 pub mod resources;
 pub mod systems;
 pub mod ui;

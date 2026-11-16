@@ -1,0 +1,19 @@
+# The Android build: the game as the native library the app loads. The Gradle project
+# around it (this folder) packs that library and the game's assets into an APK; the
+# Android workflow (.github/workflows/android.yml) builds both.
+[package]
+name = "curieosity_android"
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+publish = false
+
+[lib]
+# libcurieosity.so, the name AndroidManifest.xml and MainActivity.java load
+name = "curieosity"
+crate-type = ["cdylib"]
+path = "src/lib.rs"
+
+[dependencies]
+chem_alchemy = { path = ".." }
+bevy = { version = "0.17.2", default-features = false }

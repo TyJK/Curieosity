@@ -16,7 +16,7 @@ use crate::ui::theme::{self, Kind, Weight};
 #[derive(Resource, Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Settings {
-    /// interface zoom, 0.8 to 1.6
+    /// interface zoom, 0.6 to 1.6
     pub ui_scale: f32,
     pub fullscreen: bool,
     pub vsync: bool,
@@ -63,6 +63,45 @@ pub fn settings_path() -> std::path::PathBuf {
     save_path().with_file_name("settings.ron")
 }
 
+/// While true, the interface size follows the screen: set on a phone's first run (no
+/// settings saved yet) and in review runs played at a set window size. Choosing a size in
+/// the dialog ends it.
+#[derive(Resource, Default)]
+pub struct FitInterface(pub bool);
+
+/// A review run's `--scale`: the interface size it plays at, whatever is saved.
+#[derive(Resource, Default)]
+pub struct ScaleOverride(pub Option<f32>);
+
+/// The smallest screen, in interface pixels, the layout is made for.
+const FIT_W: f32 = 1100.0;
+const FIT_H: f32 = 500.0;
+
+/// The largest interface size (one of the dialog's steps, never above 100%) at which a
+/// window of this logical size still holds the layout.
+pub fn fit_scale(window: Vec2) -> f32 {
+    let want = (window.x / FIT_W).min(window.y / FIT_H);
+    SCALES.iter().copied().rfind(|s| *s <= want + 0.001 && *s <= 1.0).unwrap_or(SCALES[0])
+}
+
+pub fn fit_interface_system(
+    fit: Res<FitInterface>,
+    mut settings: ResMut<Settings>,
+    windows: Query<&Window, With<PrimaryWindow>>,
+) {
+    if !fit.0 {
+        return;
+    }
+    let Ok(w) = windows.single() else { return };
+    if w.width() < 1.0 || w.height() < 1.0 {
+        return;
+    }
+    let s = fit_scale(Vec2::new(w.width(), w.height()));
+    if (settings.ui_scale - s).abs() > 0.001 {
+        settings.ui_scale = s;
+    }
+}
+
 #[derive(Resource, Default)]
 pub struct SettingsUi {
     pub open: bool,
@@ -100,7 +139,7 @@ pub struct SettingKnob(pub Field);
 #[derive(Component)]
 pub struct SettingsAbout;
 
-const SCALES: [f32; 9] = [0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6];
+const SCALES: [f32; 11] = [0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6];
 const SPEEDS: [f32; 5] = [0.5, 1.0, 2.0, 3.0, 4.0];
 const VOLUMES: [f32; 11] = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0];
 
@@ -163,15 +202,27 @@ impl Settings {
     }
 }
 
-/// Startup: read settings.ron (or keep the defaults).
-pub fn load_settings(mut commands: Commands, persistence: Res<Persistence>) {
-    let s = persistence
+/// Startup: read settings.ron (or keep the defaults). With nothing saved yet, a phone
+/// fits the interface to its screen.
+pub fn load_settings(
+    mut commands: Commands,
+    persistence: Res<Persistence>,
+    mut fit: ResMut<FitInterface>,
+    scale: Res<ScaleOverride>,
+) {
+    let saved = persistence
         .0
         .then(|| std::fs::read_to_string(settings_path()).ok())
         .flatten()
-        .and_then(|t| ron::from_str::<Settings>(&t).ok())
-        .unwrap_or_default();
-    commands.insert_resource(s);
+        .and_then(|t| ron::from_str::<Settings>(&t).ok());
+    if saved.is_none() && persistence.0 && cfg!(target_os = "android") {
+        fit.0 = true;
+    }
+    let mut settings = saved.unwrap_or_default();
+    if let Some(s) = scale.0 {
+        settings.ui_scale = s;
+    }
+    commands.insert_resource(settings);
 }
 
 /// Apply settings to the window and UI whenever they change, and save them.
@@ -186,7 +237,8 @@ pub fn apply_settings_system(
         return;
     }
     ui_scale.0 = settings.ui_scale;
-    if let Ok(mut w) = windows.single_mut() {
+    // a phone's window is always the whole screen: its mode and vsync are not ours to set
+    if let (false, Ok(mut w)) = (cfg!(target_os = "android"), windows.single_mut()) {
         let mode = if settings.fullscreen {
             WindowMode::BorderlessFullscreen(MonitorSelection::Current)
         } else {
@@ -254,6 +306,8 @@ pub fn spawn_settings(mut commands: Commands, fonts: Res<UiFonts>, assets: Res<A
                 },
                 BackgroundColor(Color::srgba(0.0, 0.0, 0.02, 0.62)),
             ));
+            // The dialog never grows past the screen: on a short one (a phone sideways) the
+            // title and close button stay put and the rest scrolls.
             root.spawn((
                 Node {
                     width: Val::Px(880.0),
@@ -263,23 +317,23 @@ pub fn spawn_settings(mut commands: Commands, fonts: Res<UiFonts>, assets: Res<A
                     padding: UiRect::all(Val::Px(22.0)),
                     row_gap: Val::Px(10.0),
                     border: UiRect::all(Val::Px(1.0)),
-                    overflow: Overflow::scroll_y(),
+                    overflow: Overflow::clip(),
                     ..default()
                 },
                 BorderRadius::all(Val::Px(theme::R_LG)),
                 BackgroundColor(theme::SURFACE),
                 BorderColor::all(theme::LINE_STRONG),
                 theme::shadow(40.0, 14.0, 0.6),
-                ScrollPosition::default(),
                 Pickable::default(),
                 // clicks inside the dialog stay in it (the backdrop behind closes it)
                 bevy::ui::FocusPolicy::Block,
             ))
-            .with_children(|panel| {
-                panel
+            .with_children(|dialog| {
+                dialog
                     .spawn(Node {
                         justify_content: JustifyContent::SpaceBetween,
                         align_items: AlignItems::Center,
+                        flex_shrink: 0.0,
                         ..default()
                     })
                     .with_children(|h| {
@@ -290,6 +344,20 @@ pub fn spawn_settings(mut commands: Commands, fonts: Res<UiFonts>, assets: Res<A
                             });
                         theme::spawn_icon_button(h, assets, "close", 32.0, theme::TEXT_2, SettingsClose);
                     });
+                dialog
+                    .spawn((
+                        Node {
+                            flex_direction: FlexDirection::Column,
+                            row_gap: Val::Px(10.0),
+                            flex_shrink: 1.0,
+                            min_height: Val::Px(0.0),
+                            overflow: Overflow::scroll_y(),
+                            ..default()
+                        },
+                        ScrollPosition::default(),
+                        Pickable::default(),
+                    ))
+                    .with_children(|panel| {
 
                 // two columns: Display and Help on the left; Play and Progress on the right
                 panel
@@ -353,6 +421,7 @@ pub fn spawn_settings(mut commands: Commands, fonts: Res<UiFonts>, assets: Res<A
                                 ));
                             });
                         crate::ui::credits::spawn_credits_button(row, fonts, assets);
+                    });
                     });
             });
         });
@@ -468,6 +537,7 @@ fn toggle_look(on: bool, hovered: bool) -> (Color, Color) {
 pub fn settings_input_system(
     mut ui: ResMut<SettingsUi>,
     mut settings: ResMut<Settings>,
+    mut fit: ResMut<FitInterface>,
     steps: Query<(&Interaction, &SettingStep), Changed<Interaction>>,
     toggles: Query<(&Interaction, &SettingToggle), Changed<Interaction>>,
     closers: Query<&Interaction, (Changed<Interaction>, Or<(With<SettingsClose>, With<SettingsBackdrop>)>)>,
@@ -475,6 +545,10 @@ pub fn settings_input_system(
     for (i, s) in &steps {
         if *i == Interaction::Pressed {
             settings.step(s.0, s.1);
+            // a size chosen by hand stays
+            if s.0 == Field::UiScale {
+                fit.0 = false;
+            }
         }
     }
     for (i, t) in &toggles {
@@ -536,5 +610,23 @@ pub fn settings_view_system(
             db.epochs.len(),
             db.canon.len()
         );
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_interface_fits_the_screen() {
+        // a phone held sideways (Pixel-sized, in its logical pixels)
+        assert_eq!(fit_scale(Vec2::new(915.0, 412.0)), 0.8);
+        // a smaller phone
+        assert_eq!(fit_scale(Vec2::new(780.0, 360.0)), 0.7);
+        // the desktop window, and a big monitor: never above 100%
+        assert_eq!(fit_scale(Vec2::new(1280.0, 720.0)), 1.0);
+        assert_eq!(fit_scale(Vec2::new(2560.0, 1440.0)), 1.0);
+        // anything smaller still gets the smallest step
+        assert_eq!(fit_scale(Vec2::new(400.0, 200.0)), 0.6);
     }
 }
