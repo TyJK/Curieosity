@@ -1,0 +1,17 @@
+NOTE FOR NEXT TIME
+Have the standard for all compounds, and the data to populate it but at present mapping is not going well
+
+
+OECD 5000+ chemicals with comprehensive written assessments
+https://hpvchemicals.oecd.org/UI/Result.aspx?Q=28d89255-8f76-45c5-928f-a060295d5d4a
+https://echa.europa.eu/web/guest/information-on-chemicals/information-from-existing-substances-regulation
+
+For Isotopes:
+https://www.chemlin.org/chemical-elements/isotopes.php
+https://www-nds.iaea.org/relnsd/vcharthtml/api_v0_guide.html
+
+For Allotropes:
+https://periodictable.com/Properties/A/AllotropeNames.html
+https://en.wikipedia.org/wiki/Allotropes_of_carbon
+https://chem.libretexts.org/Bookshelves/Inorganic_Chemistry/Inorganic_Chemistry_(LibreTexts)/08:_Chemistry_of_the_Main_Group_Elements/8.07:_Group_14/8.7.01:_The_Group_14_Elements_and_the_many_Allotropes_of_Carbon
+

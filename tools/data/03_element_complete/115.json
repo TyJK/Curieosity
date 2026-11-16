@@ -1,0 +1,152 @@
+{
+  "identity": {
+    "name": "Moscovium",
+    "symbol": "Mc",
+    "atomic_number": 115,
+    "group": 15,
+    "period": 7,
+    "block": "p",
+    "standard_atomic_weight": 288.0,
+    "ground_state_term_symbol": "Unknown",
+    "cas_rn": "54085-64-2"
+  },
+  "narratives": {
+    "general_overview": "Moscovium is a synthetic chemical element; it has symbol Mc and atomic number 115. It was first synthesized in 2003 by a joint team of Russian and American scientists at the Joint Institute for Nuclear Research (JINR) in Dubna, Russia. In December 2015, it was recognized as one of four new elements by the Joint Working Party of international scientific bodies IUPAC and IUPAP. On 28 November 2016, it was officially named after the Moscow Oblast, in which the JINR is situated.\n\nMoscovium is an extremely radioactive element: its most stable known isotope, moscovium-290, has a half-life of only 0.65 seconds. In the periodic table, it is a p-block transactinide element. It is a member of the 7th period and is placed in group 15 as the heaviest pnictogen. Moscovium is calculated to have some properties similar to its lighter homologues, nitrogen, phosphorus, arsenic, antimony, and bismuth, and to be a post-transition metal, although it should also show several major differences from them. In particular, moscovium should also have significant similarities to thallium, as both have one rather loosely bound electron outside a quasi-closed shell. Chemical experimentation on single atoms has confirmed theoretical expectations that moscovium is less reactive than its lighter homologue bismuth. Over a hundred atoms of moscovium have been observed to date, all of which have been shown to have mass numbers from 286 to 290.",
+    "quantum_behavior": "",
+    "nuclear_stability": "",
+    "biological_role": "",
+    "discovery_story": ""
+  },
+  "quantum_mechanics": {
+    "electron_configuration": {
+      "shorthand": "[Rn] 5f14 6d10 7s2 7p3",
+      "full": "TODO: Calculation from Z required",
+      "valence_shell": "5f14 6d10 7s2 7p3",
+      "semantic_filling": {}
+    },
+    "ionization_energies_kj_mol": [],
+    "electron_affinity_kj_mol": 0.0,
+    "electronegativity": {
+      "pauling": null,
+      "allen": null,
+      "mulliken": null
+    },
+    "atomic_radii_pm": {
+      "calculated": null,
+      "van_der_waals": null,
+      "covalent_single": null,
+      "covalent_triple": null,
+      "metallic": null
+    },
+    "magnetic_properties": {
+      "magnetic_ordering": "Unknown",
+      "molar_magnetic_susceptibility": null
+    }
+  },
+  "nuclear_data": {
+    "isotopes": [
+      {
+        "mass_number": 287,
+        "symbol": "287Mc",
+        "common_name": null,
+        "is_stable": false,
+        "half_life_formatted": "60.0 msec",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": null,
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "3\u00a0kJ/mol (predicted)2nd:\u00a01760\u00a0kJ/mol (predicted)3rd:\u00a02650\u00a0kJ/mol (predicted)(more) Atomic radiusempirical: 187\u00a0pm (predicted)Covalent radius156\u2013158\u00a0pm (extrapolated)Other propertiesNatural occurrencesyntheticCAS Number54085-64-2 HistoryNamingAfter Moscow regionDiscoveryJoint Institute for Nuclear Research and Lawrence Livermore National Laboratory (2003)Isotopes of moscoviumve\n\n\nMain isotopes\n\nDecay\n\n\nIsotope\n\nabun\u00addance\n\nhalf-life (t1/2)\n\nmode\n\npro\u00adduct\n\n\n286Mc\n\nsynth\n\n20\u00a0ms\n\n\u03b1\n\n282Nh\n\n\n287Mc\n\nsynth\n\n38\u00a0ms\n\n\u03b1\n\n283Nh\n\n\n288Mc\n\nsynth\n\n193\u00a0ms\n\n\u03b1\n\n284Nh\n\n\n289Mc\n\nsynth\n\n250\u00a0ms\n\n\u03b1\n\n285Nh\n\n\n290Mc\n\nsynth\n\n650\u00a0ms\n\n\u03b1\n\n286Nh\n\n\u00a0Category: Moscoviumviewtalkedit | references\nMoscovium is a synthetic chemical element; it has symbol Mc and atomic number 115.",
+        "uses": []
+      },
+      {
+        "mass_number": 288,
+        "symbol": "288Mc",
+        "common_name": null,
+        "is_stable": false,
+        "half_life_formatted": "177.0 msec",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": null,
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "3\u00a0kJ/mol (predicted)2nd:\u00a01760\u00a0kJ/mol (predicted)3rd:\u00a02650\u00a0kJ/mol (predicted)(more) Atomic radiusempirical: 187\u00a0pm (predicted)Covalent radius156\u2013158\u00a0pm (extrapolated)Other propertiesNatural occurrencesyntheticCAS Number54085-64-2 HistoryNamingAfter Moscow regionDiscoveryJoint Institute for Nuclear Research and Lawrence Livermore National Laboratory (2003)Isotopes of moscoviumve\n\n\nMain isotopes\n\nDecay\n\n\nIsotope\n\nabun\u00addance\n\nhalf-life (t1/2)\n\nmode\n\npro\u00adduct\n\n\n286Mc\n\nsynth\n\n20\u00a0ms\n\n\u03b1\n\n282Nh\n\n\n287Mc\n\nsynth\n\n38\u00a0ms\n\n\u03b1\n\n283Nh\n\n\n288Mc\n\nsynth\n\n193\u00a0ms\n\n\u03b1\n\n284Nh\n\n\n289Mc\n\nsynth\n\n250\u00a0ms\n\n\u03b1\n\n285Nh\n\n\n290Mc\n\nsynth\n\n650\u00a0ms\n\n\u03b1\n\n286Nh\n\n\u00a0Category: Moscoviumviewtalkedit | references\nMoscovium is a synthetic chemical element; it has symbol Mc and atomic number 115.",
+        "uses": []
+      },
+      {
+        "mass_number": 289,
+        "symbol": "289Mc",
+        "common_name": null,
+        "is_stable": false,
+        "half_life_formatted": "410.0 msec",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": null,
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "3\u00a0kJ/mol (predicted)2nd:\u00a01760\u00a0kJ/mol (predicted)3rd:\u00a02650\u00a0kJ/mol (predicted)(more) Atomic radiusempirical: 187\u00a0pm (predicted)Covalent radius156\u2013158\u00a0pm (extrapolated)Other propertiesNatural occurrencesyntheticCAS Number54085-64-2 HistoryNamingAfter Moscow regionDiscoveryJoint Institute for Nuclear Research and Lawrence Livermore National Laboratory (2003)Isotopes of moscoviumve\n\n\nMain isotopes\n\nDecay\n\n\nIsotope\n\nabun\u00addance\n\nhalf-life (t1/2)\n\nmode\n\npro\u00adduct\n\n\n286Mc\n\nsynth\n\n20\u00a0ms\n\n\u03b1\n\n282Nh\n\n\n287Mc\n\nsynth\n\n38\u00a0ms\n\n\u03b1\n\n283Nh\n\n\n288Mc\n\nsynth\n\n193\u00a0ms\n\n\u03b1\n\n284Nh\n\n\n289Mc\n\nsynth\n\n250\u00a0ms\n\n\u03b1\n\n285Nh\n\n\n290Mc\n\nsynth\n\n650\u00a0ms\n\n\u03b1\n\n286Nh\n\n\u00a0Category: Moscoviumviewtalkedit | references\nMoscovium is a synthetic chemical element; it has symbol Mc and atomic number 115.",
+        "uses": []
+      },
+      {
+        "mass_number": 290,
+        "symbol": "290Mc",
+        "common_name": null,
+        "is_stable": false,
+        "half_life_formatted": "840.0 msec",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": null,
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "3\u00a0kJ/mol (predicted)2nd:\u00a01760\u00a0kJ/mol (predicted)3rd:\u00a02650\u00a0kJ/mol (predicted)(more) Atomic radiusempirical: 187\u00a0pm (predicted)Covalent radius156\u2013158\u00a0pm (extrapolated)Other propertiesNatural occurrencesyntheticCAS Number54085-64-2 HistoryNamingAfter Moscow regionDiscoveryJoint Institute for Nuclear Research and Lawrence Livermore National Laboratory (2003)Isotopes of moscoviumve\n\n\nMain isotopes\n\nDecay\n\n\nIsotope\n\nabun\u00addance\n\nhalf-life (t1/2)\n\nmode\n\npro\u00adduct\n\n\n286Mc\n\nsynth\n\n20\u00a0ms\n\n\u03b1\n\n282Nh\n\n\n287Mc\n\nsynth\n\n38\u00a0ms\n\n\u03b1\n\n283Nh\n\n\n288Mc\n\nsynth\n\n193\u00a0ms\n\n\u03b1\n\n284Nh\n\n\n289Mc\n\nsynth\n\n250\u00a0ms\n\n\u03b1\n\n285Nh\n\n\n290Mc\n\nsynth\n\n650\u00a0ms\n\n\u03b1\n\n286Nh\n\n\u00a0Category: Moscoviumviewtalkedit | references\nMoscovium is a synthetic chemical element; it has symbol Mc and atomic number 115.",
+        "uses": []
+      },
+      {
+        "mass_number": 291,
+        "symbol": "291Mc",
+        "common_name": null,
+        "is_stable": true,
+        "half_life_formatted": "Stable",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": null,
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "In particular, the isotopes 291Mc\u2013293Mc may be reachable in these types of reactions within current detection limits.",
+        "uses": []
+      },
+      {
+        "mass_number": 292,
+        "symbol": "292Mc",
+        "common_name": null,
+        "is_stable": true,
+        "half_life_formatted": "Stable",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": null,
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "",
+        "uses": []
+      }
+    ]
+  },
+  "media": {
+    "images": {
+      "icon_symbol": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 200 200\"><rect x=\"5\" y=\"5\" width=\"190\" height=\"190\" rx=\"15\" ry=\"15\" fill=\"#ffffff\" stroke=\"#333\" stroke-width=\"4\"/><text x=\"20\" y=\"40\" font-family=\"Arial, sans-serif\" font-size=\"24\" fill=\"#666\">115</text><text x=\"100\" y=\"110\" font-family=\"Arial, sans-serif\" font-size=\"80\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#000\">Mc</text><text x=\"100\" y=\"150\" font-family=\"Arial, sans-serif\" font-size=\"18\" text-anchor=\"middle\" fill=\"#333\">Moscovium</text><text x=\"100\" y=\"180\" font-family=\"Arial, sans-serif\" font-size=\"14\" text-anchor=\"middle\" fill=\"#666\">288.000</text></svg>",
+      "atom_2d_shell": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 500 500\"><circle cx=\"250\" cy=\"250\" r=\"25\" fill=\"#333\" /><text x=\"250\" y=\"256\" font-family=\"Arial, sans-serif\" font-size=\"16\" font-weight=\"bold\" fill=\"#fff\" text-anchor=\"middle\">Mc</text><circle cx=\"250\" cy=\"250\" r=\"50.0\" fill=\"none\" stroke=\"#ccc\" stroke-width=\"2\" /><circle cx=\"250.0\" cy=\"200.0\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"250.0\" cy=\"300.0\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"250\" cy=\"250\" r=\"74.28571428571428\" fill=\"none\" stroke=\"#ccc\" stroke-width=\"2\" /><circle cx=\"250.0\" cy=\"175.71428571428572\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"302.52793231671495\" cy=\"197.47206768328505\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"324.2857142857143\" cy=\"250.0\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"302.52793231671495\" cy=\"302.52793231671495\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"250.0\" cy=\"324.2857142857143\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"197.47206768328505\" cy=\"302.52793231671495\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"175.71428571428572\" cy=\"250.0\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"197.47206768328505\" cy=\"197.47206768328505\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"250\" cy=\"250\" r=\"98.57142857142857\" fill=\"none\" stroke=\"#ccc\" stroke-width=\"2\" /><circle cx=\"250.0\" cy=\"151.42857142857144\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"283.7134141278159\" cy=\"157.37315595110334\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"313.36049295481604\" cy=\"174.4899048925579\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"335.3653612301804\" cy=\"200.71428571428572\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"347.07390708263193\" cy=\"232.88325105854545\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"347.07390708263193\" cy=\"267.11674894145455\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"335.3653612301804\" cy=\"299.2857142857143\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"313.36049295481604\" cy=\"325.5100951074421\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"283.7134141278159\" cy=\"342.62684404889666\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"250.0\" cy=\"348.57142857142856\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"216.28658587218408\" cy=\"342.6268440488967\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"186.63950704518396\" cy=\"325.5100951074421\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"164.63463876981962\" cy=\"299.2857142857143\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"152.92609291736807\" cy=\"267.11674894145455\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"152.92609291736807\" cy=\"232.88325105854543\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"164.63463876981962\" cy=\"200.7142857142857\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"186.63950704518396\" cy=\"174.4899048925579\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"216.2865858721841\" cy=\"157.3731559511033\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"250\" cy=\"250\" r=\"122.85714285714286\" fill=\"none\" stroke=\"#ccc\" stroke-width=\"2\" /><circle cx=\"250.0\" cy=\"127.14285714285714\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"273.9682395619815\" cy=\"129.5035226933174\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"297.0153931191396\" cy=\"136.49480029147048\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"318.2557714852654\" cy=\"147.848019059973\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"336.87311883149016\" cy=\"163.12688116850987\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"352.151980940027\" cy=\"181.74422851473457\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"363.5051997085295\" cy=\"202.98460688086038\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"370.4964773066826\" cy=\"226.03176043801852\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"372.8571428571429\" cy=\"250.0\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"370.4964773066826\" cy=\"273.9682395619815\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"363.5051997085295\" cy=\"297.0153931191396\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"352.151980940027\" cy=\"318.2557714852654\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"336.87311883149016\" cy=\"336.87311883149016\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"318.2557714852654\" cy=\"352.151980940027\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"297.0153931191396\" cy=\"363.5051997085295\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"273.9682395619815\" cy=\"370.4964773066826\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"250.0\" cy=\"372.8571428571429\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"226.03176043801852\" cy=\"370.4964773066826\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"202.9846068808604\" cy=\"363.5051997085295\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"181.74422851473457\" cy=\"352.151980940027\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"163.1268811685099\" cy=\"336.87311883149016\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"147.848019059973\" cy=\"318.2557714852654\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"136.49480029147048\" cy=\"297.0153931191396\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"129.5035226933174\" cy=\"273.9682395619815\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"127.14285714285714\" cy=\"250.00000000000003\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"129.5035226933174\" cy=\"226.03176043801852\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"136.49480029147048\" cy=\"202.9846068808604\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"147.848019059973\" cy=\"181.74422851473457\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"163.12688116850984\" cy=\"163.1268811685099\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"181.74422851473457\" cy=\"147.848019059973\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"202.98460688086044\" cy=\"136.49480029147048\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"226.03176043801847\" cy=\"129.5035226933174\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"250\" cy=\"250\" r=\"147.14285714285714\" fill=\"none\" stroke=\"#ccc\" stroke-width=\"2\" /><circle cx=\"250.0\" cy=\"102.85714285714286\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"278.70614738237316\" cy=\"105.68445159781038\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"306.30913361943465\" cy=\"114.05772593048209\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"331.7481914300272\" cy=\"127.65518561833977\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"354.04571208887774\" cy=\"145.9542879111223\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"372.3448143816602\" cy=\"168.2518085699728\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"385.9422740695179\" cy=\"193.69086638056535\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"394.3155484021896\" cy=\"221.29385261762684\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"397.1428571428571\" cy=\"250.0\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"394.3155484021896\" cy=\"278.70614738237316\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"385.9422740695179\" cy=\"306.30913361943465\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"372.3448143816602\" cy=\"331.7481914300272\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"354.04571208887774\" cy=\"354.04571208887774\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"331.7481914300272\" cy=\"372.3448143816602\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"306.30913361943465\" cy=\"385.9422740695179\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"278.70614738237316\" cy=\"394.3155484021896\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"250.0\" cy=\"397.1428571428571\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"221.29385261762684\" cy=\"394.3155484021896\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"193.69086638056535\" cy=\"385.9422740695179\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"168.2518085699728\" cy=\"372.3448143816602\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"145.95428791112232\" cy=\"354.04571208887774\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"127.65518561833976\" cy=\"331.7481914300272\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"114.05772593048209\" cy=\"306.30913361943465\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"105.68445159781038\" cy=\"278.70614738237316\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"102.85714285714286\" cy=\"250.00000000000003\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"105.68445159781038\" cy=\"221.29385261762684\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"114.05772593048209\" cy=\"193.69086638056538\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"127.65518561833977\" cy=\"168.2518085699728\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"145.95428791112226\" cy=\"145.95428791112232\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"168.2518085699728\" cy=\"127.65518561833977\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"193.6908663805654\" cy=\"114.05772593048209\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"221.29385261762678\" cy=\"105.68445159781041\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"250\" cy=\"250\" r=\"171.42857142857142\" fill=\"none\" stroke=\"#ccc\" stroke-width=\"2\" /><circle cx=\"250.0\" cy=\"78.57142857142858\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"308.63202457011465\" cy=\"88.90983643670145\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"360.1921616605496\" cy=\"118.67809546531805\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"398.46149779161806\" cy=\"164.2857142857143\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"418.8241862306642\" cy=\"220.23174097138337\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"418.8241862306642\" cy=\"279.7682590286166\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"398.46149779161806\" cy=\"335.71428571428567\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"360.1921616605496\" cy=\"381.32190453468195\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"308.63202457011465\" cy=\"411.0901635632986\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"250.0\" cy=\"421.42857142857144\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"191.36797542988538\" cy=\"411.0901635632986\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"139.8078383394504\" cy=\"381.32190453468195\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"101.53850220838194\" cy=\"335.71428571428567\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"81.17581376933578\" cy=\"279.7682590286166\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"81.17581376933578\" cy=\"220.23174097138335\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"101.53850220838197\" cy=\"164.28571428571428\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"139.80783833945037\" cy=\"118.67809546531808\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"191.3679754298854\" cy=\"88.90983643670143\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"250\" cy=\"250\" r=\"195.71428571428572\" fill=\"none\" stroke=\"#ccc\" stroke-width=\"2\" /><circle cx=\"250.0\" cy=\"54.28571428571428\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"436.13534676062295\" cy=\"189.5209596723317\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"365.0379708058126\" cy=\"408.33618318481115\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"134.96202919418744\" cy=\"408.33618318481115\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"63.86465323937708\" cy=\"189.52095967233174\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/></svg>",
+      "emission_spectrum_visible": "assets/elements/spectra/115_Mc_visible.png"
+    },
+    "models_3d": {
+      "standard_state_lattice": "TODO",
+      "orbital_visualization": "assets/elements/models/orbital_p.obj"
+    }
+  },
+  "allotropes": [],
+  "discovery": {
+    "discoverer": "Joint Institute for Nuclear Research",
+    "year": 2003,
+    "location": "Russia",
+    "discovery_story": ""
+  }
+}

@@ -1,0 +1,359 @@
+{
+  "identity": {
+    "name": "Neon",
+    "symbol": "Ne",
+    "atomic_number": 10,
+    "group": 18,
+    "period": 2,
+    "block": "p",
+    "standard_atomic_weight": 20.1797,
+    "ground_state_term_symbol": "Unknown",
+    "cas_rn": "7440-01-9"
+  },
+  "narratives": {
+    "general_overview": "Neon is a chemical element; it has symbol Ne and atomic number 10. It is the second noble gas in the periodic table. Neon is a colorless, odorless, inert monatomic gas under standard conditions, with approximately two-thirds the density of air.\n\nNeon was discovered in 1898 alongside krypton and xenon, identified as one of the three remaining rare inert elements in dry air after the removal of nitrogen, oxygen, argon, and carbon dioxide. Its discovery was marked by the distinctive bright red emission spectrum it exhibited, leading to its immediate recognition as a new element. The name neon originates from the Greek word \u03bd\u03ad\u03bf\u03bd, a neuter singular form of \u03bd\u03ad\u03bf\u03c2 (neos), meaning 'new'. Neon is a chemically inert gas; although neon compounds do exist, they are primarily ionic molecules or fragile molecules held together by van der Waals forces.",
+    "quantum_behavior": "",
+    "nuclear_stability": "",
+    "biological_role": "",
+    "discovery_story": ""
+  },
+  "quantum_mechanics": {
+    "electron_configuration": {
+      "shorthand": "[He] 2s2 2p6",
+      "full": "TODO: Calculation from Z required",
+      "valence_shell": "2s2 2p6",
+      "semantic_filling": {}
+    },
+    "ionization_energies_kj_mol": [
+      2080.6547383849997,
+      3952.3121604499997,
+      6119.397100499999,
+      9377.37715,
+      12180.941795,
+      15238.261989999999,
+      19998.542435,
+      23069.274045000002,
+      115377.554177,
+      131431.79521516
+    ],
+    "electron_affinity_kj_mol": 0.0,
+    "electronegativity": {
+      "pauling": null,
+      "allen": 28.31,
+      "mulliken": null
+    },
+    "atomic_radii_pm": {
+      "calculated": 160.0,
+      "van_der_waals": 154.0,
+      "covalent_single": null,
+      "covalent_triple": 57.99999999999999,
+      "metallic": null
+    },
+    "magnetic_properties": {
+      "magnetic_ordering": "Unknown",
+      "molar_magnetic_susceptibility": null
+    }
+  },
+  "nuclear_data": {
+    "isotopes": [
+      {
+        "mass_number": 15,
+        "symbol": "15Ne",
+        "common_name": null,
+        "is_stable": false,
+        "half_life_formatted": "770.0 ysec",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": "3/2",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "",
+        "uses": []
+      },
+      {
+        "mass_number": 16,
+        "symbol": "16Ne",
+        "common_name": null,
+        "is_stable": true,
+        "half_life_formatted": "Stable",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": "0",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "",
+        "uses": []
+      },
+      {
+        "mass_number": 17,
+        "symbol": "17Ne",
+        "common_name": null,
+        "is_stable": false,
+        "half_life_formatted": "109.2 msec",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": "1/2",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "",
+        "uses": []
+      },
+      {
+        "mass_number": 18,
+        "symbol": "18Ne",
+        "common_name": null,
+        "is_stable": false,
+        "half_life_formatted": "1664.2 msec",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": "0",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "",
+        "uses": []
+      },
+      {
+        "mass_number": 19,
+        "symbol": "19Ne",
+        "common_name": null,
+        "is_stable": false,
+        "half_life_formatted": "17.2569 sec",
+        "half_life_seconds": 17.2569,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": "1/2",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "",
+        "uses": []
+      },
+      {
+        "mass_number": 20,
+        "symbol": "20Ne",
+        "common_name": null,
+        "is_stable": true,
+        "half_life_formatted": "Stable",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 9048.0,
+        "nuclear_spin": "0",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "74\u00d710\u22126\u00a0cm3/mol (298\u00a0K)Bulk modulus654\u00a0GPa Speed of sound435 m/s (gas, at\u00a00\u00a0\u00b0C)CAS Number7440-01-9 HistoryNamingfrom the Greek word \u03bd\u03ad\u03bf\u03bd, meaning 'new'PredictionWilliam Ramsay (1897)Discovery and first isolationWilliam Ramsay & Morris Travers (1898)Isotopes of neonve\n\n\nMain isotopes\n\nDecay\n\n\nIsotope\n\nabun\u00addance\n\nhalf-life (t1/2)\n\nmode\n\npro\u00adduct\n\n\n20Ne\n\n90.",
+        "uses": []
+      },
+      {
+        "mass_number": 21,
+        "symbol": "21Ne",
+        "common_name": null,
+        "is_stable": true,
+        "half_life_formatted": "Stable",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 27.0,
+        "nuclear_spin": "3/2",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "",
+        "uses": []
+      },
+      {
+        "mass_number": 22,
+        "symbol": "22Ne",
+        "common_name": null,
+        "is_stable": true,
+        "half_life_formatted": "Stable",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 925.0,
+        "nuclear_spin": "0",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "",
+        "uses": []
+      },
+      {
+        "mass_number": 23,
+        "symbol": "23Ne",
+        "common_name": null,
+        "is_stable": false,
+        "half_life_formatted": "37.15 sec",
+        "half_life_seconds": 37.15,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": "5/2",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "",
+        "uses": []
+      },
+      {
+        "mass_number": 24,
+        "symbol": "24Ne",
+        "common_name": null,
+        "is_stable": false,
+        "half_life_formatted": "3.38 minute",
+        "half_life_seconds": 202.79999999999998,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": "0",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "",
+        "uses": []
+      },
+      {
+        "mass_number": 25,
+        "symbol": "25Ne",
+        "common_name": null,
+        "is_stable": false,
+        "half_life_formatted": "602.0 msec",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": "1/2",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "",
+        "uses": []
+      },
+      {
+        "mass_number": 26,
+        "symbol": "26Ne",
+        "common_name": null,
+        "is_stable": false,
+        "half_life_formatted": "197.0 msec",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": "0",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "",
+        "uses": []
+      },
+      {
+        "mass_number": 27,
+        "symbol": "27Ne",
+        "common_name": null,
+        "is_stable": false,
+        "half_life_formatted": "30.9 msec",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": "3/2",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "",
+        "uses": []
+      },
+      {
+        "mass_number": 28,
+        "symbol": "28Ne",
+        "common_name": null,
+        "is_stable": false,
+        "half_life_formatted": "18.8 msec",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": "0",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "",
+        "uses": []
+      },
+      {
+        "mass_number": 29,
+        "symbol": "29Ne",
+        "common_name": null,
+        "is_stable": false,
+        "half_life_formatted": "14.7 msec",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": "3/2",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "",
+        "uses": []
+      },
+      {
+        "mass_number": 30,
+        "symbol": "30Ne",
+        "common_name": null,
+        "is_stable": false,
+        "half_life_formatted": "7.22 msec",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": "0",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "",
+        "uses": []
+      },
+      {
+        "mass_number": 31,
+        "symbol": "31Ne",
+        "common_name": null,
+        "is_stable": false,
+        "half_life_formatted": "3.4 msec",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": "3/2",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "",
+        "uses": []
+      },
+      {
+        "mass_number": 32,
+        "symbol": "32Ne",
+        "common_name": null,
+        "is_stable": false,
+        "half_life_formatted": "3.5 msec",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": "0",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "",
+        "uses": []
+      },
+      {
+        "mass_number": 33,
+        "symbol": "33Ne",
+        "common_name": null,
+        "is_stable": true,
+        "half_life_formatted": "Stable",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": "7/2",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "",
+        "uses": []
+      },
+      {
+        "mass_number": 34,
+        "symbol": "34Ne",
+        "common_name": null,
+        "is_stable": true,
+        "half_life_formatted": "Stable",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": "0",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "",
+        "uses": []
+      }
+    ]
+  },
+  "media": {
+    "images": {
+      "icon_symbol": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 200 200\"><rect x=\"5\" y=\"5\" width=\"190\" height=\"190\" rx=\"15\" ry=\"15\" fill=\"#ffffff\" stroke=\"#333\" stroke-width=\"4\"/><text x=\"20\" y=\"40\" font-family=\"Arial, sans-serif\" font-size=\"24\" fill=\"#666\">10</text><text x=\"100\" y=\"110\" font-family=\"Arial, sans-serif\" font-size=\"80\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#000\">Ne</text><text x=\"100\" y=\"150\" font-family=\"Arial, sans-serif\" font-size=\"18\" text-anchor=\"middle\" fill=\"#333\">Neon</text><text x=\"100\" y=\"180\" font-family=\"Arial, sans-serif\" font-size=\"14\" text-anchor=\"middle\" fill=\"#666\">20.180</text></svg>",
+      "atom_2d_shell": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 500 500\"><circle cx=\"250\" cy=\"250\" r=\"25\" fill=\"#333\" /><text x=\"250\" y=\"256\" font-family=\"Arial, sans-serif\" font-size=\"16\" font-weight=\"bold\" fill=\"#fff\" text-anchor=\"middle\">Ne</text><circle cx=\"250\" cy=\"250\" r=\"50.0\" fill=\"none\" stroke=\"#ccc\" stroke-width=\"2\" /><circle cx=\"250.0\" cy=\"200.0\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"250.0\" cy=\"300.0\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"250\" cy=\"250\" r=\"135.0\" fill=\"none\" stroke=\"#ccc\" stroke-width=\"2\" /><circle cx=\"250.0\" cy=\"115.0\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"345.4594154601839\" cy=\"154.54058453981608\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"385.0\" cy=\"250.0\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"345.4594154601839\" cy=\"345.4594154601839\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"250.0\" cy=\"385.0\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"154.5405845398161\" cy=\"345.4594154601839\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"115.0\" cy=\"250.00000000000003\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"154.54058453981605\" cy=\"154.5405845398161\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/></svg>",
+      "emission_spectrum_visible": "assets/elements/spectra/10_Ne_visible.png"
+    },
+    "models_3d": {
+      "standard_state_lattice": "assets/elements/models/10_Ne_lattice_fcc.obj",
+      "orbital_visualization": "assets/elements/models/orbital_p.obj"
+    }
+  },
+  "allotropes": [],
+  "discovery": {
+    "discoverer": "Sir William Ramsey, M.W. Travers",
+    "year": 1898,
+    "location": "England",
+    "discovery_story": ""
+  }
+}

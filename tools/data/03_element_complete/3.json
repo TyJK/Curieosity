@@ -1,0 +1,226 @@
+{
+  "identity": {
+    "name": "Lithium",
+    "symbol": "Li",
+    "atomic_number": 3,
+    "group": 1,
+    "period": 2,
+    "block": "s",
+    "standard_atomic_weight": 6.94,
+    "ground_state_term_symbol": "Unknown",
+    "cas_rn": "7439-93-2"
+  },
+  "narratives": {
+    "general_overview": "Lithium (from Ancient Greek: \u03bb\u03af\u03b8\u03bf\u03c2, l\u00edthos, 'stone') is a chemical element; it has symbol Li and atomic number\u00a03. It is a soft, silvery-white alkali metal. Under standard conditions, it is the least dense metal and the least dense solid element. Like all alkali metals, lithium is highly reactive and flammable, and must be stored in vacuum, inert atmosphere, or inert liquid such as purified kerosene or mineral oil. It exhibits a metallic luster when pure, but quickly corrodes in air to a dull silvery gray, then black tarnish. It does not occur freely in nature, but occurs mainly as pegmatitic minerals, which were once the main source of lithium. Due to its solubility as an ion, it is present in ocean water and is commonly obtained from brines. Lithium metal is isolated electrolytically from a mixture of lithium chloride and potassium chloride.\n\nThe nucleus of the lithium atom verges on instability, since the two stable lithium isotopes found in nature have among the lowest binding energies per nucleon of all stable nuclides. Because of its relative nuclear instability, lithium is less common in the Solar System than 25 of the first 32 chemical elements even though its nuclei are very light: it is an exception to the trend that heavier nuclei are less common. For related reasons, lithium has important uses in nuclear physics. The transmutation of lithium atoms to helium in 1932 was the first fully human-made nuclear reaction, and lithium deuteride serves as a fusion fuel in staged thermonuclear weapons.",
+    "quantum_behavior": "",
+    "nuclear_stability": "",
+    "biological_role": "",
+    "discovery_story": ""
+  },
+  "quantum_mechanics": {
+    "electron_configuration": {
+      "shorthand": "[He] 2s",
+      "full": "TODO: Calculation from Z required",
+      "valence_shell": "2s",
+      "semantic_filling": {}
+    },
+    "ionization_energies_kj_mol": [
+      520.21962138906,
+      7298.134759045,
+      11815.00884065805
+    ],
+    "electron_affinity_kj_mol": 59.632457765,
+    "electronegativity": {
+      "pauling": 0.98,
+      "allen": 5.392,
+      "mulliken": null
+    },
+    "atomic_radii_pm": {
+      "calculated": 145.0,
+      "van_der_waals": 182.0,
+      "covalent_single": 150.0,
+      "covalent_triple": 128.0,
+      "metallic": 123.0
+    },
+    "magnetic_properties": {
+      "magnetic_ordering": "Unknown",
+      "molar_magnetic_susceptibility": null
+    }
+  },
+  "nuclear_data": {
+    "isotopes": [
+      {
+        "mass_number": 3,
+        "symbol": "3Li",
+        "common_name": null,
+        "is_stable": true,
+        "half_life_formatted": "Stable",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": "3/2",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "",
+        "uses": []
+      },
+      {
+        "mass_number": 4,
+        "symbol": "4Li",
+        "common_name": null,
+        "is_stable": false,
+        "half_life_formatted": "91.0 ysec",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": "2",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "The shortest-lived isotope of lithium is 4Li, which decays through proton emission and has a half-life of 7.",
+        "uses": []
+      },
+      {
+        "mass_number": 5,
+        "symbol": "5Li",
+        "common_name": null,
+        "is_stable": false,
+        "half_life_formatted": "370.0 ysec",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": "3/2",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "",
+        "uses": []
+      },
+      {
+        "mass_number": 6,
+        "symbol": "6Li",
+        "common_name": null,
+        "is_stable": true,
+        "half_life_formatted": "Stable",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 484.99999999999994,
+        "nuclear_spin": "1",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "6 Brinell hardness5\u00a0MPa CAS Number7439-93-2 HistoryNamingfrom the Greek word \u03bb\u03b9\u03b8o\u03c2, stoneDiscoveryJohan August Arfwedson (1817)First isolationWilliam Thomas Brande (1821)Isotopes of lithiumve\n\n\nMain isotopes\n\nDecay\n\n\nIsotope\n\nabun\u00addance\n\nhalf-life (t1/2)\n\nmode\n\npro\u00adduct\n\n\n6Li\n\n[1.",
+        "uses": []
+      },
+      {
+        "mass_number": 7,
+        "symbol": "7Li",
+        "common_name": null,
+        "is_stable": true,
+        "half_life_formatted": "Stable",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 9515.0,
+        "nuclear_spin": "3/2",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "",
+        "uses": []
+      },
+      {
+        "mass_number": 8,
+        "symbol": "8Li",
+        "common_name": null,
+        "is_stable": false,
+        "half_life_formatted": "838.7 msec",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": "2",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "Seven radioisotopes have been characterized, the most stable being 8Li with a half-life of 838 ms and 9Li with a half-life of 178\u00a0ms.",
+        "uses": []
+      },
+      {
+        "mass_number": 9,
+        "symbol": "9Li",
+        "common_name": null,
+        "is_stable": false,
+        "half_life_formatted": "178.2 msec",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": "3/2",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "Seven radioisotopes have been characterized, the most stable being 8Li with a half-life of 838 ms and 9Li with a half-life of 178\u00a0ms.",
+        "uses": []
+      },
+      {
+        "mass_number": 10,
+        "symbol": "10Li",
+        "common_name": null,
+        "is_stable": false,
+        "half_life_formatted": "2.0 zsec",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": "1",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "",
+        "uses": []
+      },
+      {
+        "mass_number": 11,
+        "symbol": "11Li",
+        "common_name": null,
+        "is_stable": false,
+        "half_life_formatted": "8.75 msec",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": "3/2",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "The exotic 11Li is known to exhibit a neutron halo, with 2 neutrons orbiting around its nucleus of 3 protons and 6 neutrons.",
+        "uses": []
+      },
+      {
+        "mass_number": 12,
+        "symbol": "12Li",
+        "common_name": null,
+        "is_stable": true,
+        "half_life_formatted": "Stable",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": "1",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "",
+        "uses": []
+      },
+      {
+        "mass_number": 13,
+        "symbol": "13Li",
+        "common_name": null,
+        "is_stable": false,
+        "half_life_formatted": "3.3 zsec",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": "3/2",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "",
+        "uses": []
+      }
+    ]
+  },
+  "media": {
+    "images": {
+      "icon_symbol": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 200 200\"><rect x=\"5\" y=\"5\" width=\"190\" height=\"190\" rx=\"15\" ry=\"15\" fill=\"#ffffff\" stroke=\"#333\" stroke-width=\"4\"/><text x=\"20\" y=\"40\" font-family=\"Arial, sans-serif\" font-size=\"24\" fill=\"#666\">3</text><text x=\"100\" y=\"110\" font-family=\"Arial, sans-serif\" font-size=\"80\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#000\">Li</text><text x=\"100\" y=\"150\" font-family=\"Arial, sans-serif\" font-size=\"18\" text-anchor=\"middle\" fill=\"#333\">Lithium</text><text x=\"100\" y=\"180\" font-family=\"Arial, sans-serif\" font-size=\"14\" text-anchor=\"middle\" fill=\"#666\">6.940</text></svg>",
+      "atom_2d_shell": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 500 500\"><circle cx=\"250\" cy=\"250\" r=\"25\" fill=\"#333\" /><text x=\"250\" y=\"256\" font-family=\"Arial, sans-serif\" font-size=\"16\" font-weight=\"bold\" fill=\"#fff\" text-anchor=\"middle\">Li</text><circle cx=\"250\" cy=\"250\" r=\"50.0\" fill=\"none\" stroke=\"#ccc\" stroke-width=\"2\" /><circle cx=\"250.0\" cy=\"200.0\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"250.0\" cy=\"300.0\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"250\" cy=\"250\" r=\"135.0\" fill=\"none\" stroke=\"#ccc\" stroke-width=\"2\" /><circle cx=\"250.0\" cy=\"115.0\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/></svg>",
+      "emission_spectrum_visible": "assets/elements/spectra/3_Li_visible.png"
+    },
+    "models_3d": {
+      "standard_state_lattice": "assets/elements/models/3_Li_lattice_bcc.obj",
+      "orbital_visualization": "assets/elements/models/orbital_s.obj"
+    }
+  },
+  "allotropes": [],
+  "discovery": {
+    "discoverer": "Johann Arfwedson",
+    "year": 1817,
+    "location": "Sweden",
+    "discovery_story": ""
+  }
+}

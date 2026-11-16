@@ -1,0 +1,124 @@
+{
+  "identity": {
+    "name": "Tennessine",
+    "symbol": "Ts",
+    "atomic_number": 117,
+    "group": 17,
+    "period": 7,
+    "block": "p",
+    "standard_atomic_weight": 294.0,
+    "ground_state_term_symbol": "Unknown",
+    "cas_rn": "87658-56-8"
+  },
+  "narratives": {
+    "general_overview": "Tennessine is a synthetic element; it has symbol Ts and atomic number 117. It has the second-highest atomic number, the joint-highest atomic mass of all known elements, and is the penultimate element of the 7th period of the periodic table. It is named after the U.S. state of Tennessee, where key research institutions involved in its discovery are located (however, the IUPAC says that the element is named after the \"region of Tennessee\").\n\nThe discovery of tennessine was officially announced in Dubna, Russia, by a Russian\u2013American collaboration in April 2010, which makes it the most recently discovered element. One of its daughter isotopes was created directly in 2011, partially confirming the experiment's results. The experiment was successfully repeated by the same collaboration in 2012 and by a joint German\u2013American team in May 2014. In December 2015, the Joint Working Party of the International Union of Pure and Applied Chemistry (IUPAC) and the International Union of Pure and Applied Physics (IUPAP), which evaluates claims of discovery of new elements, recognized the element and assigned the priority to the Russian\u2013American team. In June 2016, the IUPAC published a declaration stating that the discoverers had suggested the name tennessine, a name which was officially adopted in November 2016.",
+    "quantum_behavior": "",
+    "nuclear_stability": "",
+    "biological_role": "",
+    "discovery_story": ""
+  },
+  "quantum_mechanics": {
+    "electron_configuration": {
+      "shorthand": "[Rn] 5f14 6d10 7s2 7p5",
+      "full": "TODO: Calculation from Z required",
+      "valence_shell": "5f14 6d10 7s2 7p5",
+      "semantic_filling": {}
+    },
+    "ionization_energies_kj_mol": [],
+    "electron_affinity_kj_mol": 0.0,
+    "electronegativity": {
+      "pauling": null,
+      "allen": null,
+      "mulliken": null
+    },
+    "atomic_radii_pm": {
+      "calculated": null,
+      "van_der_waals": null,
+      "covalent_single": null,
+      "covalent_triple": null,
+      "metallic": null
+    },
+    "magnetic_properties": {
+      "magnetic_ordering": "Unknown",
+      "molar_magnetic_susceptibility": null
+    }
+  },
+  "nuclear_data": {
+    "isotopes": [
+      {
+        "mass_number": 291,
+        "symbol": "291Ts",
+        "common_name": null,
+        "is_stable": true,
+        "half_life_formatted": "Stable",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": null,
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "",
+        "uses": []
+      },
+      {
+        "mass_number": 292,
+        "symbol": "292Ts",
+        "common_name": null,
+        "is_stable": true,
+        "half_life_formatted": "Stable",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": null,
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "Lighter isotopes of tennessine may be produced in the 243Am+50Ti reaction, which was considered as a contingency plan by the Dubna team in 2008 if 249Bk proved unavailable; the isotopes 289Ts through 292Ts could also be produced as daughters of element 119 isotopes that can be produced in the 243Am+54Cr and 249Bk+50Ti reactions.",
+        "uses": []
+      },
+      {
+        "mass_number": 293,
+        "symbol": "293Ts",
+        "common_name": null,
+        "is_stable": false,
+        "half_life_formatted": "25.0 msec",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": null,
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "9\u00a0kJ/mol (predicted)(more) Atomic radiusempirical: 138\u00a0pm (predicted)Covalent radius156\u2013157\u00a0pm (extrapolated)Other propertiesNatural occurrencesyntheticCAS Number54101-14-3 HistoryNamingafter Tennessee regionDiscoveryJoint Institute for Nuclear Research, Lawrence Livermore National Laboratory, Vanderbilt University and Oak Ridge National Laboratory (2010)Isotopes of tennessineve\n\n\nMain isotopes\n\nDecay\n\n\nIsotope\n\nabun\u00addance\n\nhalf-life (t1/2)\n\nmode\n\npro\u00adduct\n\n\n293Ts\n\nsynth\n\n22\u00a0ms\n\n\u03b1\n\n289Mc\n\n\n294Ts\n\nsynth\n\n51\u00a0ms\n\n\u03b1\n\n290Mc\n\n\u00a0Category: Tennessineviewtalkedit | references\nTennessine is a synthetic element; it has symbol Ts and atomic number 117.",
+        "uses": []
+      },
+      {
+        "mass_number": 294,
+        "symbol": "294Ts",
+        "common_name": null,
+        "is_stable": false,
+        "half_life_formatted": "70.0 msec",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": null,
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "9\u00a0kJ/mol (predicted)(more) Atomic radiusempirical: 138\u00a0pm (predicted)Covalent radius156\u2013157\u00a0pm (extrapolated)Other propertiesNatural occurrencesyntheticCAS Number54101-14-3 HistoryNamingafter Tennessee regionDiscoveryJoint Institute for Nuclear Research, Lawrence Livermore National Laboratory, Vanderbilt University and Oak Ridge National Laboratory (2010)Isotopes of tennessineve\n\n\nMain isotopes\n\nDecay\n\n\nIsotope\n\nabun\u00addance\n\nhalf-life (t1/2)\n\nmode\n\npro\u00adduct\n\n\n293Ts\n\nsynth\n\n22\u00a0ms\n\n\u03b1\n\n289Mc\n\n\n294Ts\n\nsynth\n\n51\u00a0ms\n\n\u03b1\n\n290Mc\n\n\u00a0Category: Tennessineviewtalkedit | references\nTennessine is a synthetic element; it has symbol Ts and atomic number 117.",
+        "uses": []
+      }
+    ]
+  },
+  "media": {
+    "images": {
+      "icon_symbol": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 200 200\"><rect x=\"5\" y=\"5\" width=\"190\" height=\"190\" rx=\"15\" ry=\"15\" fill=\"#ffffff\" stroke=\"#333\" stroke-width=\"4\"/><text x=\"20\" y=\"40\" font-family=\"Arial, sans-serif\" font-size=\"24\" fill=\"#666\">117</text><text x=\"100\" y=\"110\" font-family=\"Arial, sans-serif\" font-size=\"80\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#000\">Ts</text><text x=\"100\" y=\"150\" font-family=\"Arial, sans-serif\" font-size=\"18\" text-anchor=\"middle\" fill=\"#333\">Tennessine</text><text x=\"100\" y=\"180\" font-family=\"Arial, sans-serif\" font-size=\"14\" text-anchor=\"middle\" fill=\"#666\">294.000</text></svg>",
+      "atom_2d_shell": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 500 500\"><circle cx=\"250\" cy=\"250\" r=\"25\" fill=\"#333\" /><text x=\"250\" y=\"256\" font-family=\"Arial, sans-serif\" font-size=\"16\" font-weight=\"bold\" fill=\"#fff\" text-anchor=\"middle\">Ts</text><circle cx=\"250\" cy=\"250\" r=\"50.0\" fill=\"none\" stroke=\"#ccc\" stroke-width=\"2\" /><circle cx=\"250.0\" cy=\"200.0\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"250.0\" cy=\"300.0\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"250\" cy=\"250\" r=\"74.28571428571428\" fill=\"none\" stroke=\"#ccc\" stroke-width=\"2\" /><circle cx=\"250.0\" cy=\"175.71428571428572\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"302.52793231671495\" cy=\"197.47206768328505\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"324.2857142857143\" cy=\"250.0\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"302.52793231671495\" cy=\"302.52793231671495\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"250.0\" cy=\"324.2857142857143\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"197.47206768328505\" cy=\"302.52793231671495\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"175.71428571428572\" cy=\"250.0\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"197.47206768328505\" cy=\"197.47206768328505\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"250\" cy=\"250\" r=\"98.57142857142857\" fill=\"none\" stroke=\"#ccc\" stroke-width=\"2\" /><circle cx=\"250.0\" cy=\"151.42857142857144\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"283.7134141278159\" cy=\"157.37315595110334\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"313.36049295481604\" cy=\"174.4899048925579\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"335.3653612301804\" cy=\"200.71428571428572\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"347.07390708263193\" cy=\"232.88325105854545\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"347.07390708263193\" cy=\"267.11674894145455\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"335.3653612301804\" cy=\"299.2857142857143\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"313.36049295481604\" cy=\"325.5100951074421\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"283.7134141278159\" cy=\"342.62684404889666\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"250.0\" cy=\"348.57142857142856\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"216.28658587218408\" cy=\"342.6268440488967\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"186.63950704518396\" cy=\"325.5100951074421\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"164.63463876981962\" cy=\"299.2857142857143\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"152.92609291736807\" cy=\"267.11674894145455\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"152.92609291736807\" cy=\"232.88325105854543\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"164.63463876981962\" cy=\"200.7142857142857\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"186.63950704518396\" cy=\"174.4899048925579\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"216.2865858721841\" cy=\"157.3731559511033\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"250\" cy=\"250\" r=\"122.85714285714286\" fill=\"none\" stroke=\"#ccc\" stroke-width=\"2\" /><circle cx=\"250.0\" cy=\"127.14285714285714\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"273.9682395619815\" cy=\"129.5035226933174\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"297.0153931191396\" cy=\"136.49480029147048\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"318.2557714852654\" cy=\"147.848019059973\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"336.87311883149016\" cy=\"163.12688116850987\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"352.151980940027\" cy=\"181.74422851473457\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"363.5051997085295\" cy=\"202.98460688086038\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"370.4964773066826\" cy=\"226.03176043801852\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"372.8571428571429\" cy=\"250.0\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"370.4964773066826\" cy=\"273.9682395619815\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"363.5051997085295\" cy=\"297.0153931191396\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"352.151980940027\" cy=\"318.2557714852654\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"336.87311883149016\" cy=\"336.87311883149016\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"318.2557714852654\" cy=\"352.151980940027\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"297.0153931191396\" cy=\"363.5051997085295\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"273.9682395619815\" cy=\"370.4964773066826\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"250.0\" cy=\"372.8571428571429\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"226.03176043801852\" cy=\"370.4964773066826\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"202.9846068808604\" cy=\"363.5051997085295\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"181.74422851473457\" cy=\"352.151980940027\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"163.1268811685099\" cy=\"336.87311883149016\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"147.848019059973\" cy=\"318.2557714852654\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"136.49480029147048\" cy=\"297.0153931191396\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"129.5035226933174\" cy=\"273.9682395619815\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"127.14285714285714\" cy=\"250.00000000000003\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"129.5035226933174\" cy=\"226.03176043801852\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"136.49480029147048\" cy=\"202.9846068808604\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"147.848019059973\" cy=\"181.74422851473457\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"163.12688116850984\" cy=\"163.1268811685099\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"181.74422851473457\" cy=\"147.848019059973\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"202.98460688086044\" cy=\"136.49480029147048\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"226.03176043801847\" cy=\"129.5035226933174\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"250\" cy=\"250\" r=\"147.14285714285714\" fill=\"none\" stroke=\"#ccc\" stroke-width=\"2\" /><circle cx=\"250.0\" cy=\"102.85714285714286\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"278.70614738237316\" cy=\"105.68445159781038\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"306.30913361943465\" cy=\"114.05772593048209\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"331.7481914300272\" cy=\"127.65518561833977\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"354.04571208887774\" cy=\"145.9542879111223\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"372.3448143816602\" cy=\"168.2518085699728\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"385.9422740695179\" cy=\"193.69086638056535\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"394.3155484021896\" cy=\"221.29385261762684\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"397.1428571428571\" cy=\"250.0\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"394.3155484021896\" cy=\"278.70614738237316\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"385.9422740695179\" cy=\"306.30913361943465\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"372.3448143816602\" cy=\"331.7481914300272\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"354.04571208887774\" cy=\"354.04571208887774\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"331.7481914300272\" cy=\"372.3448143816602\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"306.30913361943465\" cy=\"385.9422740695179\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"278.70614738237316\" cy=\"394.3155484021896\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"250.0\" cy=\"397.1428571428571\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"221.29385261762684\" cy=\"394.3155484021896\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"193.69086638056535\" cy=\"385.9422740695179\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"168.2518085699728\" cy=\"372.3448143816602\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"145.95428791112232\" cy=\"354.04571208887774\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"127.65518561833976\" cy=\"331.7481914300272\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"114.05772593048209\" cy=\"306.30913361943465\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"105.68445159781038\" cy=\"278.70614738237316\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"102.85714285714286\" cy=\"250.00000000000003\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"105.68445159781038\" cy=\"221.29385261762684\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"114.05772593048209\" cy=\"193.69086638056538\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"127.65518561833977\" cy=\"168.2518085699728\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"145.95428791112226\" cy=\"145.95428791112232\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"168.2518085699728\" cy=\"127.65518561833977\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"193.6908663805654\" cy=\"114.05772593048209\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"221.29385261762678\" cy=\"105.68445159781041\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"250\" cy=\"250\" r=\"171.42857142857142\" fill=\"none\" stroke=\"#ccc\" stroke-width=\"2\" /><circle cx=\"250.0\" cy=\"78.57142857142858\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"308.63202457011465\" cy=\"88.90983643670145\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"360.1921616605496\" cy=\"118.67809546531805\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"398.46149779161806\" cy=\"164.2857142857143\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"418.8241862306642\" cy=\"220.23174097138337\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"418.8241862306642\" cy=\"279.7682590286166\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"398.46149779161806\" cy=\"335.71428571428567\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"360.1921616605496\" cy=\"381.32190453468195\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"308.63202457011465\" cy=\"411.0901635632986\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"250.0\" cy=\"421.42857142857144\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"191.36797542988538\" cy=\"411.0901635632986\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"139.8078383394504\" cy=\"381.32190453468195\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"101.53850220838194\" cy=\"335.71428571428567\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"81.17581376933578\" cy=\"279.7682590286166\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"81.17581376933578\" cy=\"220.23174097138335\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"101.53850220838197\" cy=\"164.28571428571428\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"139.80783833945037\" cy=\"118.67809546531808\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"191.3679754298854\" cy=\"88.90983643670143\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"250\" cy=\"250\" r=\"195.71428571428572\" fill=\"none\" stroke=\"#ccc\" stroke-width=\"2\" /><circle cx=\"250.0\" cy=\"54.28571428571428\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"403.0155901401715\" cy=\"127.97413877907644\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"440.8073199555855\" cy=\"293.55052564573583\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"334.91724608443644\" cy=\"426.3324784323306\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"165.08275391556361\" cy=\"426.3324784323306\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"59.19268004441449\" cy=\"293.5505256457358\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"96.98440985982842\" cy=\"127.97413877907647\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/></svg>",
+      "emission_spectrum_visible": "assets/elements/spectra/117_Ts_visible.png"
+    },
+    "models_3d": {
+      "standard_state_lattice": "TODO",
+      "orbital_visualization": "assets/elements/models/orbital_p.obj"
+    }
+  },
+  "allotropes": [],
+  "discovery": {
+    "discoverer": "Joint Institute for Nuclear Research/Oak Ridge National Laboratory",
+    "year": 2010,
+    "location": "Russia/United States",
+    "discovery_story": ""
+  }
+}

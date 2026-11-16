@@ -1,0 +1,147 @@
+🧪 COMPLETE CANON DATASET AUDIT REPORT
+========================================
+Source: .\tools\data\18_final_canon\
+Total Files: 7029
+Profile Breakdown:
+  - Universal           :  7029 (100.0%)
+  - Standard Molecule   :  6966 (99.1%)
+  - Pharmaceutical      :  1947 (27.7%)
+  - Polymer             :    26 (0.4%)
+  - Mixture             :    37 (0.5%)
+========================================
+
+--- CLASS ---
+FIELD                            | FOUND  | %      | STAT 
+---------------------------------------------------------------------------
+class.is_mixture                 | 63     | 0.9% | 🟤   
+class.is_polymer                 | 26     | 0.4% | 🟤   
+class.roles                      | 3071   | 43.7% | 🟠   
+class.tags                       | 5732   | 81.5% | 🔵   
+
+--- ECON ---
+FIELD                            | FOUND  | %      | STAT 
+---------------------------------------------------------------------------
+econ.consumer_uses               | 2537   | 36.1% | 🔴   
+econ.industrial_uses             | 4675   | 66.5% | 🫒   
+econ.is_recycled                 | 461    | 6.6% | 🟤   
+econ.market_price                | 73     | 1.0% | 🟤   
+econ.production_volume           | 4680   | 66.6% | 🫒   
+
+--- ELECTRO ---
+FIELD                            | FOUND  | %      | STAT 
+---------------------------------------------------------------------------
+electro.magnetic_susceptibility  | 7029   | 100.0% | 🌟   
+
+--- HISTORY ---
+FIELD                            | FOUND  | %      | STAT 
+---------------------------------------------------------------------------
+history.discoverer               | 83     | 1.2% | 🟤   
+history.story                    | 1193   | 17.0% | 🟤   
+history.year                     | 485    | 6.9% | 🟤   
+
+--- IDENTITY ---
+FIELD                            | FOUND  | %      | STAT 
+---------------------------------------------------------------------------
+identity.cas_rn                  | 7029   | 100.0% | 🌟   
+identity.description             | 4598   | 65.4% | 🫒   
+identity.formula                 | 7029   | 100.0% | 🌟   
+identity.name                    | 7029   | 100.0% | 🌟   
+identity.parent_id               | 4054   | 57.7% | 🟡   
+identity.parent_label            | 4054   | 57.7% | 🟡   
+identity.smiles                  | 7029   | 100.0% | 🌟   
+identity.synonyms                | 6940   | 98.7% | 🟣   
+
+--- MAT_SCI ---
+FIELD                            | FOUND  | %      | STAT 
+---------------------------------------------------------------------------
+mat_sci.crystal_structure        | 1484   | 21.1% | 🔴   
+mat_sci.space_group              | 1391   | 19.8% | 🟤   
+
+--- MECH ---
+FIELD                            | FOUND  | %      | STAT 
+---------------------------------------------------------------------------
+mech.bulk_modulus                | 1305   | 18.6% | 🟤   
+mech.mohs_hardness               | 1305   | 18.6% | 🟤   
+mech.shear_modulus               | 1305   | 18.6% | 🟤   
+mech.youngs_modulus              | 1305   | 18.6% | 🟤   
+
+--- MEDIA ---
+FIELD                            | FOUND  | %      | STAT 
+---------------------------------------------------------------------------
+media.image_2d                   | 7029   | 100.0% | 🌟   
+media.model_3d                   | 7029   | 100.0% | 🌟   
+
+--- MOLECULAR ---
+FIELD                            | FOUND  | %      | STAT 
+---------------------------------------------------------------------------
+molecular.charge                 | 7029   | 100.0% | 🌟   
+molecular.complexity             | 6868   | 97.7% | 🟣   
+molecular.h_acceptors            | 7029   | 100.0% | 🌟   
+molecular.h_donors               | 7029   | 100.0% | 🌟   
+molecular.logp                   | 7002   | 99.6% | 🟣   
+molecular.mass                   | 7029   | 100.0% | 🌟   
+molecular.rotatable_bonds        | 7029   | 100.0% | 🌟   
+molecular.tpsa                   | 7029   | 100.0% | 🌟   
+
+--- PHARMA ---
+FIELD                            | FOUND  | %      | STAT 
+---------------------------------------------------------------------------
+pharma.atc_codes                 | 1757   | 25.0% | 🔴   
+pharma.bioavailability           | 834    | 11.9% | 🟤   
+pharma.half_life                 | 1111   | 15.8% | 🟤   
+pharma.mechanism                 | 1487   | 21.2% | 🔴   
+pharma.metabolism                | 971    | 13.8% | 🟤   
+pharma.pregnancy                 | 780    | 11.1% | 🟤   
+pharma.protein_binding           | 796    | 11.3% | 🟤   
+pharma.routes                    | 1408   | 20.0% | 🔴   
+pharma.toxicity_ld50             | 508    | 7.2% | 🟤   
+
+--- PHYSICAL ---
+FIELD                            | FOUND  | %      | STAT 
+---------------------------------------------------------------------------
+physical.autoignition            | 7021   | 99.9% | 🟣   
+physical.boiling_point           | 5902   | 84.0% | 🔵   
+physical.density                 | 2137   | 30.4% | 🔴   
+physical.dipole_moment           | 6861   | 97.6% | 🟣   
+physical.flash_point             | 7022   | 99.9% | 🌟   
+physical.melting_point           | 6173   | 87.8% | 🔵   
+physical.pka                     | 294    | 4.2% | 🟤   
+physical.refractive_index        | 2105   | 29.9% | 🔴   
+physical.solubility_water        | 2675   | 38.1% | 🔴   
+physical.state                   | 6173   | 87.8% | 🔵   
+physical.surface_tension         | 232    | 3.3% | 🟤   
+physical.vapor_pressure          | 907    | 12.9% | 🟤   
+physical.viscosity               | 419    | 6.0% | 🟤   
+
+--- REFS ---
+FIELD                            | FOUND  | %      | STAT 
+---------------------------------------------------------------------------
+refs.chebi                       | 4057   | 57.7% | 🟡   
+refs.drugbank                    | 1709   | 24.3% | 🔴   
+refs.pubchem                     | 6733   | 95.8% | 🟣   
+refs.wikipedia                   | 4384   | 62.4% | 🫒   
+
+--- SAFETY ---
+FIELD                            | FOUND  | %      | STAT 
+---------------------------------------------------------------------------
+safety.explosive_limits          | 400    | 5.7% | 🟤   
+safety.hazard_statements         | 2600   | 37.0% | 🔴   
+safety.nfpa                      | 56     | 0.8% | 🟤   
+safety.signal_word               | 928    | 13.2% | 🟤   
+safety.summary                   | 2600   | 37.0% | 🔴   
+
+--- SENSORY ---
+FIELD                            | FOUND  | %      | STAT 
+---------------------------------------------------------------------------
+sensory.appearance               | 4051   | 57.6% | 🟡   
+sensory.odor                     | 1264   | 18.0% | 🟤   
+sensory.opacity                  | 5352   | 76.1% | 🟢   
+sensory.texture                  | 2750   | 39.1% | 🔴   
+
+--- THERMO ---
+FIELD                            | FOUND  | %      | STAT 
+---------------------------------------------------------------------------
+thermo.enthalpy_combustion       | 6485   | 92.3% | 🟣   
+thermo.enthalpy_formation        | 5517   | 78.5% | 🟢   
+thermo.entropy                   | 7029   | 100.0% | 🌟   
+thermo.heat_capacity             | 7029   | 100.0% | 🌟   

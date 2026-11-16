@@ -1,0 +1,67 @@
+# Every push and pull request: formatting, lints and the tests, then the review run (the
+# interaction checks and a short playthrough, drawn by a software renderer under a virtual
+# display). The whole tech tree is played weekly, or on demand from the Actions tab
+# ("Run workflow", tick "full"). Each review uploads its report and screenshots; any
+# failed check or step fails the run.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "37 7 * * 1" # Mondays: the full playthrough
+  workflow_dispatch:
+    inputs:
+      full:
+        description: "Play the whole tech tree (about an hour and a half)"
+        type: boolean
+        default: false
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  check:
+    name: Format, lints and tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Libraries Bevy builds against
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libasound2-dev libudev-dev libwayland-dev libxkbcommon-dev
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo fmt --check
+      - run: cargo clippy --release --all-targets -- -D warnings
+      - run: cargo clippy --release --all-targets --features steam,gui -- -D warnings
+      - run: cargo test --release
+
+  review:
+    name: Review run
+    needs: check
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Libraries, a virtual display and a software Vulkan renderer
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libasound2-dev libudev-dev libwayland-dev libxkbcommon-dev xvfb mesa-vulkan-drivers libvulkan1
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo build --release
+      - name: Play
+        env:
+          WGPU_BACKEND: vulkan
+          RUST_LOG: warn,chem_alchemy=info
+          FULL: ${{ github.event_name == 'schedule' || inputs.full == true }}
+        run: |
+          if [ "$FULL" = "true" ]; then STEPS=""; else STEPS="--steps 160 --every 40"; fi
+          xvfb-run -a -s "-screen 0 1280x720x24" cargo run --release -- --autoplay --out review $STEPS
+      - name: Keep the report and screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: review-${{ github.run_number }}
+          path: review/
+          retention-days: 30

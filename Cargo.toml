@@ -1,0 +1,31 @@
+
+[package]
+name = "chem_alchemy"
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+bevy = { version = "0.17.2", features = ["default", "bevy_ui"] }
+serde = { version = "1.0", features = ["derive"] }
+ron = "0.11.0"
+thiserror = "2.0.17"
+# Steam achievements, only in builds made with `--features steam`
+steamworks = { version = "0.13.1", optional = true }
+
+[features]
+# Steam integration (achievements); needs the Steam client running to do anything
+steam = ["dep:steamworks"]
+# release builds for players: no console window on Windows
+gui = []
+
+# The builds players download (the release workflow): a release build without its debug
+# symbols, about 60 MB smaller.
+[profile.dist]
+inherits = "release"
+strip = true
+
+# Bevy systems take many parameters and query complex types by design.
+[lints.clippy]
+type_complexity = "allow"
+too_many_arguments = "allow"

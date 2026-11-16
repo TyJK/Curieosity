@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="256" height="256">
+  <path d="M44 26 C44 14 84 14 84 26 L84 102 C84 114 44 114 44 102 Z" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round" />
+  <path d="M50 28 L50 100 M78 28 L78 100" fill="none" stroke="#fff" stroke-width="1.87" stroke-linecap="round" stroke-linejoin="round" opacity="0.55"/>
+  <rect x="36" y="30" width="56" height="8" rx="2" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round" />
+  <rect x="36" y="90" width="56" height="8" rx="2" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round" />
+  <path d="M84 54 L96 54" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round" />
+  <circle cx="106" cy="54" r="9" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round" />
+  <line x1="106" y1="54" x2="106" y2="47" fill="none" stroke="#fff" stroke-width="1.87" stroke-linecap="round" stroke-linejoin="round" />
+  <line x1="99" y1="54" x2="101" y2="54" fill="none" stroke="#fff" stroke-width="1.87" stroke-linecap="round" stroke-linejoin="round" />
+  <line x1="111" y1="54" x2="113" y2="54" fill="none" stroke="#fff" stroke-width="1.87" stroke-linecap="round" stroke-linejoin="round" />
+  <path d="M44 70 L26 70 L26 116" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round" />
+  <path d="M84 78 L104 78 L104 116" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round" />
+  <line x1="14" y1="116" x2="116" y2="116" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round" />
+  <circle cx="40" cy="34" r="1.5" fill="#fff" stroke="none" />
+  <circle cx="50" cy="34" r="1.5" fill="#fff" stroke="none" />
+  <circle cx="78" cy="34" r="1.5" fill="#fff" stroke="none" />
+  <circle cx="88" cy="34" r="1.5" fill="#fff" stroke="none" />
+  <circle cx="40" cy="94" r="1.5" fill="#fff" stroke="none" />
+  <circle cx="50" cy="94" r="1.5" fill="#fff" stroke="none" />
+  <circle cx="78" cy="94" r="1.5" fill="#fff" stroke="none" />
+  <circle cx="88" cy="94" r="1.5" fill="#fff" stroke="none" />
+</svg>

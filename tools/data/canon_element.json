@@ -1,0 +1,124 @@
+{
+  "identity": {
+    "name": "Carbon",
+    "symbol": "C",
+    "atomic_number": 6,
+    "group": 14,
+    "period": 2,
+    "block": "p",
+    "standard_atomic_weight": 12.011,
+    "ground_state_term_symbol": "3P0",
+    "cas_rn": "7440-44-0"
+  },
+  "narratives": {
+    "general_overview": "Carbon is the foundational element of organic chemistry, unique in its ability to form stable, extended chains of C-C bonds (catenation). It exists in the earth's crust primarily as carbonates and in the biosphere as organic matter.",
+    "quantum_behavior": "Carbon's ground state configuration is [He] 2s² 2p². However, it almost exclusively bonds in hybridized states (sp³, sp², sp). The energy difference between the 2s and 2p orbitals is small enough that the promotion of an electron to form four equivalent bonds releases more energy than it consumes, driving its tetravalency.",
+    "nuclear_stability": "Carbon has two stable isotopes, C-12 and C-13. C-12 is the reference standard for atomic mass. The radioisotope C-14 is formed in the upper atmosphere by cosmic ray interaction with Nitrogen-14 and is critical for radiocarbon dating.",
+    "discovery_story": "Known since prehistory, carbon was first recognized as an element in the modern sense by Antoine Lavoisier in 1789. The name derives from the Latin 'carbo' for coal. Its identity as the sole constituent of both charcoal and diamond was established in 1796 by Smithson Tennant, who proved that burning diamond produced only CO2."
+  },
+  "quantum_mechanics": {
+    "electron_configuration": {
+      "shorthand": "[He] 2s² 2p²",
+      "full": "1s² 2s² 2p²",
+      "valence_shell": "2s² 2p²",
+      "semantic_filling": {
+        "1s": 2,
+        "2s": 2,
+        "2p": 2
+      }
+    },
+    "ionization_energies_kj_mol": [1086.5, 2352.6, 4620.5, 6222.7, 37831, 47277],
+    "electron_affinity_kj_mol": 121.77,
+    "electronegativity": {
+      "pauling": 2.55,
+      "allen": 2.544,
+      "mulliken": 2.6
+    },
+    "atomic_radii_pm": {
+      "calculated": 67,
+      "van_der_waals": 170,
+      "covalent_single": 75,
+      "covalent_triple": 60,
+      "metallic": 70
+    },
+    "magnetic_properties": {
+      "magnetic_ordering": "Diamagnetic",
+      "molar_magnetic_susceptibility": -5.9e-6
+    }
+  },
+  "nuclear_data": {
+    "isotopes": [
+      {
+        "mass_number": 12,
+        "symbol": "12C",
+        "is_stable": true,
+        "half_life_formatted": "Stable",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 98.93,
+        "nuclear_spin": "0+",
+        "binding_energy_per_nucleon_mev": 7.68
+      },
+      {
+        "mass_number": 13,
+        "symbol": "13C",
+        "is_stable": true,
+        "half_life_formatted": "Stable",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 1.07,
+        "nuclear_spin": "1/2-",
+        "binding_energy_per_nucleon_mev": 7.47
+      },
+      {
+        "mass_number": 14,
+        "symbol": "14C",
+        "is_stable": false,
+        "half_life_formatted": "5730 years",
+        "half_life_seconds": 180841920000,
+        "decay_modes": [
+          { "mode": "Beta-", "energy_mev": 0.156 }
+        ],
+        "abundance_percent": 0.0000000001,
+        "nuclear_spin": "0+",
+        "binding_energy_per_nucleon_mev": 7.52
+      }
+    ]
+  },
+  "media": {
+    "images": {
+      "icon_symbol": "path/to/periodic_card.svg",
+      "atom_2d_shell": "path/to/bohr_model.svg",
+      "emission_spectrum_visible": "path/to/spectrum.png"
+    },
+    "models_3d": {
+      "standard_state_lattice": "path/to/lattice.glb",
+      "orbital_visualization": "path/to/orbital.glb"
+    }
+  },
+  "allotropes": [
+    {
+      "name": "Graphite",
+      "type": "Crystalline (Hexagonal)",
+      "ref_file": "7782-42-5.json",
+      "description": "Thermodynamically stable form at STP; layered structure."
+    },
+    {
+      "name": "Diamond",
+      "type": "Crystalline (Cubic)",
+      "ref_file": "7782-40-3.json",
+      "description": "Metastable high-pressure form; insulator; hardest natural solid."
+    },
+    {
+      "name": "Buckminsterfullerene",
+      "type": "Molecular (0D)",
+      "ref_file": "99685-96-8.json",
+      "description": "C60 Truncated icosahedron."
+    }
+  ],
+  "discovery": {
+    "discoverer": "Ancient",
+    "year": null,
+    "location": "Prehistoric civilizations"
+  }
+}

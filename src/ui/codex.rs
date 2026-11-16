@@ -1,0 +1,1023 @@
+// src/ui/codex.rs
+//
+// The Substance Library: every substance the player has discovered, searchable and
+// filterable on the left; on the right, its page: structure (or Bohr model), formula,
+// state and tags, the description, physical data, the known reactions that make it and
+// use it (click one to open it in the Reaction Library), and its references.
+use bevy::prelude::*;
+use bevy::ui::ScrollPosition;
+
+use crate::components::format_formula;
+use crate::data::common::{MatterState, Property};
+use crate::data::reactions::Reaction;
+use crate::data::substances::{Substance, Substances};
+use crate::resources::player_progress::PlayerProgress;
+use crate::resources::recipe_database::RecipeDatabase;
+use crate::resources::ui_fonts::UiFonts;
+use crate::ui::inventory::{element_tile_color, is_element_formula, matches_category, InvCategory};
+use crate::ui::process_toolbar::{vessel_art_path, vessel_name};
+use crate::ui::reaction_library::ReactionLibState;
+use crate::ui::theme::{self, Kind, Skin, Weight};
+use crate::GameData;
+
+#[derive(Resource, Default)]
+pub struct CodexState {
+    pub open: bool,
+    pub selected: Option<u32>,
+}
+
+#[derive(Resource, Default)]
+pub struct CodexFilter {
+    pub category: InvCategory,
+    pub search: String,
+}
+
+const CODEX_TABS: [(InvCategory, &str); 9] = [
+    (InvCategory::All, "All"),
+    (InvCategory::Elements, "Elements"),
+    (InvCategory::Compounds, "Compounds"),
+    (InvCategory::Acids, "Acids"),
+    (InvCategory::Bases, "Bases"),
+    (InvCategory::Metals, "Metals"),
+    (InvCategory::Gas, "Gas"),
+    (InvCategory::Liquid, "Liquid"),
+    (InvCategory::Solid, "Solid"),
+];
+
+const LIST_W: f32 = 380.0;
+
+#[derive(Component)]
+pub struct CodexCloseButton;
+#[derive(Component)]
+pub struct CodexRoot;
+#[derive(Component)]
+pub struct CodexScrollable {
+    pub is_left: bool,
+}
+#[derive(Component)]
+pub struct CodexListContent;
+/// The "Text: Wikipedia, CC BY-SA 4.0." line under a page's text.
+#[derive(Component)]
+pub struct CodexTextCredit;
+#[derive(Component)]
+pub struct CodexDetail;
+#[derive(Component)]
+pub struct CodexCategoryTab(pub InvCategory);
+#[derive(Component)]
+pub struct CodexSearchText;
+#[derive(Component)]
+pub struct CodexCountText;
+#[derive(Component)]
+pub struct CodexEntry(pub u32);
+#[derive(Component)]
+pub struct CodexRefLink(pub String);
+/// A reaction row on a substance page: opens it in the Reaction Library.
+#[derive(Component)]
+pub struct CodexReactionLink(pub u32);
+
+/// While the review run checks the link buttons, the URLs they would open are collected
+/// here instead of starting a browser.
+pub static URL_SINK: std::sync::Mutex<Option<Vec<String>>> = std::sync::Mutex::new(None);
+
+pub fn open_url(url: &str) {
+    if let Ok(mut sink) = URL_SINK.lock() {
+        if let Some(urls) = sink.as_mut() {
+            urls.push(url.to_string());
+            return;
+        }
+    }
+    #[cfg(target_os = "windows")]
+    let _ = std::process::Command::new("cmd").args(["/C", "start", "", url]).spawn();
+    #[cfg(target_os = "macos")]
+    let _ = std::process::Command::new("open").arg(url).spawn();
+    #[cfg(all(unix, not(target_os = "macos")))]
+    let _ = std::process::Command::new("xdg-open").arg(url).spawn();
+    let _ = url;
+}
+
+fn state_name(s: MatterState) -> &'static str {
+    match s {
+        MatterState::Solid => "Solid",
+        MatterState::Liquid => "Liquid",
+        MatterState::Gas => "Gas",
+        MatterState::Plasma => "Plasma",
+        MatterState::Aqueous => "In solution",
+        MatterState::SupercriticalFluid => "Supercritical",
+    }
+}
+
+fn state_color(s: MatterState) -> Color {
+    match s {
+        MatterState::Solid => Color::srgb(0.80, 0.78, 0.95),
+        MatterState::Liquid | MatterState::Aqueous => Color::srgb(0.40, 0.72, 1.0),
+        MatterState::Gas => Color::srgb(0.70, 0.92, 0.95),
+        _ => theme::VIOLET,
+    }
+}
+
+/// (label, value) cards for a substance's physical data.
+fn facts(sub: &Substance) -> Vec<(&'static str, String)> {
+    let mut f = Vec::new();
+    if let Some(ei) = &sub.element_info {
+        f.push(("Atomic number", ei.atomic_number.to_string()));
+        f.push(("Atomic weight", format!("{:.4}", ei.atomic_weight)));
+        if let Some(g) = ei.group {
+            f.push(("Group", g.to_string()));
+        }
+        if let Some(p) = ei.period {
+            f.push(("Period", p.to_string()));
+        }
+        if let Some(b) = &ei.block {
+            f.push(("Block", b.clone()));
+        }
+        if let Some(ec) = &ei.electron_config {
+            f.push(("Configuration", ec.clone()));
+        }
+        if let Some(en) = ei.electronegativity_pauling {
+            f.push(("Electronegativity", format!("{:.2}", en)));
+        }
+        if let Some(i) = ei.first_ionization_kj_mol {
+            f.push(("1st ionisation", format!("{:.0} kJ/mol", i)));
+        }
+        if let Some(r) = ei.atomic_radius_pm {
+            f.push(("Atomic radius", format!("{:.0} pm", r)));
+        }
+        if let Some(d) = &ei.discoverer {
+            f.push(("Discovered by", d.clone()));
+        }
+        if let Some(y) = ei.discovery_year {
+            f.push(("Discovered", y.to_string()));
+        }
+    } else if sub.molar_mass_g_mol > 0.0 {
+        f.push(("Molar mass", format!("{:.2} g/mol", sub.molar_mass_g_mol)));
+    }
+    if let Some(mp) = sub.melting_point_c {
+        f.push(("Melts at", format!("{:.0} °C", mp)));
+    }
+    if let Some(bp) = sub.boiling_point_c {
+        f.push(("Boils at", format!("{:.0} °C", bp)));
+    }
+    if let Some(d) = sub.density_g_cm3 {
+        f.push(("Density", format!("{:.2} g/cm³", d)));
+    }
+    if let Some(s) = sub.solubility_g_per_100ml_h2o {
+        f.push(("Solubility", format!("{:.1} g/100 mL", s)));
+    }
+    if let Some(h) = sub.enthalpy_formation_kj_mol {
+        f.push(("ΔHf°", format!("{:.0} kJ/mol", h)));
+    }
+    if let Some(a) = &sub.appearance {
+        f.push(("Appearance", a.clone()));
+    }
+    f
+}
+
+fn tags(sub: &Substance) -> Vec<(&'static str, Color)> {
+    let mut t = Vec::new();
+    for p in &sub.properties {
+        match p {
+            Property::IsAcid => t.push(("Acid", theme::GOLD)),
+            Property::IsBase => t.push(("Base", Color::srgb(0.55, 0.75, 1.0))),
+            Property::IsMetal if sub.element_info.is_some() || is_element_formula(&sub.formula) => {
+                t.push(("Metal", Color::srgb(0.80, 0.82, 0.90)))
+            }
+            Property::IsRadioactive => t.push(("Radioactive", theme::GREEN)),
+            Property::IsPolymer => t.push(("Polymer", Color::srgb(1.0, 0.5, 0.8))),
+            Property::IsMonomer => t.push(("Monomer", Color::srgb(1.0, 0.65, 0.85))),
+            _ => {}
+        }
+    }
+    t
+}
+
+pub fn spawn_codex(mut commands: Commands, fonts: Res<UiFonts>, assets: Res<AssetServer>) {
+    let fonts = &*fonts;
+    let assets = &*assets;
+    commands
+        .spawn((CodexRoot, theme::view_root(600), Name::new("CodexRoot")))
+        .insert(Node {
+            position_type: PositionType::Absolute,
+            left: Val::Px(0.0),
+            right: Val::Px(0.0),
+            top: Val::Px(theme::HEADER_H),
+            bottom: Val::Px(0.0),
+            flex_direction: FlexDirection::Row,
+            display: Display::None,
+            ..default()
+        })
+        .with_children(|root| {
+            // --- left column: header, search, categories, list ---
+            root.spawn((
+                Node {
+                    width: Val::Px(LIST_W),
+                    min_width: Val::Px(LIST_W),
+                    flex_shrink: 0.0,
+                    height: Val::Percent(100.0),
+                    flex_direction: FlexDirection::Column,
+                    padding: UiRect::new(Val::Px(16.0), Val::Px(12.0), Val::Px(14.0), Val::Px(0.0)),
+                    row_gap: Val::Px(10.0),
+                    border: UiRect::right(Val::Px(1.0)),
+                    ..default()
+                },
+                BackgroundColor(theme::SURFACE),
+                BorderColor::all(theme::LINE),
+            ))
+            .with_children(|col| {
+                col.spawn(Node {
+                    justify_content: JustifyContent::SpaceBetween,
+                    align_items: AlignItems::Center,
+                    flex_shrink: 0.0,
+                    ..default()
+                })
+                .with_children(|hdr| {
+                    hdr.spawn(Node { flex_direction: FlexDirection::Column, ..default() }).with_children(|t| {
+                        t.spawn(theme::label(fonts, "Substance Library", theme::XL, Weight::Semibold, theme::TEXT));
+                        t.spawn((CodexCountText, theme::label(fonts, "", theme::XS, Weight::Regular, theme::TEXT_3)));
+                    });
+                    theme::spawn_icon_button(hdr, assets, "close", 32.0, theme::TEXT_2, CodexCloseButton);
+                });
+                // search field (type anywhere while the library is open)
+                col.spawn((
+                    Node {
+                        height: Val::Px(38.0),
+                        flex_shrink: 0.0,
+                        align_items: AlignItems::Center,
+                        column_gap: Val::Px(9.0),
+                        padding: UiRect::horizontal(Val::Px(11.0)),
+                        border: UiRect::all(Val::Px(1.0)),
+                        ..default()
+                    },
+                    BorderRadius::all(Val::Px(theme::R_MD)),
+                    BackgroundColor(theme::BG),
+                    BorderColor::all(theme::LINE_STRONG),
+                ))
+                .with_children(|s| {
+                    s.spawn(theme::icon(assets, "search", 16.0, theme::TEXT_3));
+                    s.spawn((
+                        CodexSearchText,
+                        theme::label(
+                            fonts,
+                            "Type to search names and formulas",
+                            theme::SM,
+                            Weight::Regular,
+                            theme::TEXT_3,
+                        ),
+                    ));
+                });
+                col.spawn(Node {
+                    flex_wrap: FlexWrap::Wrap,
+                    column_gap: Val::Px(5.0),
+                    row_gap: Val::Px(5.0),
+                    flex_shrink: 0.0,
+                    ..default()
+                })
+                .with_children(|bar| {
+                    for (cat, label) in CODEX_TABS {
+                        bar.spawn((
+                            theme::button(
+                                Kind::Tab,
+                                Node {
+                                    height: Val::Px(24.0),
+                                    padding: UiRect::horizontal(Val::Px(10.0)),
+                                    align_items: AlignItems::Center,
+                                    ..default()
+                                },
+                                99.0,
+                            ),
+                            CodexCategoryTab(cat),
+                        ))
+                        .with_children(|b| {
+                            b.spawn((
+                                theme::label(fonts, label, 11.5, Weight::Semibold, theme::TEXT),
+                                Pickable::IGNORE,
+                            ));
+                        });
+                    }
+                });
+                col.spawn((
+                    CodexScrollable { is_left: true },
+                    ScrollPosition::default(),
+                    Node {
+                        flex_grow: 1.0,
+                        flex_basis: Val::Px(0.0),
+                        min_height: Val::Px(0.0),
+                        overflow: Overflow::scroll_y(),
+                        padding: UiRect::bottom(Val::Px(12.0)),
+                        ..default()
+                    },
+                ))
+                .with_children(|scroll| {
+                    scroll.spawn((
+                        CodexListContent,
+                        Node {
+                            width: Val::Percent(100.0),
+                            flex_direction: FlexDirection::Column,
+                            row_gap: Val::Px(4.0),
+                            ..default()
+                        },
+                    ));
+                });
+            });
+            // --- right column: the substance page ---
+            root.spawn((
+                CodexScrollable { is_left: false },
+                ScrollPosition::default(),
+                Node {
+                    flex_grow: 1.0,
+                    height: Val::Percent(100.0),
+                    overflow: Overflow::scroll_y(),
+                    padding: UiRect::new(Val::Px(32.0), Val::Px(32.0), Val::Px(26.0), Val::Px(40.0)),
+                    ..default()
+                },
+            ))
+            .with_children(|pane| {
+                pane.spawn((
+                    CodexDetail,
+                    Node {
+                        width: Val::Percent(100.0),
+                        max_width: Val::Px(980.0),
+                        flex_direction: FlexDirection::Column,
+                        row_gap: Val::Px(14.0),
+                        ..default()
+                    },
+                ));
+            });
+        });
+}
+
+/// Show/hide the library; the close button returns to the lab.
+pub fn codex_button_system(
+    closes: Query<&Interaction, (Changed<Interaction>, With<CodexCloseButton>)>,
+    mut state: ResMut<CodexState>,
+    mut root_q: Query<&mut Node, With<CodexRoot>>,
+) {
+    for i in &closes {
+        if *i == Interaction::Pressed {
+            state.open = false;
+        }
+    }
+    if let Ok(mut node) = root_q.single_mut() {
+        let d = if state.open { Display::Flex } else { Display::None };
+        if node.display != d {
+            node.display = d;
+        }
+    }
+}
+
+// --- list ---------------------------------------------------------------------------------
+pub fn populate_codex_list_system(
+    mut commands: Commands,
+    state: Res<CodexState>,
+    filter: Res<CodexFilter>,
+    game_data: Res<GameData>,
+    substances_assets: Res<Assets<Substances>>,
+    progress: Res<PlayerProgress>,
+    list_q: Query<Entity, With<CodexListContent>>,
+    mut tabs: Query<(&CodexCategoryTab, &mut Skin)>,
+    mut rows: Query<(&CodexEntry, &mut Skin), Without<CodexCategoryTab>>,
+    mut count_q: Query<&mut Text, With<CodexCountText>>,
+    mut list_scroll: Query<(&CodexScrollable, &mut ScrollPosition)>,
+    fonts: Res<UiFonts>,
+    assets: Res<AssetServer>,
+    mut prev_open: Local<bool>,
+) {
+    let just_opened = state.open && !*prev_open;
+    *prev_open = state.open;
+    // keep the selection highlight current without rebuilding the list
+    if state.is_changed() {
+        for (e, mut skin) in &mut rows {
+            let a = Some(e.0) == state.selected;
+            if skin.active != a {
+                skin.active = a;
+            }
+        }
+    }
+    let should = state.open && (just_opened || progress.is_changed() || filter.is_changed());
+    if !should {
+        return;
+    }
+    let Some(subs) = substances_assets.get(&game_data.substances) else {
+        return;
+    };
+    let Ok(list) = list_q.single() else {
+        return;
+    };
+
+    if just_opened || filter.is_changed() {
+        for (marker, mut sp) in &mut list_scroll {
+            if marker.is_left {
+                sp.0.y = 0.0;
+            }
+        }
+    }
+    for (tab, mut skin) in &mut tabs {
+        let a = tab.0 == filter.category;
+        if skin.active != a {
+            skin.active = a;
+        }
+    }
+
+    let q = filter.search.to_lowercase();
+    let mut items: Vec<&Substance> = subs
+        .0
+        .values()
+        .filter(|s| {
+            progress.discovered.contains(&s.id)
+                && matches_category(s, filter.category)
+                && (q.is_empty() || s.name.to_lowercase().contains(&q) || s.formula.to_lowercase().contains(&q))
+        })
+        .collect();
+    items.sort_by(|a, b| {
+        let ka = a.element_info.as_ref().map(|e| (0u8, e.atomic_number, String::new())).unwrap_or((
+            1,
+            0,
+            a.name.to_lowercase(),
+        ));
+        let kb = b.element_info.as_ref().map(|e| (0u8, e.atomic_number, String::new())).unwrap_or((
+            1,
+            0,
+            b.name.to_lowercase(),
+        ));
+        ka.cmp(&kb)
+    });
+    if let Ok(mut t) = count_q.single_mut() {
+        t.0 = format!("{} of {} discovered shown", items.len(), progress.discovered.len());
+    }
+
+    commands.entity(list).despawn_children();
+    commands.entity(list).with_children(|parent| {
+        for sub in &items {
+            let mut row = parent.spawn((
+                theme::button(
+                    Kind::Row,
+                    Node {
+                        width: Val::Percent(100.0),
+                        align_items: AlignItems::Center,
+                        column_gap: Val::Px(10.0),
+                        padding: UiRect::axes(Val::Px(8.0), Val::Px(6.0)),
+                        ..default()
+                    },
+                    theme::R_MD,
+                ),
+                CodexEntry(sub.id),
+            ));
+            if Some(sub.id) == state.selected {
+                row.insert(Skin::active(Kind::Row, true));
+            }
+            row.with_children(|row| {
+                spawn_thumb(row, &fonts, &assets, sub, 36.0);
+                row.spawn((
+                    Node { flex_direction: FlexDirection::Column, flex_shrink: 1.0, ..default() },
+                    Pickable::IGNORE,
+                ))
+                .with_children(|c| {
+                    c.spawn((
+                        theme::label(&fonts, sub.name.clone(), theme::SM, Weight::Semibold, theme::TEXT),
+                        Pickable::IGNORE,
+                    ));
+                    c.spawn((
+                        theme::label(&fonts, format_formula(&sub.formula), theme::XS, Weight::Regular, theme::CYAN),
+                        Pickable::IGNORE,
+                    ));
+                });
+            });
+        }
+        if items.is_empty() {
+            parent.spawn(theme::label(&fonts, "Nothing matches yet.", theme::SM, Weight::Regular, theme::TEXT_3));
+        }
+    });
+}
+
+/// A small picture of a substance: its element symbol in block colour, or its structure.
+fn spawn_thumb(parent: &mut ChildSpawnerCommands, fonts: &UiFonts, assets: &AssetServer, sub: &Substance, size: f32) {
+    if sub.element_info.is_some() || is_element_formula(&sub.formula) {
+        let c = element_tile_color(&sub.formula);
+        parent
+            .spawn((
+                Node {
+                    width: Val::Px(size),
+                    height: Val::Px(size),
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::Center,
+                    flex_shrink: 0.0,
+                    border: UiRect::all(Val::Px(1.0)),
+                    ..default()
+                },
+                BorderRadius::all(Val::Px(theme::R_SM)),
+                BackgroundColor(theme::mix(theme::RAISED, c, 0.12)),
+                BorderColor::all(c.with_alpha(0.5)),
+                Pickable::IGNORE,
+            ))
+            .with_children(|t| {
+                let sym: String = sub.formula.chars().filter(|ch| ch.is_alphabetic()).collect();
+                t.spawn((theme::label(fonts, sym, size * 0.45, Weight::Semibold, c), Pickable::IGNORE));
+            });
+    } else {
+        parent.spawn((
+            ImageNode::new(assets.load(format!("structures/{}.png", sub.id))),
+            Node { width: Val::Px(size), height: Val::Px(size), flex_shrink: 0.0, ..default() },
+            Pickable::IGNORE,
+        ));
+    }
+}
+
+pub fn codex_entry_click_system(
+    q: Query<(&Interaction, &CodexEntry), (Changed<Interaction>, With<Button>)>,
+    mut state: ResMut<CodexState>,
+) {
+    for (interaction, entry) in &q {
+        if *interaction == Interaction::Pressed {
+            state.selected = Some(entry.0);
+        }
+    }
+}
+
+pub fn codex_category_tab_system(
+    q: Query<(&Interaction, &CodexCategoryTab), (Changed<Interaction>, With<Button>)>,
+    mut filter: ResMut<CodexFilter>,
+) {
+    for (interaction, tab) in &q {
+        if *interaction == Interaction::Pressed && filter.category != tab.0 {
+            filter.category = tab.0;
+        }
+    }
+}
+
+/// Map a physical key to the character it types (lowercase; search is case-insensitive).
+pub fn keycode_to_char(k: KeyCode) -> Option<char> {
+    use KeyCode::*;
+    Some(match k {
+        KeyA => 'a',
+        KeyB => 'b',
+        KeyC => 'c',
+        KeyD => 'd',
+        KeyE => 'e',
+        KeyF => 'f',
+        KeyG => 'g',
+        KeyH => 'h',
+        KeyI => 'i',
+        KeyJ => 'j',
+        KeyK => 'k',
+        KeyL => 'l',
+        KeyM => 'm',
+        KeyN => 'n',
+        KeyO => 'o',
+        KeyP => 'p',
+        KeyQ => 'q',
+        KeyR => 'r',
+        KeyS => 's',
+        KeyT => 't',
+        KeyU => 'u',
+        KeyV => 'v',
+        KeyW => 'w',
+        KeyX => 'x',
+        KeyY => 'y',
+        KeyZ => 'z',
+        Digit0 | Numpad0 => '0',
+        Digit1 | Numpad1 => '1',
+        Digit2 | Numpad2 => '2',
+        Digit3 | Numpad3 => '3',
+        Digit4 | Numpad4 => '4',
+        Digit5 | Numpad5 => '5',
+        Digit6 | Numpad6 => '6',
+        Digit7 | Numpad7 => '7',
+        Digit8 | Numpad8 => '8',
+        Digit9 | Numpad9 => '9',
+        Space => ' ',
+        Minus => '-',
+        _ => return None,
+    })
+}
+
+/// While the library is open, typing edits the search (Backspace deletes).
+pub fn codex_search_input_system(
+    keys: Res<ButtonInput<KeyCode>>,
+    state: Res<CodexState>,
+    mut filter: ResMut<CodexFilter>,
+    mut text_q: Query<(&mut Text, &mut TextColor), With<CodexSearchText>>,
+) {
+    if !state.open {
+        return;
+    }
+    let mut changed = false;
+    for k in keys.get_just_pressed() {
+        match k {
+            KeyCode::Backspace | KeyCode::Delete => {
+                filter.search.pop();
+                changed = true;
+            }
+            _ => {
+                if let Some(c) = keycode_to_char(*k) {
+                    filter.search.push(c);
+                    changed = true;
+                }
+            }
+        }
+    }
+    if changed {
+        if let Ok((mut text, mut color)) = text_q.single_mut() {
+            if filter.search.is_empty() {
+                text.0 = "Type to search names and formulas".to_string();
+                color.0 = theme::TEXT_3;
+            } else {
+                text.0 = format!("{}|", filter.search);
+                color.0 = theme::TEXT;
+            }
+        }
+    }
+}
+
+// --- the substance page ----------------------------------------------------------------------
+fn known_reaction(r: &Reaction, progress: &PlayerProgress) -> bool {
+    r.reactants.iter().all(|s| progress.discovered.contains(&s.substance_id))
+        && r.products.iter().all(|s| progress.discovered.contains(&s.substance_id))
+}
+
+pub fn equation_text(r: &Reaction, subs: &Substances) -> String {
+    let side = |pts: &[crate::data::common::StoichPoint]| {
+        pts.iter()
+            .map(|p| {
+                let f = subs
+                    .0
+                    .get(&p.substance_id)
+                    .map(|s| format_formula(&s.formula))
+                    .unwrap_or_else(|| format!("#{}", p.substance_id));
+                if p.moles > 1 {
+                    format!("{} {}", p.moles, f)
+                } else {
+                    f
+                }
+            })
+            .collect::<Vec<_>>()
+            .join(" + ")
+    };
+    format!("{}  →  {}", side(&r.reactants), side(&r.products))
+}
+
+pub fn update_codex_detail_system(
+    mut commands: Commands,
+    state: Res<CodexState>,
+    progress: Res<PlayerProgress>,
+    db: Option<Res<RecipeDatabase>>,
+    game_data: Res<GameData>,
+    substances_assets: Res<Assets<Substances>>,
+    fonts: Res<UiFonts>,
+    asset_server: Res<AssetServer>,
+    detail_q: Query<Entity, With<CodexDetail>>,
+    mut detail_scroll: Query<(&CodexScrollable, &mut ScrollPosition)>,
+) {
+    // only while the library is showing (opening it is itself a change)
+    if !state.open || !(state.is_changed() || progress.is_changed()) {
+        return;
+    }
+    let Ok(detail) = detail_q.single() else {
+        return;
+    };
+    if state.is_changed() {
+        for (marker, mut sp) in &mut detail_scroll {
+            if !marker.is_left {
+                sp.0.y = 0.0;
+            }
+        }
+    }
+    commands.entity(detail).despawn_children();
+    let fonts = &*fonts;
+    let assets = &*asset_server;
+
+    let Some(subs) = substances_assets.get(&game_data.substances) else {
+        return;
+    };
+    let Some(sub) = state.selected.and_then(|sel| subs.0.get(&sel)) else {
+        commands.entity(detail).with_children(|p| {
+            p.spawn(Node {
+                flex_direction: FlexDirection::Column,
+                row_gap: Val::Px(8.0),
+                margin: UiRect::top(Val::Px(80.0)),
+                align_items: AlignItems::Center,
+                ..default()
+            })
+            .with_children(|c| {
+                c.spawn(theme::icon(assets, "book", 56.0, theme::LINE_STRONG));
+                c.spawn(theme::label(fonts, "Pick a substance", theme::XL, Weight::Semibold, theme::TEXT_2));
+                c.spawn(theme::label(
+                    fonts,
+                    "Everything you discover is written up here, with links to read more.",
+                    theme::SM,
+                    Weight::Regular,
+                    theme::TEXT_3,
+                ));
+            });
+        });
+        return;
+    };
+
+    let tint = sub
+        .color_hex
+        .as_deref()
+        .and_then(|h| u32::from_str_radix(h.trim_start_matches('#'), 16).ok())
+        .map(|v| Color::srgb_u8((v >> 16) as u8, (v >> 8) as u8, v as u8))
+        .unwrap_or(theme::CYAN);
+    let img_path = match &sub.element_info {
+        Some(ei) => format!("bohr/{}.png", ei.atomic_number),
+        None => format!("structures/{}.png", sub.id),
+    };
+
+    commands.entity(detail).with_children(|p| {
+        // --- hero: picture + name, formula, tags, link ---
+        p.spawn(Node { column_gap: Val::Px(26.0), align_items: AlignItems::Center, ..default() }).with_children(
+            |hero| {
+                hero.spawn((
+                    Node {
+                        width: Val::Px(230.0),
+                        height: Val::Px(230.0),
+                        flex_shrink: 0.0,
+                        padding: UiRect::all(Val::Px(16.0)),
+                        border: UiRect::all(Val::Px(1.0)),
+                        ..default()
+                    },
+                    BorderRadius::all(Val::Px(theme::R_LG)),
+                    BackgroundGradient::from(RadialGradient {
+                        color_space: default(),
+                        position: UiPosition::CENTER,
+                        shape: RadialGradientShape::FarthestCorner,
+                        stops: vec![ColorStop::auto(theme::mix(theme::RAISED, tint, 0.22)), ColorStop::auto(theme::BG)],
+                    }),
+                    BorderColor::all(theme::mix(theme::LINE, tint, 0.3)),
+                ))
+                .with_children(|card| {
+                    card.spawn((
+                        ImageNode::new(assets.load(img_path)),
+                        Node { width: Val::Percent(100.0), height: Val::Percent(100.0), ..default() },
+                    ));
+                    // elements also carry their periodic tile in the corner
+                    if let Some(ei) = &sub.element_info {
+                        let c = element_tile_color(&sub.formula);
+                        card.spawn((
+                            Node {
+                                position_type: PositionType::Absolute,
+                                left: Val::Px(10.0),
+                                top: Val::Px(10.0),
+                                width: Val::Px(54.0),
+                                height: Val::Px(60.0),
+                                flex_direction: FlexDirection::Column,
+                                align_items: AlignItems::Center,
+                                justify_content: JustifyContent::Center,
+                                border: UiRect::all(Val::Px(1.0)),
+                                ..default()
+                            },
+                            BorderRadius::all(Val::Px(theme::R_SM)),
+                            BackgroundColor(theme::mix(theme::BG, c, 0.16)),
+                            BorderColor::all(c.with_alpha(0.7)),
+                        ))
+                        .with_children(|t| {
+                            t.spawn(theme::label(
+                                fonts,
+                                ei.atomic_number.to_string(),
+                                10.0,
+                                Weight::Regular,
+                                theme::TEXT_2,
+                            ));
+                            t.spawn(theme::label(fonts, sub.formula.clone(), 24.0, Weight::Bold, c));
+                        });
+                    }
+                });
+                hero.spawn(Node {
+                    flex_direction: FlexDirection::Column,
+                    row_gap: Val::Px(8.0),
+                    flex_shrink: 1.0,
+                    ..default()
+                })
+                .with_children(|info| {
+                    info.spawn(theme::label(fonts, sub.name.clone(), theme::XXL, Weight::Bold, theme::TEXT));
+                    info.spawn(theme::label(
+                        fonts,
+                        format_formula(&sub.formula),
+                        theme::LG,
+                        Weight::Semibold,
+                        theme::CYAN,
+                    ));
+                    info.spawn(Node {
+                        flex_wrap: FlexWrap::Wrap,
+                        column_gap: Val::Px(6.0),
+                        row_gap: Val::Px(6.0),
+                        ..default()
+                    })
+                    .with_children(|chips| {
+                        theme::spawn_chip(chips, fonts, state_name(sub.state), state_color(sub.state));
+                        for (t, c) in tags(sub) {
+                            theme::spawn_chip(chips, fonts, t, c);
+                        }
+                    });
+                    if let Some((_, url)) = sub.references.iter().find(|(l, _)| l.to_lowercase().contains("wiki")) {
+                        info.spawn(Node { margin: UiRect::top(Val::Px(6.0)), ..default() }).with_children(|b| {
+                            theme::spawn_button(
+                                b,
+                                fonts,
+                                assets,
+                                Kind::Primary,
+                                Some("external"),
+                                "Read on Wikipedia",
+                                CodexRefLink(url.clone()),
+                            );
+                        });
+                    }
+                });
+            },
+        );
+
+        // --- the story ---
+        let mut story: Vec<String> = Vec::new();
+        if let Some(d) = &sub.description {
+            story.push(d.clone());
+        }
+        if let Some(ei) = &sub.element_info {
+            if let Some(o) = &ei.overview {
+                story.push(o.clone());
+            }
+            if let Some(ds) = &ei.discovery_story {
+                story.push(ds.clone());
+            }
+        }
+        // one paragraph per line of text (scraped text can carry stray blank lines)
+        for s in &story {
+            for line in s.lines().map(str::trim).filter(|l| !l.is_empty()) {
+                p.spawn(theme::para(fonts, line.to_string(), theme::MD, theme::TEXT_2, Val::Px(820.0)));
+            }
+        }
+        // where the text comes from, as its licence asks
+        let mut credit: Vec<String> =
+            sub.text_source.as_deref().and_then(crate::ui::credits::text_credit).into_iter().collect();
+        if sub.element_info.as_ref().is_some_and(|e| e.overview.is_some())
+            && sub.text_source.as_deref() != Some("Wikipedia")
+        {
+            credit.push("Overview: Wikipedia, CC BY-SA 4.0.".to_string());
+        }
+        if !credit.is_empty() {
+            p.spawn((CodexTextCredit, theme::para(fonts, credit.join("  "), theme::XS, theme::TEXT_3, Val::Px(820.0))));
+        }
+
+        // --- facts ---
+        let facts = facts(sub);
+        if !facts.is_empty() {
+            theme::spawn_section_title(p, fonts, "Properties");
+            p.spawn(Node { flex_wrap: FlexWrap::Wrap, column_gap: Val::Px(10.0), row_gap: Val::Px(10.0), ..default() })
+                .with_children(|grid| {
+                    for (k, v) in facts {
+                        grid.spawn((
+                            Node {
+                                min_width: Val::Px(150.0),
+                                max_width: Val::Px(320.0),
+                                flex_direction: FlexDirection::Column,
+                                row_gap: Val::Px(2.0),
+                                padding: UiRect::axes(Val::Px(12.0), Val::Px(9.0)),
+                                border: UiRect::all(Val::Px(1.0)),
+                                ..default()
+                            },
+                            BorderRadius::all(Val::Px(theme::R_MD)),
+                            BackgroundColor(theme::RAISED),
+                            BorderColor::all(theme::LINE),
+                        ))
+                        .with_children(|c| {
+                            c.spawn(theme::label(fonts, k.to_uppercase(), 10.0, Weight::Bold, theme::TEXT_3));
+                            c.spawn(theme::para(fonts, v, theme::MD, theme::TEXT, Val::Px(296.0)));
+                        });
+                    }
+                });
+        }
+
+        // --- reactions that make it / use it ---
+        if let Some(db) = db.as_ref() {
+            let makes: Vec<&Reaction> =
+                db.authored.iter().filter(|r| r.products.iter().any(|s| s.substance_id == sub.id)).collect();
+            let uses: Vec<&Reaction> =
+                db.authored.iter().filter(|r| r.reactants.iter().any(|s| s.substance_id == sub.id)).collect();
+            for (title, list) in [("How it is made", makes), ("What it is used for", uses)] {
+                if list.is_empty() {
+                    continue;
+                }
+                theme::spawn_section_title(p, fonts, title);
+                let known: Vec<&&Reaction> = list.iter().filter(|r| known_reaction(r, &progress)).collect();
+                for r in &known {
+                    reaction_row(p, fonts, assets, r, subs);
+                }
+                let hidden = list.len() - known.len();
+                if hidden > 0 {
+                    p.spawn(theme::label(
+                        fonts,
+                        format!(
+                            "{} more you have not discovered yet{}",
+                            hidden,
+                            if known.is_empty() { "" } else { "." }
+                        ),
+                        theme::SM,
+                        Weight::Regular,
+                        theme::TEXT_3,
+                    ));
+                }
+            }
+        }
+
+        // --- the small print ---
+        let mut extra: Vec<String> = Vec::new();
+        if !sub.uses.is_empty() {
+            extra.push(format!("Uses: {}", sub.uses.join(", ")));
+        }
+        if let Some(h) = &sub.hazard_summary {
+            extra.push(format!("Hazards (GHS, via PubChem): {}", h));
+        }
+        if !sub.synonyms.is_empty() {
+            let syn: Vec<String> = sub.synonyms.iter().take(8).cloned().collect();
+            extra.push(format!("Also known as: {}", syn.join(", ")));
+        }
+        if !extra.is_empty() {
+            theme::spawn_section_title(p, fonts, "Notes");
+            for e in extra {
+                p.spawn(theme::para(fonts, e, theme::SM, theme::TEXT_2, Val::Px(820.0)));
+            }
+        }
+        let others: Vec<&(String, String)> =
+            sub.references.iter().filter(|(l, _)| !l.to_lowercase().contains("wiki")).collect();
+        if !others.is_empty() {
+            theme::spawn_section_title(p, fonts, "References");
+            p.spawn(Node { flex_wrap: FlexWrap::Wrap, column_gap: Val::Px(8.0), row_gap: Val::Px(8.0), ..default() })
+                .with_children(|row| {
+                    for (l, url) in others {
+                        theme::spawn_button(
+                            row,
+                            fonts,
+                            assets,
+                            Kind::Secondary,
+                            Some("external"),
+                            l,
+                            CodexRefLink(url.clone()),
+                        );
+                    }
+                });
+        }
+    });
+}
+
+/// One reaction on a substance page: vessel, name, equation; opens the Reaction Library.
+fn reaction_row(p: &mut ChildSpawnerCommands, fonts: &UiFonts, assets: &AssetServer, r: &Reaction, subs: &Substances) {
+    let accent = theme::process_color(&r.process);
+    p.spawn((
+        theme::button(
+            Kind::Row,
+            Node {
+                align_items: AlignItems::Center,
+                column_gap: Val::Px(12.0),
+                padding: UiRect::axes(Val::Px(10.0), Val::Px(7.0)),
+                max_width: Val::Px(820.0),
+                ..default()
+            },
+            theme::R_MD,
+        ),
+        CodexReactionLink(r.id),
+    ))
+    .with_children(|row| {
+        row.spawn((
+            ImageNode::new(assets.load(vessel_art_path(&r.process, "outline"))).with_color(accent),
+            Node { width: Val::Px(34.0), height: Val::Px(34.0), flex_shrink: 0.0, ..default() },
+            Pickable::IGNORE,
+        ));
+        row.spawn((Node { flex_direction: FlexDirection::Column, flex_shrink: 1.0, ..default() }, Pickable::IGNORE))
+            .with_children(|c| {
+                c.spawn((
+                    theme::label(
+                        fonts,
+                        format!("{}  ·  {}", r.name, vessel_name(&r.process)),
+                        theme::SM,
+                        Weight::Semibold,
+                        theme::TEXT,
+                    ),
+                    Pickable::IGNORE,
+                ));
+                c.spawn((
+                    Text::new(equation_text(r, subs)),
+                    TextFont { font: fonts.symbols.clone(), font_size: 12.0, ..default() },
+                    TextColor(theme::mix(accent, theme::TEXT, 0.5)),
+                    Pickable::IGNORE,
+                ));
+            });
+    });
+}
+
+pub fn codex_link_click_system(
+    q: Query<(&Interaction, &CodexRefLink), (Changed<Interaction>, With<Button>)>,
+    reactions: Query<(&Interaction, &CodexReactionLink), (Changed<Interaction>, With<Button>)>,
+    mut codex: ResMut<CodexState>,
+    mut rlib: ResMut<ReactionLibState>,
+) {
+    for (interaction, link) in &q {
+        if *interaction == Interaction::Pressed {
+            open_url(&link.0);
+        }
+    }
+    for (interaction, link) in &reactions {
+        if *interaction == Interaction::Pressed {
+            codex.open = false;
+            rlib.open = true;
+            rlib.selected = Some(link.0);
+        }
+    }
+}

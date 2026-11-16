@@ -1,0 +1,31 @@
+target/
+.idea/
+.vscode/
+
+# The full scraped library (about 110,000 substances and their pictures) is too big for
+# the repository; tools/data/pack_library.py packs what the game needs into assets/.
+library/
+
+# Raw downloads and caches behind the content tools: gigabytes, and rebuildable.
+tools/data/reaction_dataset/
+tools/data/reaction_dataset.7z
+tools/data/18_final_canon_compounds/
+tools/data/crd_cache/
+tools/data/ord_cache/
+tools/data/ord_temp/
+tools/data/reaction_map.csv
+tools/logs/
+*.log
+
+# local scratch work and Python leftovers
+scratch/
+.venv/
+__pycache__/
+*.pyc
+
+# Android build output
+android/.gradle/
+android/build/
+android/app/build/
+android/app/src/main/jniLibs/
+android/local.properties

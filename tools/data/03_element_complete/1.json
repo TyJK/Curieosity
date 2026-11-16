@@ -1,0 +1,168 @@
+{
+  "identity": {
+    "name": "Hydrogen",
+    "symbol": "H",
+    "atomic_number": 1,
+    "group": 1,
+    "period": 1,
+    "block": "s",
+    "standard_atomic_weight": 1.008,
+    "ground_state_term_symbol": "Unknown",
+    "cas_rn": "1333-74-0"
+  },
+  "narratives": {
+    "general_overview": "Hydrogen is a chemical element; it has the symbol\u00a0H and atomic number\u00a01. It is the lightest and most abundant chemical element in the universe, constituting about 75% of all normal matter. Under standard conditions, hydrogen is a gas of diatomic molecules with the formula\u00a0H2, called dihydrogen, or sometimes hydrogen gas, molecular hydrogen, or simply hydrogen. Dihydrogen is colorless, odorless, non-toxic, and highly combustible. Stars, including the Sun, mainly consist of hydrogen in a plasma state, while on Earth, hydrogen is found as the gas\u00a0H2 (dihydrogen) and in molecules, such as in water and organic compounds. The most common isotope of hydrogen, 1H, consists of one proton, one electron, and no neutrons.\n\nHydrogen gas was first produced artificially in the 17th\u00a0century by the reaction of acids with metals. Henry Cavendish, in\u00a01766\u20131781, identified hydrogen gas as a distinct substance and discovered its property of producing water when burned: this is the origin of hydrogen's name, which means 'water-former' (from Ancient Greek: \u1f55\u03b4\u03c9\u03c1, romanized:\u00a0h\u00fad\u014dr, lit.\u2009'water', and \u03b3\u03b5\u03bd\u03bd\u03ac\u03c9, genn\u00e1\u014d, 'I bring forth'). Understanding the colors of light absorbed and emitted by hydrogen was a crucial part of the development of quantum mechanics.",
+    "quantum_behavior": "",
+    "nuclear_stability": "",
+    "biological_role": "",
+    "discovery_story": ""
+  },
+  "quantum_mechanics": {
+    "electron_configuration": {
+      "shorthand": "1s",
+      "full": "TODO: Calculation from Z required",
+      "valence_shell": "1s",
+      "semantic_filling": {}
+    },
+    "ionization_energies_kj_mol": [
+      1312.0449623522475
+    ],
+    "electron_affinity_kj_mol": 72.768504575,
+    "electronegativity": {
+      "pauling": 2.2,
+      "allen": 13.61,
+      "mulliken": null
+    },
+    "atomic_radii_pm": {
+      "calculated": 25.0,
+      "van_der_waals": 110.00000000000001,
+      "covalent_single": null,
+      "covalent_triple": 31.0,
+      "metallic": null
+    },
+    "magnetic_properties": {
+      "magnetic_ordering": "Unknown",
+      "molar_magnetic_susceptibility": null
+    }
+  },
+  "nuclear_data": {
+    "isotopes": [
+      {
+        "mass_number": 1,
+        "symbol": "1H",
+        "common_name": "Protium",
+        "is_stable": true,
+        "half_life_formatted": "Stable",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 9998.55,
+        "nuclear_spin": "1/2",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "98\u00d710\u22126\u00a0cm3/mol (298\u00a0K)Speed of sound1310 m/s (gas, 27\u00a0\u00b0C)CAS Number12385-13-6 1333-74-0 (H2)HistoryNamingname means 'water-former' in GreekDiscovery and first isolationHenry Cavendish (1766)Named\u00a0byAntoine Lavoisier (1783)Isotopes of hydrogenve\n\n\nMain isotopes\n\nDecay\n\n\nIsotope\n\nabun\u00addance\n\nhalf-life (t1/2)\n\nmode\n\npro\u00adduct\n\n\n1H\n\n99.",
+        "uses": []
+      },
+      {
+        "mass_number": 2,
+        "symbol": "2H",
+        "common_name": "Deuterium",
+        "is_stable": true,
+        "half_life_formatted": "Stable",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 1.4500000000000002,
+        "nuclear_spin": "1",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "Deuterium (hydrogen-2, symbol 2H or D, also known as heavy hydrogen) is one of two stable isotopes of hydrogen; the other is protium, or hydrogen-1, 1H. The deuterium nucleus (deuteron) contains one proton and one neutron, whereas the far more common 1H has no neutrons.\n\nThe name deuterium comes from Greek deuteros, meaning \"second\". American chemist Harold Urey discovered deuterium in 1931. Urey and others produced samples of heavy water in which the 2H had been highly concentrated. The discovery of deuterium won Urey a Nobel Prize in 1934.",
+        "uses": []
+      },
+      {
+        "mass_number": 3,
+        "symbol": "3H",
+        "common_name": "Tritium",
+        "is_stable": false,
+        "half_life_formatted": "1.23e+01 years",
+        "half_life_seconds": 388789632.0,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": "1/2",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "Tritium (from Ancient Greek  \u03c4\u03c1\u03af\u03c4\u03bf\u03c2 (tr\u00edtos)\u00a0'third') or hydrogen-3 (symbol T or 3H) is a rare and radioactive isotope of hydrogen with a half-life of 12.32 years. The tritium nucleus (t, sometimes called a triton) contains one proton and two neutrons, whereas the nucleus of the common isotope hydrogen-1 (protium) contains one proton and no neutrons, and that of non-radioactive hydrogen-2 (deuterium) contains one proton and one neutron. Tritium is the heaviest particle-bound isotope of hydrogen. It is one of the few nuclides with a distinct name. The use of the name hydrogen-3, though more systematic, is much less common.\n\nNaturally occurring tritium is extremely rare on Earth. The atmosphere has only trace amounts, formed by the interaction of its gases with cosmic rays. It can be produced artificially by irradiation of lithium or lithium-bearing ceramic pebbles in a nuclear reactor and is a low-abundance byproduct in normal operations of nuclear reactors.",
+        "uses": []
+      },
+      {
+        "mass_number": 4,
+        "symbol": "4H",
+        "common_name": null,
+        "is_stable": false,
+        "half_life_formatted": "139.0 ysec",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": "2",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "Other, highly-unstable nuclides\u00a0(4H to 7H) have been synthesized in laboratories but not observed in nature.",
+        "uses": []
+      },
+      {
+        "mass_number": 5,
+        "symbol": "5H",
+        "common_name": null,
+        "is_stable": false,
+        "half_life_formatted": "86.0 ysec",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": "1/2",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "",
+        "uses": []
+      },
+      {
+        "mass_number": 6,
+        "symbol": "6H",
+        "common_name": null,
+        "is_stable": false,
+        "half_life_formatted": "294.0 ysec",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": "2",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "",
+        "uses": []
+      },
+      {
+        "mass_number": 7,
+        "symbol": "7H",
+        "common_name": null,
+        "is_stable": false,
+        "half_life_formatted": "652.0 ysec",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": "1/2",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "Other, highly-unstable nuclides\u00a0(4H to 7H) have been synthesized in laboratories but not observed in nature.",
+        "uses": []
+      }
+    ]
+  },
+  "media": {
+    "images": {
+      "icon_symbol": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 200 200\"><rect x=\"5\" y=\"5\" width=\"190\" height=\"190\" rx=\"15\" ry=\"15\" fill=\"#ffffff\" stroke=\"#333\" stroke-width=\"4\"/><text x=\"20\" y=\"40\" font-family=\"Arial, sans-serif\" font-size=\"24\" fill=\"#666\">1</text><text x=\"100\" y=\"110\" font-family=\"Arial, sans-serif\" font-size=\"80\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#000\">H</text><text x=\"100\" y=\"150\" font-family=\"Arial, sans-serif\" font-size=\"18\" text-anchor=\"middle\" fill=\"#333\">Hydrogen</text><text x=\"100\" y=\"180\" font-family=\"Arial, sans-serif\" font-size=\"14\" text-anchor=\"middle\" fill=\"#666\">1.008</text></svg>",
+      "atom_2d_shell": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 500 500\"><circle cx=\"250\" cy=\"250\" r=\"25\" fill=\"#333\" /><text x=\"250\" y=\"256\" font-family=\"Arial, sans-serif\" font-size=\"16\" font-weight=\"bold\" fill=\"#fff\" text-anchor=\"middle\">H</text><circle cx=\"250\" cy=\"250\" r=\"50.0\" fill=\"none\" stroke=\"#ccc\" stroke-width=\"2\" /><circle cx=\"250.0\" cy=\"200.0\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/></svg>",
+      "emission_spectrum_visible": "assets/elements/spectra/1_H_visible.png"
+    },
+    "models_3d": {
+      "standard_state_lattice": "assets/elements/models/1_H_lattice_hex.obj",
+      "orbital_visualization": "assets/elements/models/orbital_s.obj"
+    }
+  },
+  "allotropes": [],
+  "discovery": {
+    "discoverer": "Henry Cavendish",
+    "year": 1766,
+    "location": "England",
+    "discovery_story": ""
+  }
+}

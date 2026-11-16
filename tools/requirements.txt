@@ -1,0 +1,5 @@
+requests>=2.31.0
+pydantic>=2.5.0
+tenacity>=8.2.0
+rdkit==2025.9.1
+ord-schema==0.3.99

@@ -1,0 +1,165 @@
+{
+  "identity": {
+    "name": "",
+    "cas_rn": "",
+    "smiles": "",
+    "formula": "",
+    "direct_parent_id": "",
+    "direct_parent_label": "",
+    "synonyms": [""],
+    "description": ""
+  },
+  "classification": {
+    "is_polymer": false,
+    "is_mixture": false,
+    "tags": [""],
+    "roles": [""]
+  },
+  "properties": {
+    "molecular": {
+      "mass_g_mol": 0.0,
+      "logp": 0.0,
+      "complexity": 0.0,
+      "charge": 0,
+      "tpsa": 0.0,
+      "h_bond_donor_count": 0,
+      "h_bond_acceptor_count": 0,
+      "rotatable_bond_count": 0
+    },
+    "physical": {
+      "state_25_k_1_atm": "",
+      "density_g_cm3": 0.0,
+      "melting_point": {
+        "value_k": 0.0,
+        "sublimes": false,
+        "decomposes": false,
+        "notes": ""
+      },
+      "boiling_point": {
+        "value_k": 0.0,
+        "sublimes": false,
+        "decomposes": false,
+        "notes": ""
+      },
+      "solubility_water": {
+        "value_g_l": 0.0,
+        "qualitative": "",
+        "temperature_k": 298.15
+      },
+      "solubility_profile": [
+        { "solvent": "", "solubility": "" }
+      ],
+      "vapor_pressure": {
+        "value_atm": 0.0,
+        "temperature_k": 298.15
+      },
+      "pka_values": [0.0],
+      "viscosity_pa_s": 0.0,
+      "surface_tension_n_m": 0.0,
+      "refractive_index": 0.0,
+      "dipole_moment_debye": 0.0,
+      "autoignition_k": 0.0,
+      "flash_point_k": 0.0,
+      "decomposition_k": 0.0
+    },
+    "mechanical": {
+      "bulk_modulus_gpa": 0.0,
+      "youngs_modulus_gpa": 0.0,
+      "shear_modulus_gpa": 0.0,
+      "mohs_hardness": 0.0,
+      "brinell_hardness": 0.0,
+      "vickers_hardness": 0.0
+    },
+    "electromagnetic": {
+      "electrical_resistivity_ohm_m": 0.0,
+      "magnetic_susceptibility_cm3_mol": 0.0,
+      "thermal_conductivity_w_m_k": 0.0
+    },
+    "material_science": {
+      "crystal_structure": "",
+      "space_group": "",
+      "lattice_geometry": {
+        "a": 0.0, "b": 0.0, "c": 0.0,
+        "alpha": 0.0, "beta": 0.0, "gamma": 0.0
+      }
+    },
+    "thermodynamics": {
+      "enthalpy_formation_kj_mol": 0.0,
+      "enthalpy_combustion_kj_mol": 0.0,
+      "molar_entropy_j_mol_k": 0.0,
+      "heat_capacity_j_mol_k": 0.0
+    },
+    "sensory": {
+      "appearance": "",
+      "opacity": "",
+      "odour": "",
+      "texture": ""
+    }
+  },
+  "safety": {
+    "summary": "",
+    "un_number": "",
+    "ghs": {
+      "signal_word": "",
+      "hazard_statements": [""],
+      "precautionary_statements": [""]
+    },
+    "nfpa_704": {
+      "health": 0, "flammability": 0, "instability": 0, "special": ""
+    },
+    "explosive_limits": {
+      "lower_percent": 0.0,
+      "upper_percent": 0.0
+    },
+    "occupational_limits": {
+      "osha_pel_ppm": 0.0,
+      "niosh_rel_ppm": 0.0,
+      "idlh_ppm": 0.0
+    }
+  },
+  "economics": {
+    "market_price": {
+      "value_usd": 0.0,
+      "unit_basis": "kg",
+      "original_string": ""
+    },
+    "production_volume": {
+      "value_kg_year": 0.0,
+      "min_kg_year": 0.0,
+      "max_kg_year": 0.0,
+      "original_string": ""
+    },
+    "trade_names": [""],
+    "consumer_uses": [""],
+    "industrial_uses": [""],
+    "industrial_sectors": [""],
+    "is_recycled": false
+  },
+  "pharmacology": {
+    "indication": "",
+    "mechanism_of_action": "",
+    "metabolism": "",
+    "metabolites": "",
+    "protein_binding": "",
+    "route_of_administration": [""],
+    "atc_codes": [""],
+    "pregnancy_category": "",
+    "bioavailability": "",
+    "pharma_half_life": "",
+    "toxicity": {
+      "ld50_rat_oral_mg_kg": 0.0,
+      "mechanism": ""
+    }
+  },
+  "history": {
+    "discoverer": "",
+    "year": 0,
+    "discovery_story": ""
+  },
+  "media": {
+    "image_2d": "",
+    "model_3d": "",
+    "spectra": { "nmr": null, "ir": null, "uv": null }
+  },
+"cross_references": {}
+}

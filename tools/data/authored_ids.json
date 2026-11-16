@@ -1,0 +1,4848 @@
+{
+ "(NH4)2C2O4": {
+  "id": 2675,
+  "lib": true,
+  "name": "Ammonium oxalate"
+ },
+ "(NH4)2HPO4": {
+  "id": 8136,
+  "lib": true,
+  "name": "Diammonium hydrogen phosphate"
+ },
+ "1-Butene": {
+  "id": 2408,
+  "lib": true,
+  "name": "1-Butene"
+ },
+ "1-Butyne": {
+  "id": 2433,
+  "lib": true,
+  "name": "1-Butyne"
+ },
+ "2-Butene": {
+  "id": 2434,
+  "lib": true,
+  "name": "2-Butene"
+ },
+ "2-Methylpentane": {
+  "id": 2465,
+  "lib": true,
+  "name": "2-Methylpentane"
+ },
+ "2-Nitrophenol": {
+  "id": 8577,
+  "lib": true,
+  "name": "2-Nitrophenol"
+ },
+ "2EH": {
+  "id": 2291,
+  "lib": true,
+  "name": "2-Ethylhexanol"
+ },
+ "6APA": {
+  "id": 557,
+  "lib": false
+ },
+ "AHQ": {
+  "id": 701,
+  "lib": false
+ },
+ "Acanthite": {
+  "id": 28,
+  "lib": false
+ },
+ "Acetaldehyde": {
+  "id": 7881,
+  "lib": true,
+  "name": "Acetaldehyde"
+ },
+ "Acetamide": {
+  "id": 6824,
+  "lib": true,
+  "name": "Acetamide"
+ },
+ "Acetanilide": {
+  "id": 2240,
+  "lib": true,
+  "name": "Acetanilide"
+ },
+ "AceticAnhydride": {
+  "id": 2510,
+  "lib": true,
+  "name": "Acetic anhydride"
+ },
+ "Acetone": {
+  "id": 7277,
+  "lib": true,
+  "name": "Acetone"
+ },
+ "Acetonitrile": {
+  "id": 7880,
+  "lib": true,
+  "name": "Acetonitrile"
+ },
+ "Acetophenone": {
+  "id": 8931,
+  "lib": true,
+  "name": "Acetophenone"
+ },
+ "AcetylChloride": {
+  "id": 7896,
+  "lib": true,
+  "name": "Acetyl chloride"
+ },
+ "Acetylene": {
+  "id": 7831,
+  "lib": true,
+  "name": "Acetylene"
+ },
+ "AconiticAcid": {
+  "id": 6030,
+  "lib": true,
+  "name": "Aconitic acid"
+ },
+ "Acrolein": {
+  "id": 2435,
+  "lib": true,
+  "name": "Acrolein"
+ },
+ "Acrylonitrile": {
+  "id": 2441,
+  "lib": true,
+  "name": "Acrylonitrile"
+ },
+ "ActiveAmyl": {
+  "id": 3514,
+  "lib": true,
+  "name": "2-Methyl-1-butanol"
+ },
+ "Adenine": {
+  "id": 7778,
+  "lib": true,
+  "name": "Adenine"
+ },
+ "Adiponitrile": {
+  "id": 2654,
+  "lib": true,
+  "name": "Adiponitrile"
+ },
+ "AdrenalGlands": {
+  "id": 458,
+  "lib": false
+ },
+ "Aerogel": {
+  "id": 245,
+  "lib": false
+ },
+ "Ag2CO3": {
+  "id": 6315,
+  "lib": true,
+  "name": "Silver carbonate"
+ },
+ "Ag2CrO4": {
+  "id": 655,
+  "lib": false
+ },
+ "Ag2SO4": {
+  "id": 2212,
+  "lib": true,
+  "name": "Silver sulfate"
+ },
+ "AgBr": {
+  "id": 161,
+  "lib": false
+ },
+ "AgC2H3O2": {
+  "id": 6551,
+  "lib": true,
+  "name": "Silver acetate"
+ },
+ "AgCl": {
+  "id": 64,
+  "lib": false
+ },
+ "AgI": {
+  "id": 130,
+  "lib": false
+ },
+ "AgNO3": {
+  "id": 8109,
+  "lib": true,
+  "name": "Silver nitrate"
+ },
+ "AgOCN": {
+  "id": 75,
+  "lib": false
+ },
+ "AgSCN": {
+  "id": 4090,
+  "lib": true,
+  "name": "Silver thiocyanate"
+ },
+ "Air": {
+  "id": 136,
+  "lib": false
+ },
+ "Al(NO3)3": {
+  "id": 3448,
+  "lib": true,
+  "name": "Aluminum nitrate"
+ },
+ "Al2(SO4)3": {
+  "id": 2066,
+  "lib": true,
+  "name": "Aluminum sulfate"
+ },
+ "Al4C3": {
+  "id": 521,
+  "lib": false
+ },
+ "AlBr3": {
+  "id": 665,
+  "lib": false
+ },
+ "AlCl3": {
+  "id": 7855,
+  "lib": true,
+  "name": "Aluminum chloride"
+ },
+ "AlF3": {
+  "id": 8140,
+  "lib": true,
+  "name": "Aluminum fluoride"
+ },
+ "AlN": {
+  "id": 4639,
+  "lib": true,
+  "name": "Aluminum nitride"
+ },
+ "AlOH3": {
+  "id": 4469,
+  "lib": true,
+  "name": "Aluminum hydroxide"
+ },
+ "Alanine": {
+  "id": 430,
+  "lib": false
+ },
+ "Alizarin": {
+  "id": 153,
+  "lib": false
+ },
+ "Alkyd": {
+  "id": 480,
+  "lib": false
+ },
+ "Allantoin": {
+  "id": 8888,
+  "lib": true,
+  "name": "Allantoin"
+ },
+ "AllylAlcohol": {
+  "id": 2444,
+  "lib": true,
+  "name": "Allyl alcohol"
+ },
+ "AllylChloride": {
+  "id": 2437,
+  "lib": true,
+  "name": "Allyl chloride"
+ },
+ "Alum": {
+  "id": 39,
+  "lib": false
+ },
+ "Alundum": {
+  "id": 529,
+  "lib": false
+ },
+ "Amber": {
+  "id": 389,
+  "lib": false
+ },
+ "Aminophenol": {
+  "id": 3069,
+  "lib": true,
+  "name": "4-Aminophenol"
+ },
+ "AmorphousSi": {
+  "id": 704,
+  "lib": false
+ },
+ "Ampicillin": {
+  "id": 7590,
+  "lib": true,
+  "name": "Ampicillin"
+ },
+ "Anethole": {
+  "id": 2280,
+  "lib": true,
+  "name": "Anethole"
+ },
+ "Anise": {
+  "id": 294,
+  "lib": false
+ },
+ "Anisole": {
+  "id": 2020,
+  "lib": true,
+  "name": "Anisole"
+ },
+ "AnodeSlime": {
+  "id": 168,
+  "lib": false
+ },
+ "Anthracene": {
+  "id": 2885,
+  "lib": true,
+  "name": "Anthracene"
+ },
+ "Anthranilic": {
+  "id": 2838,
+  "lib": true,
+  "name": "Anthranilic acid"
+ },
+ "Anthraquinone": {
+  "id": 8429,
+  "lib": true,
+  "name": "Anthraquinone"
+ },
+ "Ants": {
+  "id": 390,
+  "lib": false
+ },
+ "Apples": {
+  "id": 388,
+  "lib": false
+ },
+ "Arginine": {
+  "id": 7829,
+  "lib": true,
+  "name": "L-Arginine"
+ },
+ "Argol": {
+  "id": 298,
+  "lib": false
+ },
+ "Argyrodite": {
+  "id": 415,
+  "lib": false
+ },
+ "ArtemisinicAcid": {
+  "id": 604,
+  "lib": false
+ },
+ "Artemisinin": {
+  "id": 275,
+  "lib": false
+ },
+ "As2O3": {
+  "id": 60,
+  "lib": false
+ },
+ "Asparagine": {
+  "id": 5257,
+  "lib": true,
+  "name": "Asparagine"
+ },
+ "Asparagus": {
+  "id": 394,
+  "lib": false
+ },
+ "AsparticAcid": {
+  "id": 6529,
+  "lib": true,
+  "name": "L-Aspartic acid"
+ },
+ "Aspergillus": {
+  "id": 486,
+  "lib": false
+ },
+ "Atropine": {
+  "id": 2103,
+  "lib": true,
+  "name": "(-)-Atropine"
+ },
+ "Avermectin": {
+  "id": 606,
+  "lib": false
+ },
+ "AzelaicAcid": {
+  "id": 3093,
+  "lib": true,
+  "name": "Azelaic acid"
+ },
+ "Azurite": {
+  "id": 3334,
+  "lib": true,
+  "name": "Azurite"
+ },
+ "B2O3": {
+  "id": 82,
+  "lib": false
+ },
+ "B4C": {
+  "id": 2970,
+  "lib": true,
+  "name": "Boron carbide"
+ },
+ "BCl3": {
+  "id": 2213,
+  "lib": true,
+  "name": "Boron trichloride"
+ },
+ "BDO": {
+  "id": 559,
+  "lib": false
+ },
+ "BGO": {
+  "id": 694,
+  "lib": false
+ },
+ "BN": {
+  "id": 2067,
+  "lib": true,
+  "name": "Boron nitride"
+ },
+ "BPA": {
+  "id": 222,
+  "lib": false
+ },
+ "BSA": {
+  "id": 164,
+  "lib": false
+ },
+ "Ba(C2H3O2)2": {
+  "id": 6404,
+  "lib": true,
+  "name": "Barium acetate"
+ },
+ "Ba(NO3)2": {
+  "id": 2042,
+  "lib": true,
+  "name": "Barium nitrate"
+ },
+ "BaC2O4": {
+  "id": 6185,
+  "lib": true,
+  "name": "Barium oxalate"
+ },
+ "BaCO3": {
+  "id": 65,
+  "lib": false
+ },
+ "BaCl2": {
+  "id": 68,
+  "lib": false
+ },
+ "BaCrO4": {
+  "id": 656,
+  "lib": false
+ },
+ "BaO": {
+  "id": 66,
+  "lib": false
+ },
+ "BaO2": {
+  "id": 67,
+  "lib": false
+ },
+ "BaSO4": {
+  "id": 8085,
+  "lib": true,
+  "name": "Barium sulfate"
+ },
+ "BarbituricAcid": {
+  "id": 7274,
+  "lib": true,
+  "name": "Barbituric acid"
+ },
+ "Barley": {
+  "id": 448,
+  "lib": false
+ },
+ "Bauxite": {
+  "id": 142,
+  "lib": false
+ },
+ "Be2C": {
+  "id": 522,
+  "lib": false
+ },
+ "BeCl2": {
+  "id": 436,
+  "lib": false
+ },
+ "BeO": {
+  "id": 3271,
+  "lib": true,
+  "name": "Beryllium oxide"
+ },
+ "BeOH2": {
+  "id": 3390,
+  "lib": true,
+  "name": "Beryllium hydroxide"
+ },
+ "BeSO4": {
+  "id": 3458,
+  "lib": true,
+  "name": "Beryllium sulfate"
+ },
+ "Beer": {
+  "id": 490,
+  "lib": false
+ },
+ "Belladonna": {
+  "id": 401,
+  "lib": false
+ },
+ "Benzaldehyde": {
+  "id": 2016,
+  "lib": true,
+  "name": "Benzaldehyde"
+ },
+ "Benzil": {
+  "id": 3416,
+  "lib": true,
+  "name": "Benzil"
+ },
+ "BenzilicAcid": {
+  "id": 507,
+  "lib": false
+ },
+ "Benzocaine": {
+  "id": 8782,
+  "lib": true,
+  "name": "Benzocaine"
+ },
+ "BenzoicAcid": {
+  "id": 421,
+  "lib": false
+ },
+ "Benzoin": {
+  "id": 506,
+  "lib": false
+ },
+ "Benzophenone": {
+  "id": 2866,
+  "lib": true,
+  "name": "Benzophenone"
+ },
+ "BenzoylChloride": {
+  "id": 8932,
+  "lib": true,
+  "name": "Benzoyl chloride"
+ },
+ "BenzylAcetate": {
+  "id": 3594,
+  "lib": true,
+  "name": "Benzyl acetate"
+ },
+ "BenzylAlcohol": {
+  "id": 2015,
+  "lib": true,
+  "name": "Benzyl alcohol"
+ },
+ "BenzylBenzoate": {
+  "id": 2889,
+  "lib": true,
+  "name": "Benzyl benzoate"
+ },
+ "BenzylChloride": {
+  "id": 2012,
+  "lib": true,
+  "name": "Benzyl chloride"
+ },
+ "BenzylFormate": {
+  "id": 683,
+  "lib": false
+ },
+ "BenzylSalicylate": {
+  "id": 2831,
+  "lib": true,
+  "name": "Benzyl salicylate"
+ },
+ "Beryl": {
+  "id": 411,
+  "lib": false
+ },
+ "Bi2O3": {
+  "id": 62,
+  "lib": false
+ },
+ "BiCl3": {
+  "id": 625,
+  "lib": false
+ },
+ "BiNO33": {
+  "id": 635,
+  "lib": false
+ },
+ "Biotin": {
+  "id": 6668,
+  "lib": true,
+  "name": "Biotin"
+ },
+ "Biphenyl": {
+  "id": 8715,
+  "lib": true,
+  "name": "Biphenyl"
+ },
+ "Bismuthinite": {
+  "id": 61,
+  "lib": false
+ },
+ "Bitartrate": {
+  "id": 8513,
+  "lib": true,
+  "name": "Potassium bitartrate"
+ },
+ "BitterAlmonds": {
+  "id": 404,
+  "lib": false
+ },
+ "Bitumen": {
+  "id": 173,
+  "lib": false
+ },
+ "Biuret": {
+  "id": 2506,
+  "lib": true,
+  "name": "Biuret"
+ },
+ "BlackP": {
+  "id": 590,
+  "lib": false
+ },
+ "BlisterCopper": {
+  "id": 166,
+  "lib": false
+ },
+ "BlueLED": {
+  "id": 260,
+  "lib": false
+ },
+ "BlueVitriol": {
+  "id": 50,
+  "lib": false
+ },
+ "Borax": {
+  "id": 80,
+  "lib": false
+ },
+ "Bran": {
+  "id": 429,
+  "lib": false
+ },
+ "Bromobenzene": {
+  "id": 246,
+  "lib": false
+ },
+ "Buckwheat": {
+  "id": 464,
+  "lib": false
+ },
+ "BurntAlum": {
+  "id": 40,
+  "lib": false
+ },
+ "Butadiene": {
+  "id": 2409,
+  "lib": true,
+  "name": "1,3-Butadiene"
+ },
+ "Butanal": {
+  "id": 3082,
+  "lib": true,
+  "name": "Butanal"
+ },
+ "Butane": {
+  "id": 2407,
+  "lib": true,
+  "name": "Butane"
+ },
+ "Butanol": {
+  "id": 427,
+  "lib": false
+ },
+ "Butter": {
+  "id": 391,
+  "lib": false
+ },
+ "ButylAcetate": {
+  "id": 3088,
+  "lib": true,
+  "name": "Butyl acetate"
+ },
+ "ButylButyrate": {
+  "id": 2550,
+  "lib": true,
+  "name": "Butyl butyrate"
+ },
+ "Butynediol": {
+  "id": 2603,
+  "lib": true,
+  "name": "2-Butyne-1,4-diol"
+ },
+ "Butyric": {
+  "id": 2469,
+  "lib": true,
+  "name": "Butyric acid"
+ },
+ "C60": {
+  "id": 248,
+  "lib": false
+ },
+ "CCl2F2": {
+  "id": 7915,
+  "lib": true,
+  "name": "Dichlorodifluoromethane"
+ },
+ "CCl4": {
+  "id": 6518,
+  "lib": true,
+  "name": "Carbon tetrachloride"
+ },
+ "CH3Cl": {
+  "id": 7832,
+  "lib": true,
+  "name": "Methyl chloride"
+ },
+ "CHCl3": {
+  "id": 7278,
+  "lib": true,
+  "name": "Chloroform"
+ },
+ "CHClF2": {
+  "id": 7900,
+  "lib": true,
+  "name": "Chlorodifluoromethane"
+ },
+ "CNT": {
+  "id": 249,
+  "lib": false
+ },
+ "COCl2": {
+  "id": 7899,
+  "lib": true,
+  "name": "Phosgene"
+ },
+ "CS2": {
+  "id": 7886,
+  "lib": true,
+  "name": "Carbon disulfide"
+ },
+ "CVDDiamond": {
+  "id": 251,
+  "lib": false
+ },
+ "Ca(C18H35O2)2": {
+  "id": 3966,
+  "lib": true,
+  "name": "Calcium stearate"
+ },
+ "Ca(C3H5O2)2": {
+  "id": 5736,
+  "lib": true,
+  "name": "Calcium propionate"
+ },
+ "Ca(C3H5O3)2": {
+  "id": 8340,
+  "lib": true,
+  "name": "Calcium lactate"
+ },
+ "Ca(C7H5O2)2": {
+  "id": 4425,
+  "lib": true,
+  "name": "Calcium benzoate"
+ },
+ "Ca(CHO2)2": {
+  "id": 6411,
+  "lib": true,
+  "name": "Calcium formate"
+ },
+ "Ca(ClO)2": {
+  "id": 8122,
+  "lib": true,
+  "name": "Calcium hypochlorite"
+ },
+ "Ca(NO3)2": {
+  "id": 2141,
+  "lib": true,
+  "name": "Calcium nitrate"
+ },
+ "Ca3(C6H5O7)2": {
+  "id": 8339,
+  "lib": true,
+  "name": "Calcium Citrate"
+ },
+ "CaAl2O4": {
+  "id": 512,
+  "lib": false
+ },
+ "CaB6": {
+  "id": 523,
+  "lib": false
+ },
+ "CaBr2": {
+  "id": 8153,
+  "lib": true,
+  "name": "Calcium bromide"
+ },
+ "CaC2": {
+  "id": 140,
+  "lib": false
+ },
+ "CaCN2": {
+  "id": 141,
+  "lib": false
+ },
+ "CaCO3": {
+  "id": 5942,
+  "lib": true,
+  "name": "Calcium carbonate"
+ },
+ "CaCl2": {
+  "id": 2069,
+  "lib": true,
+  "name": "Calcium chloride"
+ },
+ "CaF2": {
+  "id": 85,
+  "lib": false
+ },
+ "CaF2Crystal": {
+  "id": 696,
+  "lib": false
+ },
+ "CaGluconate": {
+  "id": 5140,
+  "lib": true,
+  "name": "Calcium gluconate"
+ },
+ "CaH2": {
+  "id": 8156,
+  "lib": true,
+  "name": "Calcium hydride"
+ },
+ "CaH2PO42": {
+  "id": 547,
+  "lib": false
+ },
+ "CaI2": {
+  "id": 2133,
+  "lib": true,
+  "name": "Calcium iodide"
+ },
+ "CaO2": {
+  "id": 3275,
+  "lib": true,
+  "name": "Calcium peroxide"
+ },
+ "CaOAc2": {
+  "id": 6942,
+  "lib": true,
+  "name": "Calcium acetate"
+ },
+ "CaSO4": {
+  "id": 8121,
+  "lib": true,
+  "name": "Calcium sulfate"
+ },
+ "CaSi2": {
+  "id": 525,
+  "lib": false
+ },
+ "Caesium137": {
+  "id": 571,
+  "lib": false
+ },
+ "Caffeine": {
+  "id": 6647,
+  "lib": true,
+  "name": "Caffeine"
+ },
+ "Camphene": {
+  "id": 8248,
+  "lib": true,
+  "name": "(\u00b1)-Camphene"
+ },
+ "Camphor": {
+  "id": 5922,
+  "lib": true,
+  "name": "Camphor"
+ },
+ "Caprolactam": {
+  "id": 2336,
+  "lib": true,
+  "name": "Caprolactam"
+ },
+ "Carboloy": {
+  "id": 591,
+  "lib": false
+ },
+ "Carbon14": {
+  "id": 573,
+  "lib": false
+ },
+ "Carotene": {
+  "id": 7752,
+  "lib": true,
+  "name": "\u03b2-Carotene"
+ },
+ "Carrots": {
+  "id": 456,
+  "lib": false
+ },
+ "Carvone": {
+  "id": 7151,
+  "lib": true,
+  "name": "(-)-Carvone"
+ },
+ "CastorBeans": {
+  "id": 473,
+  "lib": false
+ },
+ "CastorOil": {
+  "id": 475,
+  "lib": false
+ },
+ "Cd(NO3)2": {
+  "id": 2248,
+  "lib": true,
+  "name": "Cadmium nitrate"
+ },
+ "CdCO3": {
+  "id": 647,
+  "lib": false
+ },
+ "CdCl2": {
+  "id": 623,
+  "lib": false
+ },
+ "CdO": {
+  "id": 129,
+  "lib": false
+ },
+ "CdOH2": {
+  "id": 641,
+  "lib": false
+ },
+ "CdS": {
+  "id": 650,
+  "lib": false
+ },
+ "CdSO4": {
+  "id": 631,
+  "lib": false
+ },
+ "CdSe": {
+  "id": 265,
+  "lib": false
+ },
+ "Ce2CO33": {
+  "id": 6328,
+  "lib": true,
+  "name": "Cerium carbonate"
+ },
+ "CeNO33": {
+  "id": 2136,
+  "lib": true,
+  "name": "Cerium trinitrate"
+ },
+ "Celluloid": {
+  "id": 155,
+  "lib": false
+ },
+ "Cellulose": {
+  "id": 131,
+  "lib": false
+ },
+ "Cerite": {
+  "id": 409,
+  "lib": false
+ },
+ "Chalcone": {
+  "id": 537,
+  "lib": false
+ },
+ "Chalcopyrite": {
+  "id": 3282,
+  "lib": true,
+  "name": "Chalcopyrite (CuFeS2)"
+ },
+ "Cheese": {
+  "id": 393,
+  "lib": false
+ },
+ "Chloral": {
+  "id": 7922,
+  "lib": true,
+  "name": "Chloral"
+ },
+ "ChloralHydrate": {
+  "id": 5172,
+  "lib": true,
+  "name": "Chloral hydrate"
+ },
+ "Chlorobenzene": {
+  "id": 2534,
+  "lib": true,
+  "name": "Chlorobenzene"
+ },
+ "Chloroprene": {
+  "id": 194,
+  "lib": false
+ },
+ "ChromeAlum": {
+  "id": 677,
+  "lib": false
+ },
+ "Chromite": {
+  "id": 99,
+  "lib": false
+ },
+ "Chymosin": {
+  "id": 602,
+  "lib": false
+ },
+ "Cinchona": {
+  "id": 396,
+  "lib": false
+ },
+ "Cineole": {
+  "id": 5939,
+  "lib": true,
+  "name": "1,8-Cineole"
+ },
+ "Cinnabar": {
+  "id": 21,
+  "lib": false
+ },
+ "Cinnamaldehyde": {
+  "id": 2285,
+  "lib": true,
+  "name": "Cinnamaldehyde"
+ },
+ "CinnamicAcid": {
+  "id": 422,
+  "lib": false
+ },
+ "Cinnamon": {
+  "id": 291,
+  "lib": false
+ },
+ "CinnamylAcetate": {
+  "id": 2230,
+  "lib": true,
+  "name": "Cinnamyl acetate"
+ },
+ "CinnamylAlcohol": {
+  "id": 2284,
+  "lib": true,
+  "name": "Cinnamyl alcohol"
+ },
+ "Cisplatin": {
+  "id": 277,
+  "lib": false
+ },
+ "Citric": {
+  "id": 8072,
+  "lib": true,
+  "name": "Citric acid"
+ },
+ "Citronellol": {
+  "id": 2378,
+  "lib": true,
+  "name": "Citronellol"
+ },
+ "ClAcOH": {
+  "id": 8226,
+  "lib": true,
+  "name": "Chloroacetic acid"
+ },
+ "ClO": {
+  "id": 279,
+  "lib": false
+ },
+ "Clay": {
+  "id": 15,
+  "lib": false
+ },
+ "Clove": {
+  "id": 285,
+  "lib": false
+ },
+ "Co(C18H35O2)2": {
+  "id": 3472,
+  "lib": true,
+  "name": "Cobalt stearate"
+ },
+ "Co(C2H3O2)2": {
+  "id": 7691,
+  "lib": true,
+  "name": "Cobalt diacetate"
+ },
+ "CoAmmine": {
+  "id": 542,
+  "lib": false
+ },
+ "CoCO3": {
+  "id": 645,
+  "lib": false
+ },
+ "CoCl2": {
+  "id": 621,
+  "lib": false
+ },
+ "CoCl2Hex": {
+  "id": 676,
+  "lib": false
+ },
+ "CoNO32": {
+  "id": 633,
+  "lib": false
+ },
+ "CoO": {
+  "id": 91,
+  "lib": false
+ },
+ "CoOH2": {
+  "id": 639,
+  "lib": false
+ },
+ "CoS": {
+  "id": 651,
+  "lib": false
+ },
+ "CoSO4": {
+  "id": 2143,
+  "lib": true,
+  "name": "Cobalt sulfate"
+ },
+ "Cobalt60": {
+  "id": 567,
+  "lib": false
+ },
+ "CobaltBlue": {
+  "id": 503,
+  "lib": false
+ },
+ "Cobaltite": {
+  "id": 90,
+  "lib": false
+ },
+ "Cocoa": {
+  "id": 398,
+  "lib": false
+ },
+ "CoconutOil": {
+  "id": 243,
+  "lib": false
+ },
+ "CodLiverOil": {
+  "id": 454,
+  "lib": false
+ },
+ "Coesite": {
+  "id": 588,
+  "lib": false
+ },
+ "CoffeeBeans": {
+  "id": 278,
+  "lib": false
+ },
+ "Columbite": {
+  "id": 418,
+  "lib": false
+ },
+ "Comfrey": {
+  "id": 468,
+  "lib": false
+ },
+ "Cork": {
+  "id": 474,
+  "lib": false
+ },
+ "CornSteep": {
+  "id": 233,
+  "lib": false
+ },
+ "Corynebacterium": {
+  "id": 488,
+  "lib": false
+ },
+ "Coumarin": {
+  "id": 8675,
+  "lib": true,
+  "name": "Coumarin"
+ },
+ "Cr2O3": {
+  "id": 123,
+  "lib": false
+ },
+ "Cr2SO43": {
+  "id": 632,
+  "lib": false
+ },
+ "Cr3C2": {
+  "id": 520,
+  "lib": false
+ },
+ "CrCl3": {
+  "id": 626,
+  "lib": false
+ },
+ "CrOH3": {
+  "id": 643,
+  "lib": false
+ },
+ "CrabShells": {
+  "id": 465,
+  "lib": false
+ },
+ "CranberryGlass": {
+  "id": 496,
+  "lib": false
+ },
+ "Crotonaldehyde": {
+  "id": 5778,
+  "lib": true,
+  "name": "Crotonaldehyde"
+ },
+ "CrudeOil": {
+  "id": 169,
+  "lib": false
+ },
+ "CsCl": {
+  "id": 440,
+  "lib": false
+ },
+ "Cu(NO3)2": {
+  "id": 5321,
+  "lib": true,
+  "name": "Cupric nitrate"
+ },
+ "Cu2O": {
+  "id": 18,
+  "lib": false
+ },
+ "Cu2S": {
+  "id": 513,
+  "lib": false
+ },
+ "CuCl": {
+  "id": 627,
+  "lib": false
+ },
+ "CuCl2": {
+  "id": 622,
+  "lib": false
+ },
+ "CuI": {
+  "id": 669,
+  "lib": false
+ },
+ "CuO": {
+  "id": 17,
+  "lib": false
+ },
+ "CuOAc2": {
+  "id": 36,
+  "lib": false
+ },
+ "CuOH2": {
+  "id": 637,
+  "lib": false
+ },
+ "CuS": {
+  "id": 649,
+  "lib": false
+ },
+ "CuSO4": {
+  "id": 8104,
+  "lib": true,
+  "name": "Copper sulfate"
+ },
+ "CubicBN": {
+  "id": 587,
+  "lib": false
+ },
+ "Cumene": {
+  "id": 8929,
+  "lib": true,
+  "name": "Cumene"
+ },
+ "Cumin": {
+  "id": 461,
+  "lib": false
+ },
+ "Cuminaldehyde": {
+  "id": 3015,
+  "lib": true,
+  "name": "Cuminaldehyde"
+ },
+ "Curcumin": {
+  "id": 5904,
+  "lib": true,
+  "name": "Curcumin"
+ },
+ "Cyanamide": {
+  "id": 5789,
+  "lib": true,
+  "name": "Cyanamide"
+ },
+ "CyanuricAcid": {
+  "id": 2528,
+  "lib": true,
+  "name": "Cyanuric acid"
+ },
+ "Cyclohexane": {
+  "id": 2606,
+  "lib": true,
+  "name": "Cyclohexane"
+ },
+ "Cyclohexanol": {
+  "id": 2536,
+  "lib": true,
+  "name": "Cyclohexanol"
+ },
+ "Cyclohexanone": {
+  "id": 2537,
+  "lib": true,
+  "name": "Cyclohexanone"
+ },
+ "Cyclopentadiene": {
+  "id": 6399,
+  "lib": true,
+  "name": "Cyclopentadiene"
+ },
+ "Cyclopentanone": {
+  "id": 2900,
+  "lib": true,
+  "name": "Cyclopentanone"
+ },
+ "Cysteine": {
+  "id": 6209,
+  "lib": true,
+  "name": "L-Cysteine"
+ },
+ "DCPD": {
+  "id": 8064,
+  "lib": true,
+  "name": "Dicyclopentadiene"
+ },
+ "DDT": {
+  "id": 229,
+  "lib": false
+ },
+ "DEAE": {
+  "id": 541,
+  "lib": false
+ },
+ "DEC": {
+  "id": 2334,
+  "lib": true,
+  "name": "Diethyl carbonate"
+ },
+ "DEHP": {
+  "id": 2816,
+  "lib": true,
+  "name": "Dioctyl phthalate"
+ },
+ "DHC": {
+  "id": 5844,
+  "lib": true,
+  "name": "7-Dehydrocholesterol"
+ },
+ "DMC": {
+  "id": 6905,
+  "lib": true,
+  "name": "Dimethyl carbonate"
+ },
+ "DMS": {
+  "id": 7887,
+  "lib": true,
+  "name": "Dimethyl sulfide"
+ },
+ "DMSO": {
+  "id": 7279,
+  "lib": true,
+  "name": "Dimethyl sulfoxide"
+ },
+ "DNT": {
+  "id": 2978,
+  "lib": true,
+  "name": "2,4-Dinitrotoluene"
+ },
+ "Decanal": {
+  "id": 2709,
+  "lib": true,
+  "name": "Decanal"
+ },
+ "Decanoic": {
+  "id": 5368,
+  "lib": true,
+  "name": "Decanoic acid"
+ },
+ "Dextran": {
+  "id": 555,
+  "lib": false
+ },
+ "DiacetoneAlcohol": {
+  "id": 3075,
+  "lib": true,
+  "name": "Diacetone alcohol"
+ },
+ "Diamond": {
+  "id": 239,
+  "lib": false
+ },
+ "Dibenzalacetone": {
+  "id": 536,
+  "lib": false
+ },
+ "DibutylPhthalate": {
+  "id": 8432,
+  "lib": true,
+  "name": "Dibutyl phthalate"
+ },
+ "DibutylSebacate": {
+  "id": 2555,
+  "lib": true,
+  "name": "Dibutyl sebacate"
+ },
+ "Didymium": {
+  "id": 431,
+  "lib": false
+ },
+ "DiethylOxalate": {
+  "id": 8829,
+  "lib": true,
+  "name": "Diethyl oxalate"
+ },
+ "DiethylPhthalate": {
+  "id": 8430,
+  "lib": true,
+  "name": "Diethyl phthalate"
+ },
+ "Diethylamine": {
+  "id": 2568,
+  "lib": true,
+  "name": "Diethylamine"
+ },
+ "Digitoxin": {
+  "id": 7695,
+  "lib": true,
+  "name": "Digitoxin"
+ },
+ "Digoxin": {
+  "id": 4420,
+  "lib": true,
+  "name": "Digoxin"
+ },
+ "DimethylSulfate": {
+  "id": 8065,
+  "lib": true,
+  "name": "Dimethyl sulfate"
+ },
+ "Dimethylaniline": {
+  "id": 2990,
+  "lib": true,
+  "name": "N,N-Dimethylaniline"
+ },
+ "Dioxane": {
+  "id": 3089,
+  "lib": true,
+  "name": "1,4-Dioxane"
+ },
+ "Diphenylamine": {
+  "id": 3023,
+  "lib": true,
+  "name": "Diphenylamine"
+ },
+ "Dodecanol": {
+  "id": 242,
+  "lib": false
+ },
+ "DriedBlood": {
+  "id": 89,
+  "lib": false
+ },
+ "DryCell": {
+  "id": 544,
+  "lib": false
+ },
+ "DryIce": {
+  "id": 501,
+  "lib": false
+ },
+ "Dynamite": {
+  "id": 159,
+  "lib": false
+ },
+ "Dynamo": {
+  "id": 510,
+  "lib": false
+ },
+ "EDC": {
+  "id": 185,
+  "lib": false
+ },
+ "EG": {
+  "id": 2446,
+  "lib": true,
+  "name": "Ethylene glycol"
+ },
+ "EO": {
+  "id": 7888,
+  "lib": true,
+  "name": "Ethylene oxide"
+ },
+ "Ecoli": {
+  "id": 489,
+  "lib": false
+ },
+ "EggYolk": {
+  "id": 452,
+  "lib": false
+ },
+ "EgyptianBlue": {
+  "id": 26,
+  "lib": false
+ },
+ "Electrum": {
+  "id": 29,
+  "lib": false
+ },
+ "EnrichedUF6": {
+  "id": 565,
+  "lib": false
+ },
+ "EnrichedUranium": {
+  "id": 566,
+  "lib": false
+ },
+ "Eosin": {
+  "id": 540,
+  "lib": false
+ },
+ "Epichlorohydrin": {
+  "id": 2403,
+  "lib": true,
+  "name": "Epichlorohydrin"
+ },
+ "Epinephrine": {
+  "id": 6125,
+  "lib": true,
+  "name": "Epinephrine"
+ },
+ "Epoxy": {
+  "id": 223,
+  "lib": false
+ },
+ "EpsomSalt": {
+  "id": 674,
+  "lib": false
+ },
+ "Erbia": {
+  "id": 432,
+  "lib": false
+ },
+ "Erythromycin": {
+  "id": 2767,
+  "lib": true,
+  "name": "Erythromycin"
+ },
+ "Estragole": {
+  "id": 3598,
+  "lib": true,
+  "name": "Estragole"
+ },
+ "EtChloroformate": {
+  "id": 6387,
+  "lib": true,
+  "name": "Ethyl chloroformate"
+ },
+ "Ethane": {
+  "id": 183,
+  "lib": false
+ },
+ "Ethanethiol": {
+  "id": 7882,
+  "lib": true,
+  "name": "Ethanethiol"
+ },
+ "Ether": {
+  "id": 6821,
+  "lib": true,
+  "name": "Diethyl ether"
+ },
+ "EthylAcetate": {
+  "id": 3631,
+  "lib": true,
+  "name": "Ethyl acetate"
+ },
+ "EthylAcetoacetate": {
+  "id": 3634,
+  "lib": true,
+  "name": "Ethyl acetoacetate"
+ },
+ "EthylAnthranilate": {
+  "id": 684,
+  "lib": false
+ },
+ "EthylBenzoate": {
+  "id": 8753,
+  "lib": true,
+  "name": "Ethyl benzoate"
+ },
+ "EthylButyrate": {
+  "id": 2331,
+  "lib": true,
+  "name": "Ethyl butyrate"
+ },
+ "EthylCinnamate": {
+  "id": 2226,
+  "lib": true,
+  "name": "Ethyl cinnamate"
+ },
+ "EthylFormate": {
+  "id": 2570,
+  "lib": true,
+  "name": "Ethyl formate"
+ },
+ "EthylHexanoate": {
+  "id": 3080,
+  "lib": true,
+  "name": "Ethyl hexanoate"
+ },
+ "EthylIsovalerate": {
+  "id": 2521,
+  "lib": true,
+  "name": "Ethyl isovalerate"
+ },
+ "EthylLactate": {
+  "id": 679,
+  "lib": false
+ },
+ "EthylOctanoate": {
+  "id": 2383,
+  "lib": true,
+  "name": "Ethyl octanoate"
+ },
+ "EthylPropionate": {
+  "id": 2327,
+  "lib": true,
+  "name": "Ethyl propionate"
+ },
+ "EthylSalicylate": {
+  "id": 680,
+  "lib": false
+ },
+ "EthylValerate": {
+  "id": 6343,
+  "lib": true,
+  "name": "Ethyl valerate"
+ },
+ "Ethylamine": {
+  "id": 7879,
+  "lib": true,
+  "name": "Ethylamine"
+ },
+ "Ethylbenzene": {
+  "id": 2009,
+  "lib": true,
+  "name": "Ethylbenzene"
+ },
+ "Eucalyptus": {
+  "id": 459,
+  "lib": false
+ },
+ "Eugenol": {
+  "id": 8886,
+  "lib": true,
+  "name": "Eugenol"
+ },
+ "FDG": {
+  "id": 618,
+  "lib": false
+ },
+ "Fe(C2H3O2)2": {
+  "id": 5241,
+  "lib": true,
+  "name": "Ferrous acetate"
+ },
+ "Fe(NO3)3": {
+  "id": 2302,
+  "lib": true,
+  "name": "Ferric nitrate"
+ },
+ "Fe3C": {
+  "id": 2925,
+  "lib": true,
+  "name": "Iron carbide (Fe3C)"
+ },
+ "Fe3O4": {
+  "id": 134,
+  "lib": false
+ },
+ "FeBr3": {
+  "id": 666,
+  "lib": false
+ },
+ "FeCO3": {
+  "id": 648,
+  "lib": false
+ },
+ "FeCl2": {
+  "id": 70,
+  "lib": false
+ },
+ "FeCl3": {
+  "id": 72,
+  "lib": false
+ },
+ "FeCr2": {
+  "id": 527,
+  "lib": false
+ },
+ "FeO": {
+  "id": 514,
+  "lib": false
+ },
+ "FeOH3": {
+  "id": 642,
+  "lib": false
+ },
+ "FePO4": {
+  "id": 2073,
+  "lib": true,
+  "name": "Ferric phosphate"
+ },
+ "FeS": {
+  "id": 23,
+  "lib": false
+ },
+ "FeS2": {
+  "id": 32,
+  "lib": false
+ },
+ "FeSCN3": {
+  "id": 678,
+  "lib": false
+ },
+ "FeSO4": {
+  "id": 8081,
+  "lib": true,
+  "name": "Ferrous sulfate"
+ },
+ "FeSi": {
+  "id": 526,
+  "lib": false
+ },
+ "FeSiO3": {
+  "id": 167,
+  "lib": false
+ },
+ "FeV": {
+  "id": 528,
+  "lib": false
+ },
+ "Ferrocene": {
+  "id": 595,
+  "lib": false
+ },
+ "Ferromanganese": {
+  "id": 511,
+  "lib": false
+ },
+ "Fluorescein": {
+  "id": 4569,
+  "lib": true,
+  "name": "Fluorescein"
+ },
+ "Fluorine18": {
+  "id": 617,
+  "lib": false
+ },
+ "FolicAcid": {
+  "id": 6729,
+  "lib": true,
+  "name": "Folic acid"
+ },
+ "Formamide": {
+  "id": 7885,
+  "lib": true,
+  "name": "Formamide"
+ },
+ "Formic": {
+  "id": 7084,
+  "lib": true,
+  "name": "Formic acid"
+ },
+ "Foxglove": {
+  "id": 402,
+  "lib": false
+ },
+ "Fructose": {
+  "id": 6596,
+  "lib": true,
+  "name": "Fructose"
+ },
+ "FumedSilica": {
+  "id": 671,
+  "lib": false
+ },
+ "Furan": {
+  "id": 2581,
+  "lib": true,
+  "name": "Furan"
+ },
+ "Furfural": {
+  "id": 8916,
+  "lib": true,
+  "name": "Furfural"
+ },
+ "FurfurylAlcohol": {
+  "id": 8915,
+  "lib": true,
+  "name": "Furfuryl alcohol"
+ },
+ "GBL": {
+  "id": 8866,
+  "lib": true,
+  "name": "\u03b3-Butyrolactone"
+ },
+ "GaAs": {
+  "id": 580,
+  "lib": false
+ },
+ "GaN": {
+  "id": 259,
+  "lib": false
+ },
+ "Gadolinite": {
+  "id": 408,
+  "lib": false
+ },
+ "Galactose": {
+  "id": 707,
+  "lib": false
+ },
+ "Galena": {
+  "id": 19,
+  "lib": false
+ },
+ "GallicAcid": {
+  "id": 3806,
+  "lib": true,
+  "name": "Gallic acid"
+ },
+ "GasMantle": {
+  "id": 438,
+  "lib": false
+ },
+ "Gasoline": {
+  "id": 170,
+  "lib": false
+ },
+ "GeCl4": {
+  "id": 670,
+  "lib": false
+ },
+ "GeCrystal": {
+  "id": 579,
+  "lib": false
+ },
+ "GeO2": {
+  "id": 441,
+  "lib": false
+ },
+ "Gelatin": {
+  "id": 392,
+  "lib": false
+ },
+ "GemDiamond": {
+  "id": 692,
+  "lib": false
+ },
+ "Geranial": {
+  "id": 3622,
+  "lib": true,
+  "name": "Geranial"
+ },
+ "GeranylAcetate": {
+  "id": 2343,
+  "lib": true,
+  "name": "Geranyl acetate"
+ },
+ "Ginger": {
+  "id": 463,
+  "lib": false
+ },
+ "GlauberSalt": {
+  "id": 49,
+  "lib": false
+ },
+ "GluconicAcid": {
+  "id": 6249,
+  "lib": true,
+  "name": "Gluconic acid"
+ },
+ "Glucosamine": {
+  "id": 5404,
+  "lib": true,
+  "name": "Glucosamine"
+ },
+ "GlutamicAcid": {
+  "id": 6531,
+  "lib": true,
+  "name": "L-Glutamic acid"
+ },
+ "Glutamine": {
+  "id": 6530,
+  "lib": true,
+  "name": "L-Glutamine"
+ },
+ "GlutaricAcid": {
+  "id": 2615,
+  "lib": true,
+  "name": "Glutaric acid"
+ },
+ "Glycine": {
+  "id": 6523,
+  "lib": true,
+  "name": "Glycine"
+ },
+ "GlycolicAcid": {
+  "id": 8227,
+  "lib": true,
+  "name": "Glycolic acid"
+ },
+ "GlyoxylicAcid": {
+  "id": 5132,
+  "lib": true,
+  "name": "Glyoxylic acid"
+ },
+ "Goethite": {
+  "id": 27,
+  "lib": false
+ },
+ "GoreTex": {
+  "id": 282,
+  "lib": false
+ },
+ "Grapes": {
+  "id": 482,
+  "lib": false
+ },
+ "Graphene": {
+  "id": 250,
+  "lib": false
+ },
+ "Graphite": {
+  "id": 146,
+  "lib": false
+ },
+ "GreenVitriol": {
+  "id": 46,
+  "lib": false
+ },
+ "Greenockite": {
+  "id": 128,
+  "lib": false
+ },
+ "Grubbs": {
+  "id": 268,
+  "lib": false
+ },
+ "Guaiacol": {
+  "id": 8624,
+  "lib": true,
+  "name": "Guaiacol"
+ },
+ "Guanidine": {
+  "id": 2750,
+  "lib": true,
+  "name": "Guanidine"
+ },
+ "GumBenzoin": {
+  "id": 405,
+  "lib": false
+ },
+ "Guncotton": {
+  "id": 132,
+  "lib": false
+ },
+ "Gypsum": {
+  "id": 30,
+  "lib": false
+ },
+ "H2O2": {
+  "id": 8083,
+  "lib": true,
+  "name": "Hydrogen peroxide"
+ },
+ "H2S": {
+  "id": 71,
+  "lib": false
+ },
+ "H2S2O8": {
+  "id": 530,
+  "lib": false
+ },
+ "H2SiF6": {
+  "id": 87,
+  "lib": false
+ },
+ "H2WO4": {
+  "id": 95,
+  "lib": false
+ },
+ "H3BO3": {
+  "id": 81,
+  "lib": false
+ },
+ "H3PO4": {
+  "id": 57,
+  "lib": false
+ },
+ "HAuCl4": {
+  "id": 47,
+  "lib": false
+ },
+ "HBr": {
+  "id": 2056,
+  "lib": true,
+  "name": "Hydrogen bromide"
+ },
+ "HCN": {
+  "id": 7835,
+  "lib": true,
+  "name": "Hydrogen cyanide"
+ },
+ "HCOONa": {
+  "id": 3627,
+  "lib": true,
+  "name": "Sodium formate"
+ },
+ "HClO4": {
+  "id": 7987,
+  "lib": true,
+  "name": "Perchloric acid"
+ },
+ "HDPE": {
+  "id": 198,
+  "lib": false
+ },
+ "HF": {
+  "id": 86,
+  "lib": false
+ },
+ "HI": {
+  "id": 262,
+  "lib": false
+ },
+ "HSS": {
+  "id": 179,
+  "lib": false
+ },
+ "HSiCl3": {
+  "id": 2046,
+  "lib": true,
+  "name": "Trichlorosilane"
+ },
+ "HSpodumene": {
+  "id": 126,
+  "lib": false
+ },
+ "HanPurple": {
+  "id": 493,
+  "lib": false
+ },
+ "HeavyWater": {
+  "id": 562,
+  "lib": false
+ },
+ "Heptanal": {
+  "id": 2655,
+  "lib": true,
+  "name": "Heptanal"
+ },
+ "Heptane": {
+  "id": 686,
+  "lib": false
+ },
+ "Hexadecane": {
+  "id": 181,
+  "lib": false
+ },
+ "Hexamine": {
+  "id": 2026,
+  "lib": true,
+  "name": "Hexamethylenetetramine"
+ },
+ "Hexane": {
+  "id": 685,
+  "lib": false
+ },
+ "Hexanoic": {
+  "id": 3655,
+  "lib": true,
+  "name": "Hexanoic acid"
+ },
+ "HfCl4": {
+  "id": 611,
+  "lib": false
+ },
+ "HfO2": {
+  "id": 612,
+  "lib": false
+ },
+ "Hg2Cl2": {
+  "id": 53,
+  "lib": false
+ },
+ "HgCl2": {
+  "id": 52,
+  "lib": false
+ },
+ "HgI2": {
+  "id": 668,
+  "lib": false
+ },
+ "HgNO32": {
+  "id": 636,
+  "lib": false
+ },
+ "HgO": {
+  "id": 51,
+  "lib": false
+ },
+ "Honey": {
+  "id": 483,
+  "lib": false
+ },
+ "Horn": {
+  "id": 445,
+  "lib": false
+ },
+ "Hydroquinone": {
+  "id": 3070,
+  "lib": true,
+  "name": "Hydroquinone"
+ },
+ "HydroxyAzo": {
+  "id": 533,
+  "lib": false
+ },
+ "Hydroxyapatite": {
+  "id": 672,
+  "lib": false
+ },
+ "IBAP": {
+  "id": 270,
+  "lib": false
+ },
+ "IBPE": {
+  "id": 271,
+  "lib": false
+ },
+ "IPM": {
+  "id": 2592,
+  "lib": true,
+  "name": "Isopropyl myristate"
+ },
+ "IPP": {
+  "id": 3663,
+  "lib": true,
+  "name": "Isopropyl palmitate"
+ },
+ "Ibuprofen": {
+  "id": 3941,
+  "lib": true,
+  "name": "Ibuprofen"
+ },
+ "IceVII": {
+  "id": 691,
+  "lib": false
+ },
+ "InP": {
+  "id": 614,
+  "lib": false
+ },
+ "Indican": {
+  "id": 41,
+  "lib": false
+ },
+ "Indigo": {
+  "id": 42,
+  "lib": false
+ },
+ "Insulin": {
+  "id": 601,
+  "lib": false
+ },
+ "Iodine131": {
+  "id": 569,
+  "lib": false
+ },
+ "Iodobenzene": {
+  "id": 535,
+  "lib": false
+ },
+ "Iridium192": {
+  "id": 576,
+  "lib": false
+ },
+ "IronGallInk": {
+  "id": 419,
+  "lib": false
+ },
+ "IsoamylAcetate": {
+  "id": 3090,
+  "lib": true,
+  "name": "Isoamyl acetate"
+ },
+ "IsoamylAlcohol": {
+  "id": 3076,
+  "lib": true,
+  "name": "Isoamyl alcohol"
+ },
+ "IsoamylButyrate": {
+  "id": 682,
+  "lib": false
+ },
+ "Isobutane": {
+  "id": 7891,
+  "lib": true,
+  "name": "Isobutane"
+ },
+ "Isobutanol": {
+  "id": 8193,
+  "lib": true,
+  "name": "Isobutanol"
+ },
+ "IsobutylAcetate": {
+  "id": 2589,
+  "lib": true,
+  "name": "Isobutyl acetate"
+ },
+ "Isobutylbenzene": {
+  "id": 6336,
+  "lib": true,
+  "name": "Isobutylbenzene"
+ },
+ "Isobutyraldehyde": {
+  "id": 8194,
+  "lib": true,
+  "name": "Isobutyraldehyde"
+ },
+ "Isoeugenol": {
+  "id": 8887,
+  "lib": true,
+  "name": "Isoeugenol"
+ },
+ "Isoleucine": {
+  "id": 7780,
+  "lib": true,
+  "name": "L-Isoleucine"
+ },
+ "Isooctane": {
+  "id": 6375,
+  "lib": true,
+  "name": "2,2,4-Trimethylpentane"
+ },
+ "Isopentane": {
+  "id": 8190,
+  "lib": true,
+  "name": "Isopentane"
+ },
+ "Isoprene": {
+  "id": 8191,
+  "lib": true,
+  "name": "Isoprene"
+ },
+ "Isopropanol": {
+  "id": 7276,
+  "lib": true,
+  "name": "Isopropanol"
+ },
+ "IsopropylAcetate": {
+  "id": 2508,
+  "lib": true,
+  "name": "Isopropyl acetate"
+ },
+ "Isoquinoline": {
+  "id": 2867,
+  "lib": true,
+  "name": "Isoquinoline"
+ },
+ "IsovalericAcid": {
+  "id": 6077,
+  "lib": true,
+  "name": "Isovaleric acid"
+ },
+ "ItaconicAcid": {
+  "id": 8891,
+  "lib": true,
+  "name": "Itaconic acid"
+ },
+ "Ivermectin": {
+  "id": 607,
+  "lib": false
+ },
+ "Jasmine": {
+  "id": 296,
+  "lib": false
+ },
+ "K2Cr2O7": {
+  "id": 654,
+  "lib": false
+ },
+ "K2CrO4": {
+  "id": 653,
+  "lib": false
+ },
+ "K2MnO4": {
+  "id": 509,
+  "lib": false
+ },
+ "K2O": {
+  "id": 3000,
+  "lib": true,
+  "name": "Potassium oxide"
+ },
+ "K2PtCl4": {
+  "id": 276,
+  "lib": false
+ },
+ "K2S": {
+  "id": 3306,
+  "lib": true,
+  "name": "Potassium sulfide"
+ },
+ "K2SO4": {
+  "id": 8125,
+  "lib": true,
+  "name": "Potassium sulfate"
+ },
+ "K2SiF6": {
+  "id": 88,
+  "lib": false
+ },
+ "K2SiO3": {
+  "id": 3307,
+  "lib": true,
+  "name": "Potassium silicate"
+ },
+ "K3C6H5O7": {
+  "id": 8509,
+  "lib": true,
+  "name": "Tripotassium citrate"
+ },
+ "KBr": {
+  "id": 8097,
+  "lib": true,
+  "name": "Potassium bromide"
+ },
+ "KBrO3": {
+  "id": 8096,
+  "lib": true,
+  "name": "Potassium bromate"
+ },
+ "KC2H3O2": {
+  "id": 3182,
+  "lib": true,
+  "name": "Potassium acetate"
+ },
+ "KC3H5O3": {
+  "id": 8979,
+  "lib": true,
+  "name": "Potassium lactate"
+ },
+ "KC7H5O2": {
+  "id": 6684,
+  "lib": true,
+  "name": "Potassium benzoate"
+ },
+ "KCHO2": {
+  "id": 6747,
+  "lib": true,
+  "name": "Potassium formate"
+ },
+ "KCN": {
+  "id": 3841,
+  "lib": true,
+  "name": "Potassium cyanide"
+ },
+ "KCl": {
+  "id": 7857,
+  "lib": true,
+  "name": "Potassium chloride"
+ },
+ "KClO": {
+  "id": 8123,
+  "lib": true,
+  "name": "Potassium hypochlorite"
+ },
+ "KClO3": {
+  "id": 5635,
+  "lib": true,
+  "name": "Potassium chlorate"
+ },
+ "KF": {
+  "id": 8150,
+  "lib": true,
+  "name": "Potassium fluoride"
+ },
+ "KI": {
+  "id": 8032,
+  "lib": true,
+  "name": "Potassium iodide"
+ },
+ "KIO3": {
+  "id": 8098,
+  "lib": true,
+  "name": "Potassium iodate"
+ },
+ "KMnO4": {
+  "id": 531,
+  "lib": false
+ },
+ "KNO2": {
+  "id": 8099,
+  "lib": true,
+  "name": "Potassium nitrite"
+ },
+ "KO2": {
+  "id": 661,
+  "lib": false
+ },
+ "KOCN": {
+  "id": 6746,
+  "lib": true,
+  "name": "Potassium cyanate"
+ },
+ "KOH": {
+  "id": 3299,
+  "lib": true,
+  "name": "Potassium hydroxide"
+ },
+ "KSCN": {
+  "id": 5359,
+  "lib": true,
+  "name": "Potassium thiocyanate"
+ },
+ "Kerosene": {
+  "id": 171,
+  "lib": false
+ },
+ "Kevlar": {
+  "id": 221,
+  "lib": false
+ },
+ "Kieselguhr": {
+  "id": 158,
+  "lib": false
+ },
+ "Kombu": {
+  "id": 447,
+  "lib": false
+ },
+ "Kombucha": {
+  "id": 698,
+  "lib": false
+ },
+ "KraftPulp": {
+  "id": 548,
+  "lib": false
+ },
+ "LNG": {
+  "id": 563,
+  "lib": false
+ },
+ "LOX": {
+  "id": 554,
+  "lib": false
+ },
+ "La2CO33": {
+  "id": 6712,
+  "lib": true,
+  "name": "Lanthanum carbonate"
+ },
+ "LaNO33": {
+  "id": 2093,
+  "lib": true,
+  "name": "Lanthanum nitrate"
+ },
+ "LacticAcid": {
+  "id": 6040,
+  "lib": true,
+  "name": "Lactic acid"
+ },
+ "Lactide": {
+  "id": 8830,
+  "lib": true,
+  "name": "Lactide"
+ },
+ "Lactose": {
+  "id": 272,
+  "lib": false
+ },
+ "Lanolin": {
+  "id": 455,
+  "lib": false
+ },
+ "LaserDiode": {
+  "id": 586,
+  "lib": false
+ },
+ "LauricAcid": {
+  "id": 3682,
+  "lib": true,
+  "name": "Lauric acid"
+ },
+ "Lavender": {
+  "id": 287,
+  "lib": false
+ },
+ "LeadCrystal": {
+  "id": 495,
+  "lib": false
+ },
+ "Lemongrass": {
+  "id": 460,
+  "lib": false
+ },
+ "Lemons": {
+  "id": 299,
+  "lib": false
+ },
+ "Lepidolite": {
+  "id": 413,
+  "lib": false
+ },
+ "Leucine": {
+  "id": 6880,
+  "lib": true,
+  "name": "L-Leucine"
+ },
+ "LevulinicAcid": {
+  "id": 3084,
+  "lib": true,
+  "name": "Levulinic acid"
+ },
+ "Li2C2O4": {
+  "id": 6472,
+  "lib": true,
+  "name": "Lithium oxalate"
+ },
+ "Li2CO3": {
+  "id": 127,
+  "lib": false
+ },
+ "Li2O": {
+  "id": 2958,
+  "lib": true,
+  "name": "Lithium oxide"
+ },
+ "Li2S": {
+  "id": 3001,
+  "lib": true,
+  "name": "Lithium sulfide"
+ },
+ "Li2SO4": {
+  "id": 2265,
+  "lib": true,
+  "name": "Lithium sulfate"
+ },
+ "Li3C6H5O7": {
+  "id": 8706,
+  "lib": true,
+  "name": "Lithium citrate"
+ },
+ "Li3N": {
+  "id": 592,
+  "lib": false
+ },
+ "Li3PO4": {
+  "id": 2267,
+  "lib": true,
+  "name": "Trilithium phosphate"
+ },
+ "LiAlH4": {
+  "id": 593,
+  "lib": false
+ },
+ "LiBr": {
+  "id": 7941,
+  "lib": true,
+  "name": "Lithium bromide"
+ },
+ "LiC18H35O2": {
+  "id": 5882,
+  "lib": true,
+  "name": "Lithium stearate"
+ },
+ "LiC2H3O2": {
+  "id": 6426,
+  "lib": true,
+  "name": "Lithium acetate"
+ },
+ "LiCHO2": {
+  "id": 6490,
+  "lib": true,
+  "name": "Lithium formate"
+ },
+ "LiCl": {
+  "id": 7858,
+  "lib": true,
+  "name": "Lithium chloride"
+ },
+ "LiCoO2": {
+  "id": 253,
+  "lib": false
+ },
+ "LiF": {
+  "id": 8151,
+  "lib": true,
+  "name": "Lithium fluoride"
+ },
+ "LiFePO4": {
+  "id": 255,
+  "lib": false
+ },
+ "LiH": {
+  "id": 7958,
+  "lib": true,
+  "name": "Lithium hydride"
+ },
+ "LiI": {
+  "id": 2266,
+  "lib": true,
+  "name": "Lithium iodide"
+ },
+ "LiIonCell": {
+  "id": 254,
+  "lib": false
+ },
+ "LiNO3": {
+  "id": 8162,
+  "lib": true,
+  "name": "Lithium nitrate"
+ },
+ "LiNbO3": {
+  "id": 583,
+  "lib": false
+ },
+ "LiOH": {
+  "id": 3300,
+  "lib": true,
+  "name": "Lithium hydroxide"
+ },
+ "Lignin": {
+  "id": 549,
+  "lib": false
+ },
+ "Limonene": {
+  "id": 3545,
+  "lib": true,
+  "name": "Limonene"
+ },
+ "Linalool": {
+  "id": 8189,
+  "lib": true,
+  "name": "(\u00b1)-Linalool"
+ },
+ "LinalylAcetate": {
+  "id": 2793,
+  "lib": true,
+  "name": "Linalyl acetate"
+ },
+ "LinoleicAcid": {
+  "id": 6823,
+  "lib": true,
+  "name": "Linoleic acid"
+ },
+ "Linoleum": {
+  "id": 477,
+  "lib": false
+ },
+ "Linoxyn": {
+  "id": 476,
+  "lib": false
+ },
+ "LinseedOil": {
+  "id": 472,
+  "lib": false
+ },
+ "LiquidAir": {
+  "id": 137,
+  "lib": false
+ },
+ "LiquidF2": {
+  "id": 688,
+  "lib": false
+ },
+ "LiquidH2": {
+  "id": 174,
+  "lib": false
+ },
+ "LiquidHe": {
+  "id": 175,
+  "lib": false
+ },
+ "LiquidN2": {
+  "id": 553,
+  "lib": false
+ },
+ "LiquidNH3": {
+  "id": 502,
+  "lib": false
+ },
+ "LiquidNe": {
+  "id": 687,
+  "lib": false
+ },
+ "Lovastatin": {
+  "id": 7932,
+  "lib": true,
+  "name": "Lovastatin"
+ },
+ "LubeOil": {
+  "id": 551,
+  "lib": false
+ },
+ "Lupin": {
+  "id": 446,
+  "lib": false
+ },
+ "Lutetium177": {
+  "id": 700,
+  "lib": false
+ },
+ "Lycopene": {
+  "id": 6072,
+  "lib": true,
+  "name": "Lycopene"
+ },
+ "Lysine": {
+  "id": 6532,
+  "lib": true,
+  "name": "L-Lysine"
+ },
+ "MAI": {
+  "id": 263,
+  "lib": false
+ },
+ "MEK": {
+  "id": 8201,
+  "lib": true,
+  "name": "Methyl ethyl ketone"
+ },
+ "MMA": {
+  "id": 191,
+  "lib": false
+ },
+ "MOF5": {
+  "id": 266,
+  "lib": false
+ },
+ "MOSFET": {
+  "id": 585,
+  "lib": false
+ },
+ "MaleicAnhydride": {
+  "id": 2512,
+  "lib": true,
+  "name": "Maleic anhydride"
+ },
+ "Malic": {
+  "id": 7610,
+  "lib": true,
+  "name": "Malic acid"
+ },
+ "MalonicAcid": {
+  "id": 3632,
+  "lib": true,
+  "name": "Malonic acid"
+ },
+ "Maltose": {
+  "id": 7592,
+  "lib": true,
+  "name": "Maltose"
+ },
+ "MandelicAcid": {
+  "id": 8627,
+  "lib": true,
+  "name": "Mandelic acid"
+ },
+ "Manna": {
+  "id": 449,
+  "lib": false
+ },
+ "Mannitol": {
+  "id": 7591,
+  "lib": true,
+  "name": "Mannitol"
+ },
+ "Mauveine": {
+  "id": 152,
+  "lib": false
+ },
+ "Me2SiCl2": {
+  "id": 218,
+  "lib": false
+ },
+ "MeBr": {
+  "id": 7830,
+  "lib": true,
+  "name": "Methyl bromide"
+ },
+ "MeI": {
+  "id": 7833,
+  "lib": true,
+  "name": "Methyl iodide"
+ },
+ "Mead": {
+  "id": 491,
+  "lib": false
+ },
+ "Melamine": {
+  "id": 2527,
+  "lib": true,
+  "name": "Melamine"
+ },
+ "Menthol": {
+  "id": 3807,
+  "lib": true,
+  "name": "Menthol"
+ },
+ "Menthone": {
+  "id": 3610,
+  "lib": true,
+  "name": "(-)-Menthone"
+ },
+ "MenthylAcetate": {
+  "id": 8599,
+  "lib": true,
+  "name": "(\u00b1)-Menthyl acetate"
+ },
+ "Mesitylene": {
+  "id": 2523,
+  "lib": true,
+  "name": "Mesitylene"
+ },
+ "Metakaolin": {
+  "id": 16,
+  "lib": false
+ },
+ "MethacrylicAcid": {
+  "id": 8240,
+  "lib": true,
+  "name": "Methacrylic acid"
+ },
+ "Methane": {
+  "id": 160,
+  "lib": false
+ },
+ "Methanethiol": {
+  "id": 7836,
+  "lib": true,
+  "name": "Methanethiol"
+ },
+ "Methanol": {
+  "id": 7275,
+  "lib": true,
+  "name": "Methanol"
+ },
+ "MethylAcetate": {
+  "id": 8228,
+  "lib": true,
+  "name": "Methyl acetate"
+ },
+ "MethylAnthranilate": {
+  "id": 3413,
+  "lib": true,
+  "name": "Methyl anthranilate"
+ },
+ "MethylBenzoate": {
+  "id": 8748,
+  "lib": true,
+  "name": "Methyl benzoate"
+ },
+ "MethylButyrate": {
+  "id": 6967,
+  "lib": true,
+  "name": "Methyl butyrate"
+ },
+ "MethylCinnamate": {
+  "id": 2223,
+  "lib": true,
+  "name": "Methyl cinnamate"
+ },
+ "MethylFormate": {
+  "id": 2450,
+  "lib": true,
+  "name": "Methyl formate"
+ },
+ "MethylLaurate": {
+  "id": 2657,
+  "lib": true,
+  "name": "Methyl laurate"
+ },
+ "MethylMyristate": {
+  "id": 3103,
+  "lib": true,
+  "name": "Methyl myristate"
+ },
+ "MethylOrange": {
+  "id": 534,
+  "lib": false
+ },
+ "MethylPalmitate": {
+  "id": 2713,
+  "lib": true,
+  "name": "Methyl palmitate"
+ },
+ "MethylPropionate": {
+  "id": 681,
+  "lib": false
+ },
+ "MethylSalicylate": {
+  "id": 2863,
+  "lib": true,
+  "name": "Methyl salicylate"
+ },
+ "Methylamine": {
+  "id": 7834,
+  "lib": true,
+  "name": "Methylamine"
+ },
+ "Methylcyclohexane": {
+  "id": 2531,
+  "lib": true,
+  "name": "Methylcyclohexane"
+ },
+ "Mg(C18H35O2)2": {
+  "id": 6495,
+  "lib": true,
+  "name": "Magnesium stearate"
+ },
+ "Mg(C2H3O2)2": {
+  "id": 3657,
+  "lib": true,
+  "name": "Magnesium acetate"
+ },
+ "Mg(NO3)2": {
+  "id": 2269,
+  "lib": true,
+  "name": "Magnesium nitrate"
+ },
+ "Mg2Si": {
+  "id": 702,
+  "lib": false
+ },
+ "Mg3N2": {
+  "id": 663,
+  "lib": false
+ },
+ "MgBr2": {
+  "id": 8154,
+  "lib": true,
+  "name": "Magnesium bromide"
+ },
+ "MgCO3": {
+  "id": 77,
+  "lib": false
+ },
+ "MgCl2": {
+  "id": 8146,
+  "lib": true,
+  "name": "Magnesium chloride"
+ },
+ "MgF2": {
+  "id": 8137,
+  "lib": true,
+  "name": "Magnesium fluoride"
+ },
+ "MgO": {
+  "id": 3287,
+  "lib": true,
+  "name": "Magnesium oxide"
+ },
+ "MgOH2": {
+  "id": 3286,
+  "lib": true,
+  "name": "Magnesium hydroxide"
+ },
+ "MgSO4": {
+  "id": 630,
+  "lib": false
+ },
+ "Microchip": {
+  "id": 281,
+  "lib": false
+ },
+ "MicrocosmicSalt": {
+  "id": 54,
+  "lib": false
+ },
+ "Milk": {
+  "id": 484,
+  "lib": false
+ },
+ "MineralWater": {
+  "id": 414,
+  "lib": false
+ },
+ "Mn2O3": {
+  "id": 659,
+  "lib": false
+ },
+ "MnCO3": {
+  "id": 646,
+  "lib": false
+ },
+ "MnNO32": {
+  "id": 634,
+  "lib": false
+ },
+ "MnO": {
+  "id": 658,
+  "lib": false
+ },
+ "MnS": {
+  "id": 652,
+  "lib": false
+ },
+ "MnSO4": {
+  "id": 629,
+  "lib": false
+ },
+ "Mo2C": {
+  "id": 519,
+  "lib": false
+ },
+ "MoO3": {
+  "id": 98,
+  "lib": false
+ },
+ "MoS2": {
+  "id": 97,
+  "lib": false
+ },
+ "Molybdenum99": {
+  "id": 568,
+  "lib": false
+ },
+ "Monazite": {
+  "id": 256,
+  "lib": false
+ },
+ "Mullite": {
+  "id": 500,
+  "lib": false
+ },
+ "Myrcene": {
+  "id": 3072,
+  "lib": true,
+  "name": "Myrcene"
+ },
+ "MyristicAcid": {
+  "id": 6414,
+  "lib": true,
+  "name": "Myristic acid"
+ },
+ "N2H4": {
+  "id": 5171,
+  "lib": true,
+  "name": "Hydrazine"
+ },
+ "N2O": {
+  "id": 2044,
+  "lib": true,
+  "name": "Nitrous oxide"
+ },
+ "NH2OH": {
+  "id": 8205,
+  "lib": true,
+  "name": "Hydroxylamine"
+ },
+ "NH42SO4": {
+  "id": 176,
+  "lib": false
+ },
+ "NH4C18H33O2": {
+  "id": 6413,
+  "lib": true,
+  "name": "Ammonium oleate"
+ },
+ "NH4C18H35O2": {
+  "id": 2041,
+  "lib": true,
+  "name": "Ammonium stearate"
+ },
+ "NH4C2H3O2": {
+  "id": 7025,
+  "lib": true,
+  "name": "Ammonium acetate"
+ },
+ "NH4C3H5O2": {
+  "id": 4138,
+  "lib": true,
+  "name": "Ammonium propionate"
+ },
+ "NH4C3H5O3": {
+  "id": 6181,
+  "lib": true,
+  "name": "Ammonium lactate"
+ },
+ "NH4CHO2": {
+  "id": 6373,
+  "lib": true,
+  "name": "Ammonium formate"
+ },
+ "NH4Cl": {
+  "id": 48,
+  "lib": false
+ },
+ "NH4ClO4": {
+  "id": 8166,
+  "lib": true,
+  "name": "Ammonium perchlorate"
+ },
+ "NH4Cr2O7": {
+  "id": 657,
+  "lib": false
+ },
+ "NH4NO3": {
+  "id": 7149,
+  "lib": true,
+  "name": "Ammonium nitrate"
+ },
+ "NH4OCN": {
+  "id": 76,
+  "lib": false
+ },
+ "NO": {
+  "id": 2131,
+  "lib": true,
+  "name": "Nitric oxide"
+ },
+ "NO2": {
+  "id": 2132,
+  "lib": true,
+  "name": "Nitrogen dioxide"
+ },
+ "NSi": {
+  "id": 237,
+  "lib": false
+ },
+ "Na2C2O4": {
+  "id": 6944,
+  "lib": true,
+  "name": "Sodium oxalate"
+ },
+ "Na2Cr2O7": {
+  "id": 121,
+  "lib": false
+ },
+ "Na2CrO4": {
+  "id": 120,
+  "lib": false
+ },
+ "Na2O": {
+  "id": 3313,
+  "lib": true,
+  "name": "Sodium oxide"
+ },
+ "Na2O2": {
+  "id": 662,
+  "lib": false
+ },
+ "Na2S": {
+  "id": 3314,
+  "lib": true,
+  "name": "Disodium sulfide"
+ },
+ "Na2S2O3": {
+  "id": 8112,
+  "lib": true,
+  "name": "Sodium thiosulfate"
+ },
+ "Na2SO3": {
+  "id": 162,
+  "lib": false
+ },
+ "Na2SiO3": {
+  "id": 56,
+  "lib": false
+ },
+ "Na2ZnCN4": {
+  "id": 148,
+  "lib": false
+ },
+ "Na3AgS2O32": {
+  "id": 163,
+  "lib": false
+ },
+ "Na3PO4": {
+  "id": 7985,
+  "lib": true,
+  "name": "Trisodium phosphate"
+ },
+ "NaAlOH4": {
+  "id": 143,
+  "lib": false
+ },
+ "NaAuCN2": {
+  "id": 147,
+  "lib": false
+ },
+ "NaBH4": {
+  "id": 594,
+  "lib": false
+ },
+ "NaBr": {
+  "id": 84,
+  "lib": false
+ },
+ "NaC2H3O2": {
+  "id": 3183,
+  "lib": true,
+  "name": "Sodium acetate"
+ },
+ "NaC3H5O2": {
+  "id": 3515,
+  "lib": true,
+  "name": "Sodium propionate"
+ },
+ "NaC3H5O3": {
+  "id": 7732,
+  "lib": true,
+  "name": "Sodium lactate"
+ },
+ "NaC7H5O2": {
+  "id": 6296,
+  "lib": true,
+  "name": "Sodium benzoate"
+ },
+ "NaCN": {
+  "id": 3688,
+  "lib": true,
+  "name": "Sodium cyanide"
+ },
+ "NaClO": {
+  "id": 8035,
+  "lib": true,
+  "name": "Sodium hypochlorite"
+ },
+ "NaClO3": {
+  "id": 8117,
+  "lib": true,
+  "name": "Sodium chlorate"
+ },
+ "NaClO4": {
+  "id": 7986,
+  "lib": true,
+  "name": "Sodium perchlorate"
+ },
+ "NaF": {
+  "id": 8034,
+  "lib": true,
+  "name": "Sodium fluoride"
+ },
+ "NaGluconate": {
+  "id": 6256,
+  "lib": true,
+  "name": "Sodium gluconate"
+ },
+ "NaH": {
+  "id": 8015,
+  "lib": true,
+  "name": "Sodium hydride"
+ },
+ "NaHCO3": {
+  "id": 3704,
+  "lib": true,
+  "name": "Sodium bicarbonate"
+ },
+ "NaHSO3": {
+  "id": 8004,
+  "lib": true,
+  "name": "Sodium bisulfite"
+ },
+ "NaHSO4": {
+  "id": 8033,
+  "lib": true,
+  "name": "Sodium bisulfate"
+ },
+ "NaI": {
+  "id": 83,
+  "lib": false
+ },
+ "NaNH2": {
+  "id": 8132,
+  "lib": true,
+  "name": "Sodium amide"
+ },
+ "NaNO2": {
+  "id": 8007,
+  "lib": true,
+  "name": "Sodium nitrite"
+ },
+ "NaNO3": {
+  "id": 8005,
+  "lib": true,
+  "name": "Sodium nitrate"
+ },
+ "NaOMe": {
+  "id": 3110,
+  "lib": true,
+  "name": "Sodium methoxide"
+ },
+ "NaPO3": {
+  "id": 55,
+  "lib": false
+ },
+ "NaSCN": {
+  "id": 6374,
+  "lib": true,
+  "name": "Sodium thiocyanate"
+ },
+ "NaStearate": {
+  "id": 8368,
+  "lib": true,
+  "name": "Sodium stearate"
+ },
+ "NaTartrate": {
+  "id": 8514,
+  "lib": true,
+  "name": "Sodium tartrate"
+ },
+ "Nanodiamond": {
+  "id": 693,
+  "lib": false
+ },
+ "Naphtha": {
+  "id": 172,
+  "lib": false
+ },
+ "Naphthalene": {
+  "id": 8669,
+  "lib": true,
+  "name": "Naphthalene"
+ },
+ "NaplesYellow": {
+  "id": 494,
+  "lib": false
+ },
+ "Natron": {
+  "id": 33,
+  "lib": false
+ },
+ "NaturalGas": {
+  "id": 182,
+  "lib": false
+ },
+ "Nb2O5": {
+  "id": 3315,
+  "lib": true,
+  "name": "Niobium pentoxide"
+ },
+ "NbC": {
+  "id": 518,
+  "lib": false
+ },
+ "NbTi": {
+  "id": 689,
+  "lib": false
+ },
+ "NdCl3": {
+  "id": 257,
+  "lib": false
+ },
+ "NdFeB": {
+  "id": 258,
+  "lib": false
+ },
+ "NdNO33": {
+  "id": 2075,
+  "lib": true,
+  "name": "Neodymium nitrate"
+ },
+ "NdYAG": {
+  "id": 582,
+  "lib": false
+ },
+ "Neoprene": {
+  "id": 195,
+  "lib": false
+ },
+ "Nerol": {
+  "id": 2379,
+  "lib": true,
+  "name": "Nerol"
+ },
+ "Ni(C2H3O2)2": {
+  "id": 5586,
+  "lib": true,
+  "name": "Nickel acetate"
+ },
+ "Ni(NO3)2": {
+  "id": 3317,
+  "lib": true,
+  "name": "Nickel nitrate"
+ },
+ "NiCO3": {
+  "id": 644,
+  "lib": false
+ },
+ "NiCO4": {
+  "id": 144,
+  "lib": false
+ },
+ "NiCdCell": {
+  "id": 545,
+  "lib": false
+ },
+ "NiCl2": {
+  "id": 620,
+  "lib": false
+ },
+ "NiO": {
+  "id": 93,
+  "lib": false
+ },
+ "NiOH2": {
+  "id": 638,
+  "lib": false
+ },
+ "NiS": {
+  "id": 2667,
+  "lib": true,
+  "name": "Nickel sulfide"
+ },
+ "NiSO4": {
+  "id": 628,
+  "lib": false
+ },
+ "Nickeline": {
+  "id": 92,
+  "lib": false
+ },
+ "Nicotine": {
+  "id": 6358,
+  "lib": true,
+  "name": "Nicotine"
+ },
+ "NicotinicAcid": {
+  "id": 6738,
+  "lib": true,
+  "name": "Nicotinic acid"
+ },
+ "Nitroaniline": {
+  "id": 2000,
+  "lib": true,
+  "name": "4-Nitroaniline"
+ },
+ "NitrobenzoicAcid": {
+  "id": 6938,
+  "lib": true,
+  "name": "4-Nitrobenzoic acid"
+ },
+ "Nitroglycerin": {
+  "id": 6448,
+  "lib": true,
+  "name": "Nitroglycerin"
+ },
+ "Nitrotoluene": {
+  "id": 227,
+  "lib": false
+ },
+ "NonanoicAcid": {
+  "id": 2703,
+  "lib": true,
+  "name": "Nonanoic acid"
+ },
+ "Nutmeg": {
+  "id": 471,
+  "lib": false
+ },
+ "Nylon11": {
+  "id": 479,
+  "lib": false
+ },
+ "Nylon6": {
+  "id": 189,
+  "lib": false
+ },
+ "Nylon610": {
+  "id": 478,
+  "lib": false
+ },
+ "O3": {
+  "id": 133,
+  "lib": false
+ },
+ "OakGalls": {
+  "id": 297,
+  "lib": false
+ },
+ "Octanal": {
+  "id": 3104,
+  "lib": true,
+  "name": "Octanal"
+ },
+ "Octane": {
+  "id": 180,
+  "lib": false
+ },
+ "Octanoic": {
+  "id": 3102,
+  "lib": true,
+  "name": "Octanoic acid"
+ },
+ "Octene": {
+  "id": 2653,
+  "lib": true,
+  "name": "1-Octene"
+ },
+ "OleicAcid": {
+  "id": 2728,
+  "lib": true,
+  "name": "Oleic acid"
+ },
+ "Oleum": {
+  "id": 139,
+  "lib": false
+ },
+ "OpticalFibre": {
+  "id": 613,
+  "lib": false
+ },
+ "OrangePeel": {
+  "id": 290,
+  "lib": false
+ },
+ "Orpiment": {
+  "id": 59,
+  "lib": false
+ },
+ "Oxalic": {
+  "id": 3705,
+  "lib": true,
+  "name": "Oxalic acid"
+ },
+ "OxidisedWafer": {
+  "id": 584,
+  "lib": false
+ },
+ "P4O10": {
+  "id": 3320,
+  "lib": true,
+  "name": "Phosphorus pentoxide"
+ },
+ "PABA": {
+  "id": 228,
+  "lib": false
+ },
+ "PAN": {
+  "id": 225,
+  "lib": false
+ },
+ "PC": {
+  "id": 224,
+  "lib": false
+ },
+ "PCD": {
+  "id": 616,
+  "lib": false
+ },
+ "PCE": {
+  "id": 3185,
+  "lib": true,
+  "name": "Tetrachloroethylene"
+ },
+ "PCl3": {
+  "id": 8080,
+  "lib": true,
+  "name": "Phosphorus trichloride"
+ },
+ "PCl5": {
+  "id": 2050,
+  "lib": true,
+  "name": "Phosphorus pentachloride"
+ },
+ "PDMS": {
+  "id": 219,
+  "lib": false
+ },
+ "PDO": {
+  "id": 603,
+  "lib": false
+ },
+ "PET": {
+  "id": 190,
+  "lib": false
+ },
+ "PHB": {
+  "id": 605,
+  "lib": false
+ },
+ "PLA": {
+  "id": 273,
+  "lib": false
+ },
+ "PMMA": {
+  "id": 192,
+  "lib": false
+ },
+ "POCl3": {
+  "id": 2048,
+  "lib": true,
+  "name": "Phosphorus oxychloride"
+ },
+ "PP": {
+  "id": 197,
+  "lib": false
+ },
+ "PPD": {
+  "id": 2393,
+  "lib": true,
+  "name": "p-Phenylenediamine"
+ },
+ "PS": {
+  "id": 187,
+  "lib": false
+ },
+ "PSi": {
+  "id": 236,
+  "lib": false
+ },
+ "PTFE": {
+  "id": 188,
+  "lib": false
+ },
+ "PU": {
+  "id": 220,
+  "lib": false
+ },
+ "PVAc": {
+  "id": 226,
+  "lib": false
+ },
+ "PVC": {
+  "id": 186,
+  "lib": false
+ },
+ "PalmOil": {
+  "id": 407,
+  "lib": false
+ },
+ "PalmiticAcid": {
+  "id": 6587,
+  "lib": true,
+  "name": "Palmitic acid"
+ },
+ "Paracetamol": {
+  "id": 2242,
+  "lib": true,
+  "name": "Acetaminophen"
+ },
+ "ParaffinWax": {
+  "id": 552,
+  "lib": false
+ },
+ "Pb3O4": {
+  "id": 24,
+  "lib": false
+ },
+ "PbCO3": {
+  "id": 37,
+  "lib": false
+ },
+ "PbCl2": {
+  "id": 624,
+  "lib": false
+ },
+ "PbCrO4": {
+  "id": 122,
+  "lib": false
+ },
+ "PbI2": {
+  "id": 261,
+  "lib": false
+ },
+ "PbNO32": {
+  "id": 2095,
+  "lib": true,
+  "name": "Lead nitrate"
+ },
+ "PbO": {
+  "id": 20,
+  "lib": false
+ },
+ "PbO2": {
+  "id": 149,
+  "lib": false
+ },
+ "PbOAc2": {
+  "id": 38,
+  "lib": false
+ },
+ "PbSO4": {
+  "id": 150,
+  "lib": false
+ },
+ "Penicillin": {
+  "id": 232,
+  "lib": false
+ },
+ "Penicillium": {
+  "id": 231,
+  "lib": false
+ },
+ "Pentanoic": {
+  "id": 2557,
+  "lib": true,
+  "name": "Pentanoic acid"
+ },
+ "Peppermint": {
+  "id": 288,
+  "lib": false
+ },
+ "Perovskite": {
+  "id": 264,
+  "lib": false
+ },
+ "Pewter": {
+  "id": 25,
+  "lib": false
+ },
+ "PhB(OH)2": {
+  "id": 269,
+  "lib": false
+ },
+ "PhMgBr": {
+  "id": 247,
+  "lib": false
+ },
+ "PhN2Cl": {
+  "id": 532,
+  "lib": false
+ },
+ "Phenacetin": {
+  "id": 6940,
+  "lib": true,
+  "name": "Phenacetin"
+ },
+ "Phenanthrene": {
+  "id": 8457,
+  "lib": true,
+  "name": "Phenanthrene"
+ },
+ "Phenolphthalein": {
+  "id": 538,
+  "lib": false
+ },
+ "PhenylSalicylate": {
+  "id": 2830,
+  "lib": true,
+  "name": "Phenyl salicylate"
+ },
+ "PhenylaceticAcid": {
+  "id": 2238,
+  "lib": true,
+  "name": "Phenylacetic acid"
+ },
+ "Phenylalanine": {
+  "id": 7015,
+  "lib": true,
+  "name": "L-Phenylalanine"
+ },
+ "Phenylethanol": {
+  "id": 6818,
+  "lib": true,
+  "name": "2-Phenylethanol"
+ },
+ "Phenylglycine": {
+  "id": 558,
+  "lib": false
+ },
+ "Phenytoin": {
+  "id": 6592,
+  "lib": true,
+  "name": "Phenytoin"
+ },
+ "Phosphorus32": {
+  "id": 699,
+  "lib": false
+ },
+ "PhthalicAnhydride": {
+  "id": 154,
+  "lib": false
+ },
+ "Phthalimide": {
+  "id": 8459,
+  "lib": true,
+  "name": "Phthalimide"
+ },
+ "PicricAcid": {
+  "id": 8579,
+  "lib": true,
+  "name": "Picric acid"
+ },
+ "PineResin": {
+  "id": 293,
+  "lib": false
+ },
+ "Pinene": {
+  "id": 8143,
+  "lib": true,
+  "name": "(-)-\u03b1-Pinene"
+ },
+ "Pitchblende": {
+  "id": 124,
+  "lib": false
+ },
+ "Plaster": {
+  "id": 31,
+  "lib": false
+ },
+ "PlatinumOre": {
+  "id": 283,
+  "lib": false
+ },
+ "Plutonium238": {
+  "id": 574,
+  "lib": false
+ },
+ "Polyisoprene": {
+  "id": 481,
+  "lib": false
+ },
+ "Polysilicon": {
+  "id": 234,
+  "lib": false
+ },
+ "Potash": {
+  "id": 34,
+  "lib": false
+ },
+ "PotassiumSorbate": {
+  "id": 4670,
+  "lib": true,
+  "name": "Potassium sorbate"
+ },
+ "Pr6O11": {
+  "id": 2941,
+  "lib": true,
+  "name": "Praseodymium oxide (Pr6O11)"
+ },
+ "PrNO33": {
+  "id": 2260,
+  "lib": true,
+  "name": "Praseodymium nitrate"
+ },
+ "Procaine": {
+  "id": 6734,
+  "lib": true,
+  "name": "Procaine"
+ },
+ "Proline": {
+  "id": 3764,
+  "lib": true,
+  "name": "L-Proline"
+ },
+ "Propanal": {
+  "id": 3073,
+  "lib": true,
+  "name": "Propanal"
+ },
+ "Propane": {
+  "id": 184,
+  "lib": false
+ },
+ "Propanol": {
+  "id": 7690,
+  "lib": true,
+  "name": "1-Propanol"
+ },
+ "Propionic": {
+  "id": 8225,
+  "lib": true,
+  "name": "Propionic acid"
+ },
+ "Propionitrile": {
+  "id": 2440,
+  "lib": true,
+  "name": "Propionitrile"
+ },
+ "PropylAcetate": {
+  "id": 2561,
+  "lib": true,
+  "name": "Propyl acetate"
+ },
+ "PropylPropionate": {
+  "id": 2386,
+  "lib": true,
+  "name": "Propyl propionate"
+ },
+ "Propylamine": {
+  "id": 2438,
+  "lib": true,
+  "name": "Propylamine"
+ },
+ "Propylene": {
+  "id": 2777,
+  "lib": true,
+  "name": "Propylene"
+ },
+ "Propyne": {
+  "id": 7837,
+  "lib": true,
+  "name": "Propyne"
+ },
+ "PrussianBlue": {
+  "id": 74,
+  "lib": false
+ },
+ "Prussiate": {
+  "id": 73,
+  "lib": false
+ },
+ "PtF6": {
+  "id": 597,
+  "lib": false
+ },
+ "Pyrene": {
+  "id": 3235,
+  "lib": true,
+  "name": "Pyrene"
+ },
+ "Pyridine": {
+  "id": 2609,
+  "lib": true,
+  "name": "Pyridine"
+ },
+ "Pyridoxine": {
+  "id": 7163,
+  "lib": true,
+  "name": "Pyridoxine"
+ },
+ "PyruvicAcid": {
+  "id": 3184,
+  "lib": true,
+  "name": "Pyruvic acid"
+ },
+ "QuartzCrystal": {
+  "id": 560,
+  "lib": false
+ },
+ "Quinine": {
+  "id": 3250,
+  "lib": true,
+  "name": "Quinine"
+ },
+ "Quinoline": {
+  "id": 8670,
+  "lib": true,
+  "name": "Quinoline"
+ },
+ "RaCl2": {
+  "id": 151,
+  "lib": false
+ },
+ "Rayon": {
+  "id": 157,
+  "lib": false
+ },
+ "RbCl": {
+  "id": 439,
+  "lib": false
+ },
+ "Resorcinol": {
+  "id": 2517,
+  "lib": true,
+  "name": "Resorcinol"
+ },
+ "Retinol": {
+  "id": 7368,
+  "lib": true,
+  "name": "Retinol"
+ },
+ "Riboflavin": {
+  "id": 8401,
+  "lib": true,
+  "name": "Riboflavin"
+ },
+ "RiceBran": {
+  "id": 451,
+  "lib": false
+ },
+ "Ricinine": {
+  "id": 6233,
+  "lib": true,
+  "name": "Ricinine"
+ },
+ "RicinoleicAcid": {
+  "id": 3619,
+  "lib": true,
+  "name": "Ricinoleic acid"
+ },
+ "RomanConcrete": {
+  "id": 45,
+  "lib": false
+ },
+ "Rose": {
+  "id": 292,
+  "lib": false
+ },
+ "Rosin": {
+  "id": 424,
+  "lib": false
+ },
+ "Rowan": {
+  "id": 469,
+  "lib": false
+ },
+ "RuCl3": {
+  "id": 267,
+  "lib": false
+ },
+ "Ruby": {
+  "id": 165,
+  "lib": false
+ },
+ "RubyLaser": {
+  "id": 596,
+  "lib": false
+ },
+ "Rutin": {
+  "id": 3871,
+  "lib": true,
+  "name": "Rutin"
+ },
+ "S2Cl2": {
+  "id": 2045,
+  "lib": true,
+  "name": "Sulfur monochloride"
+ },
+ "SBR": {
+  "id": 196,
+  "lib": false
+ },
+ "SCMagnet": {
+  "id": 690,
+  "lib": false
+ },
+ "SDS": {
+  "id": 3840,
+  "lib": true,
+  "name": "Sodium dodecyl sulfate"
+ },
+ "SF6": {
+  "id": 4785,
+  "lib": true,
+  "name": "Sulfur hexafluoride"
+ },
+ "SO3": {
+  "id": 7853,
+  "lib": true,
+  "name": "Sulfur trioxide"
+ },
+ "Saccharin": {
+  "id": 8320,
+  "lib": true,
+  "name": "Saccharin"
+ },
+ "Salicin": {
+  "id": 425,
+  "lib": false
+ },
+ "Salicylaldehyde": {
+  "id": 428,
+  "lib": false
+ },
+ "Salicylamide": {
+  "id": 7165,
+  "lib": true,
+  "name": "Salicylamide"
+ },
+ "Samaria": {
+  "id": 435,
+  "lib": false
+ },
+ "Samarskite": {
+  "id": 410,
+  "lib": false
+ },
+ "Sapphire": {
+  "id": 581,
+  "lib": false
+ },
+ "Sb2O3": {
+  "id": 3288,
+  "lib": true,
+  "name": "Antimony trioxide"
+ },
+ "SbCl3": {
+  "id": 499,
+  "lib": false
+ },
+ "SbCl5": {
+  "id": 138,
+  "lib": false
+ },
+ "Scheelite": {
+  "id": 94,
+  "lib": false
+ },
+ "Schweizer": {
+  "id": 543,
+  "lib": false
+ },
+ "Seawater": {
+  "id": 43,
+  "lib": false
+ },
+ "SebacicAcid": {
+  "id": 2644,
+  "lib": true,
+  "name": "Sebacic acid"
+ },
+ "Serine": {
+  "id": 6525,
+  "lib": true,
+  "name": "Serine"
+ },
+ "SharkLiverOil": {
+  "id": 466,
+  "lib": false
+ },
+ "Si3N4": {
+  "id": 609,
+  "lib": false
+ },
+ "SiC": {
+  "id": 145,
+  "lib": false
+ },
+ "SiCCrystal": {
+  "id": 695,
+  "lib": false
+ },
+ "SiCl4": {
+  "id": 2049,
+  "lib": true,
+  "name": "Silicon tetrachloride"
+ },
+ "SiH4": {
+  "id": 703,
+  "lib": false
+ },
+ "SilicaGel": {
+  "id": 244,
+  "lib": false
+ },
+ "Silk": {
+  "id": 444,
+  "lib": false
+ },
+ "Slag": {
+  "id": 135,
+  "lib": false
+ },
+ "Smalt": {
+  "id": 497,
+  "lib": false
+ },
+ "SnCl4": {
+  "id": 498,
+  "lib": false
+ },
+ "SnI4": {
+  "id": 667,
+  "lib": false
+ },
+ "SnS2": {
+  "id": 58,
+  "lib": false
+ },
+ "SnSO4": {
+  "id": 7870,
+  "lib": true,
+  "name": "Stannous sulfate"
+ },
+ "Sodium24": {
+  "id": 578,
+  "lib": false
+ },
+ "SoftSoap": {
+  "id": 35,
+  "lib": false
+ },
+ "SolarCell": {
+  "id": 280,
+  "lib": false
+ },
+ "SorbicAcid": {
+  "id": 2601,
+  "lib": true,
+  "name": "Sorbic acid"
+ },
+ "Sorbitol": {
+  "id": 230,
+  "lib": false
+ },
+ "SoySauce": {
+  "id": 697,
+  "lib": false
+ },
+ "Soybeans": {
+  "id": 485,
+  "lib": false
+ },
+ "Spearmint": {
+  "id": 289,
+  "lib": false
+ },
+ "Sphalerite": {
+  "id": 284,
+  "lib": false
+ },
+ "Spinach": {
+  "id": 453,
+  "lib": false
+ },
+ "Spodumene": {
+  "id": 125,
+  "lib": false
+ },
+ "Squalane": {
+  "id": 2637,
+  "lib": true,
+  "name": "Squalane"
+ },
+ "Sr(NO3)2": {
+  "id": 2064,
+  "lib": true,
+  "name": "Strontium nitrate"
+ },
+ "SrCO3": {
+  "id": 78,
+  "lib": false
+ },
+ "SrCl2": {
+  "id": 79,
+  "lib": false
+ },
+ "SrO": {
+  "id": 660,
+  "lib": false
+ },
+ "SrSO4": {
+  "id": 8107,
+  "lib": true,
+  "name": "Strontium sulfate"
+ },
+ "StainlessSteel": {
+  "id": 178,
+  "lib": false
+ },
+ "Starch": {
+  "id": 406,
+  "lib": false
+ },
+ "StearicAcid": {
+  "id": 426,
+  "lib": false
+ },
+ "Stibnite": {
+  "id": 22,
+  "lib": false
+ },
+ "Stishovite": {
+  "id": 589,
+  "lib": false
+ },
+ "Streptomyces": {
+  "id": 487,
+  "lib": false
+ },
+ "Streptomycin": {
+  "id": 6607,
+  "lib": true,
+  "name": "Streptomycin"
+ },
+ "Strontium90": {
+  "id": 570,
+  "lib": false
+ },
+ "Struvite": {
+  "id": 673,
+  "lib": false
+ },
+ "Styrene": {
+  "id": 2010,
+  "lib": true,
+  "name": "Styrene"
+ },
+ "SubericAcid": {
+  "id": 6087,
+  "lib": true,
+  "name": "Suberic acid"
+ },
+ "Succinic": {
+  "id": 2587,
+  "lib": true,
+  "name": "Succinic acid"
+ },
+ "Sucrose": {
+  "id": 6597,
+  "lib": true,
+  "name": "Sucrose"
+ },
+ "Sulfanilamide": {
+  "id": 7013,
+  "lib": true,
+  "name": "Sulfanilamide"
+ },
+ "SulfanilicAcid": {
+  "id": 2987,
+  "lib": true,
+  "name": "Sulfanilic acid"
+ },
+ "SuperfluidHe": {
+  "id": 564,
+  "lib": false
+ },
+ "TCE": {
+  "id": 8223,
+  "lib": true,
+  "name": "Trichloroethylene"
+ },
+ "TDA": {
+  "id": 8827,
+  "lib": true,
+  "name": "2,4-Diaminotoluene"
+ },
+ "TDI": {
+  "id": 4884,
+  "lib": true,
+  "name": "Toluene diisocyanate"
+ },
+ "TFE": {
+  "id": 2803,
+  "lib": true,
+  "name": "Tetrafluoroethylene"
+ },
+ "THF": {
+  "id": 2571,
+  "lib": true,
+  "name": "Tetrahydrofuran"
+ },
+ "TMA": {
+  "id": 7889,
+  "lib": true,
+  "name": "Trimethylaluminum"
+ },
+ "TMB": {
+  "id": 2981,
+  "lib": true,
+  "name": "Trimethyl borate"
+ },
+ "TNT": {
+  "id": 2840,
+  "lib": true,
+  "name": "2,4,6-Trinitrotoluene"
+ },
+ "TPA": {
+  "id": 2005,
+  "lib": true,
+  "name": "Terephthalic acid"
+ },
+ "TPC": {
+  "id": 2004,
+  "lib": true,
+  "name": "Terephthaloyl chloride"
+ },
+ "Ta2O5": {
+  "id": 3321,
+  "lib": true,
+  "name": "Tantalum pentoxide"
+ },
+ "TaC": {
+  "id": 517,
+  "lib": false
+ },
+ "Tarragon": {
+  "id": 462,
+  "lib": false
+ },
+ "Tartaric": {
+  "id": 420,
+  "lib": false
+ },
+ "TeaLeaves": {
+  "id": 397,
+  "lib": false
+ },
+ "Technetium99m": {
+  "id": 577,
+  "lib": false
+ },
+ "Terbia": {
+  "id": 433,
+  "lib": false
+ },
+ "Terpinolene": {
+  "id": 6708,
+  "lib": true,
+  "name": "Terpinolene"
+ },
+ "Tetracycline": {
+  "id": 6826,
+  "lib": true,
+  "name": "(-)-Tetracycline"
+ },
+ "ThO2": {
+  "id": 437,
+  "lib": false
+ },
+ "Theobromine": {
+  "id": 8395,
+  "lib": true,
+  "name": "Theobromine"
+ },
+ "Theophylline": {
+  "id": 6661,
+  "lib": true,
+  "name": "Theophylline"
+ },
+ "Thiophene": {
+  "id": 2583,
+  "lib": true,
+  "name": "Thiophene"
+ },
+ "Thiourea": {
+  "id": 6943,
+  "lib": true,
+  "name": "Thiourea"
+ },
+ "ThomasSlag": {
+  "id": 177,
+  "lib": false
+ },
+ "Thorite": {
+  "id": 412,
+  "lib": false
+ },
+ "Threonine": {
+  "id": 7734,
+  "lib": true,
+  "name": "L-Threonine"
+ },
+ "Thyme": {
+  "id": 295,
+  "lib": false
+ },
+ "Thymol": {
+  "id": 8604,
+  "lib": true,
+  "name": "Thymol"
+ },
+ "TiB2": {
+  "id": 524,
+  "lib": false
+ },
+ "TiC": {
+  "id": 516,
+  "lib": false
+ },
+ "TiCl4": {
+  "id": 217,
+  "lib": false
+ },
+ "TiN": {
+  "id": 705,
+  "lib": false
+ },
+ "TiO2": {
+  "id": 199,
+  "lib": false
+ },
+ "Tobacco": {
+  "id": 399,
+  "lib": false
+ },
+ "Toluene": {
+  "id": 2532,
+  "lib": true,
+  "name": "Toluene"
+ },
+ "Tomatoes": {
+  "id": 457,
+  "lib": false
+ },
+ "TonkaBeans": {
+  "id": 403,
+  "lib": false
+ },
+ "Transistor": {
+  "id": 238,
+  "lib": false
+ },
+ "Triacetin": {
+  "id": 2173,
+  "lib": true,
+  "name": "Triacetin"
+ },
+ "Triolein": {
+  "id": 3022,
+  "lib": true,
+  "name": "Triolein"
+ },
+ "Tritium": {
+  "id": 572,
+  "lib": false
+ },
+ "TurbineBlade": {
+  "id": 615,
+  "lib": false
+ },
+ "Turmeric": {
+  "id": 400,
+  "lib": false
+ },
+ "Turpentine": {
+  "id": 423,
+  "lib": false
+ },
+ "Tyrosine": {
+  "id": 6819,
+  "lib": true,
+  "name": "L-Tyrosine"
+ },
+ "UF4": {
+  "id": 240,
+  "lib": false
+ },
+ "UF6": {
+  "id": 241,
+  "lib": false
+ },
+ "Ultramarine": {
+  "id": 504,
+  "lib": false
+ },
+ "UndecylenicAcid": {
+  "id": 2712,
+  "lib": true,
+  "name": "Undecylenic acid"
+ },
+ "Uranium233": {
+  "id": 575,
+  "lib": false
+ },
+ "UraniumGlass": {
+  "id": 505,
+  "lib": false
+ },
+ "Urea": {
+  "id": 6588,
+  "lib": true,
+  "name": "Urea"
+ },
+ "V2O5": {
+  "id": 442,
+  "lib": false
+ },
+ "VC": {
+  "id": 2677,
+  "lib": true,
+  "name": "Vanadium carbide"
+ },
+ "Valerian": {
+  "id": 470,
+  "lib": false
+ },
+ "Valine": {
+  "id": 7733,
+  "lib": true,
+  "name": "L-Valine"
+ },
+ "Vanadinite": {
+  "id": 416,
+  "lib": false
+ },
+ "Vanillin": {
+  "id": 2980,
+  "lib": true,
+  "name": "Vanillin"
+ },
+ "VinylAcetate": {
+  "id": 2501,
+  "lib": true,
+  "name": "Vinyl acetate"
+ },
+ "VinylChloride": {
+  "id": 7876,
+  "lib": true,
+  "name": "Vinyl chloride"
+ },
+ "Vinylacetylene": {
+  "id": 193,
+  "lib": false
+ },
+ "Viscose": {
+  "id": 156,
+  "lib": false
+ },
+ "VitaminB12": {
+  "id": 556,
+  "lib": false
+ },
+ "VitaminC": {
+  "id": 6060,
+  "lib": true,
+  "name": "L-Ascorbic acid"
+ },
+ "VitaminD3": {
+  "id": 7284,
+  "lib": true,
+  "name": "Vitamin D3"
+ },
+ "VolcanicAsh": {
+  "id": 44,
+  "lib": false
+ },
+ "WC": {
+  "id": 515,
+  "lib": false
+ },
+ "WF6": {
+  "id": 610,
+  "lib": false
+ },
+ "WO3": {
+  "id": 96,
+  "lib": false
+ },
+ "Wafer": {
+  "id": 235,
+  "lib": false
+ },
+ "Whey": {
+  "id": 450,
+  "lib": false
+ },
+ "WhiteVitriol": {
+  "id": 675,
+  "lib": false
+ },
+ "WillowBark": {
+  "id": 395,
+  "lib": false
+ },
+ "Wine": {
+  "id": 286,
+  "lib": false
+ },
+ "Wollastonite": {
+  "id": 550,
+  "lib": false
+ },
+ "Wood": {
+  "id": 14,
+  "lib": false
+ },
+ "Wormwood": {
+  "id": 274,
+  "lib": false
+ },
+ "Xanthan": {
+  "id": 706,
+  "lib": false
+ },
+ "Xanthine": {
+  "id": 7594,
+  "lib": true,
+  "name": "Xanthine"
+ },
+ "XeF2": {
+  "id": 600,
+  "lib": false
+ },
+ "XeF4": {
+  "id": 599,
+  "lib": false
+ },
+ "XePtF6": {
+  "id": 598,
+  "lib": false
+ },
+ "Xylitol": {
+  "id": 8530,
+  "lib": true,
+  "name": "Xylitol"
+ },
+ "Xylose": {
+  "id": 6669,
+  "lib": true,
+  "name": "(+)-Xylose"
+ },
+ "YBCO": {
+  "id": 252,
+  "lib": false
+ },
+ "YNO33": {
+  "id": 2261,
+  "lib": true,
+  "name": "Yttrium nitrate"
+ },
+ "Yeast": {
+  "id": 467,
+  "lib": false
+ },
+ "Yogurt": {
+  "id": 492,
+  "lib": false
+ },
+ "Ytterbia": {
+  "id": 434,
+  "lib": false
+ },
+ "ZSM5": {
+  "id": 608,
+  "lib": false
+ },
+ "ZeiseSalt": {
+  "id": 508,
+  "lib": false
+ },
+ "ZeoliteA": {
+  "id": 561,
+  "lib": false
+ },
+ "Zingerone": {
+  "id": 3025,
+  "lib": true,
+  "name": "Zingerone"
+ },
+ "Zircon": {
+  "id": 417,
+  "lib": false
+ },
+ "Zn(C18H35O2)2": {
+  "id": 6496,
+  "lib": true,
+  "name": "Zinc stearate"
+ },
+ "ZnBr2": {
+  "id": 664,
+  "lib": false
+ },
+ "ZnCl2": {
+  "id": 619,
+  "lib": false
+ },
+ "ZnNO32": {
+  "id": 8126,
+  "lib": true,
+  "name": "Zinc nitrate"
+ },
+ "ZnO": {
+  "id": 63,
+  "lib": false
+ },
+ "ZnOAc2": {
+  "id": 6500,
+  "lib": true,
+  "name": "Zinc acetate"
+ },
+ "ZnOH2": {
+  "id": 640,
+  "lib": false
+ },
+ "ZnSO4": {
+  "id": 69,
+  "lib": false
+ },
+ "ZrCl4": {
+  "id": 443,
+  "lib": false
+ },
+ "aIonone": {
+  "id": 3191,
+  "lib": true,
+  "name": "\u03b1-Ionone"
+ },
+ "aTerpinene": {
+  "id": 8962,
+  "lib": true,
+  "name": "\u03b1-Terpinene"
+ },
+ "aTerpineol": {
+  "id": 8923,
+  "lib": true,
+  "name": "\u03b1-Terpineol"
+ },
+ "bIonone": {
+  "id": 8245,
+  "lib": true,
+  "name": "\u03b2-Ionone"
+ },
+ "bPinene": {
+  "id": 3201,
+  "lib": true,
+  "name": "\u03b2-Pinene"
+ },
+ "gTerpinene": {
+  "id": 8961,
+  "lib": true,
+  "name": "\u03b3-Terpinene"
+ },
+ "mBDSA": {
+  "id": 539,
+  "lib": false
+ },
+ "mCresol": {
+  "id": 2515,
+  "lib": true,
+  "name": "m-Cresol"
+ },
+ "mXylene": {
+  "id": 2514,
+  "lib": true,
+  "name": "m-Xylene"
+ },
+ "oCresol": {
+  "id": 8818,
+  "lib": true,
+  "name": "o-Cresol"
+ },
+ "oXylene": {
+  "id": 546,
+  "lib": false
+ },
+ "pCresol": {
+  "id": 2388,
+  "lib": true,
+  "name": "p-Cresol"
+ },
+ "pCymene": {
+  "id": 8963,
+  "lib": true,
+  "name": "p-Cymene"
+ },
+ "pXylene": {
+  "id": 2387,
+  "lib": true,
+  "name": "p-Xylene"
+ }
+}

@@ -1,0 +1,250 @@
+{
+  "identity": {
+    "name": "Copernicium",
+    "symbol": "Cn",
+    "atomic_number": 112,
+    "group": 12,
+    "period": 7,
+    "block": "d",
+    "standard_atomic_weight": 285.0,
+    "ground_state_term_symbol": "Unknown",
+    "cas_rn": "54084-26-3"
+  },
+  "narratives": {
+    "general_overview": "Copernicium is a synthetic chemical element; it has symbol Cn and atomic number 112. Its known isotopes are extremely radioactive, and have only been created in a laboratory. The most stable known isotope, copernicium-285, has a half-life of approximately 30 seconds. Copernicium was first created in February 1996 by the GSI Helmholtz Centre for Heavy Ion Research near Darmstadt, Germany. It was named after the astronomer Nicolaus Copernicus on his 537th anniversary.\n\nIn the periodic table of the elements, copernicium is a d-block transactinide element and a group 12 element. During reactions with gold, it has been shown to be an extremely volatile element, so much so that it is possibly a gas or a volatile liquid at standard temperature and pressure.",
+    "quantum_behavior": "",
+    "nuclear_stability": "",
+    "biological_role": "",
+    "discovery_story": ""
+  },
+  "quantum_mechanics": {
+    "electron_configuration": {
+      "shorthand": "[Rn] 5f14 6d10 7s2",
+      "full": "TODO: Calculation from Z required",
+      "valence_shell": "5f14 6d10 7s2",
+      "semantic_filling": {}
+    },
+    "ionization_energies_kj_mol": [],
+    "electron_affinity_kj_mol": 0.0,
+    "electronegativity": {
+      "pauling": null,
+      "allen": null,
+      "mulliken": null
+    },
+    "atomic_radii_pm": {
+      "calculated": null,
+      "van_der_waals": null,
+      "covalent_single": null,
+      "covalent_triple": null,
+      "metallic": null
+    },
+    "magnetic_properties": {
+      "magnetic_ordering": "Unknown",
+      "molar_magnetic_susceptibility": null
+    }
+  },
+  "nuclear_data": {
+    "isotopes": [
+      {
+        "mass_number": 276,
+        "symbol": "276Cn",
+        "common_name": null,
+        "is_stable": true,
+        "half_life_formatted": "Stable",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": "0",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "This reaction had also previously been tried in 1971 at the Joint Institute for Nuclear Research in Dubna, Russia, to aim for 276Cn (produced in the 2n channel), but without success.",
+        "uses": []
+      },
+      {
+        "mass_number": 277,
+        "symbol": "277Cn",
+        "common_name": null,
+        "is_stable": false,
+        "half_life_formatted": "790.0 usec",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": null,
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": ")\n\n20882Pb + 7030Zn \u2192 278112Cn* \u2192 277112Cn + 10n\nIn May 2000, the GSI successfully repeated the experiment to synthesize a further atom of copernicium-277.",
+        "uses": []
+      },
+      {
+        "mass_number": 278,
+        "symbol": "278Cn",
+        "common_name": null,
+        "is_stable": true,
+        "half_life_formatted": "Stable",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": "0",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "The missing isotopes 278Cn and 279Cn are too heavy to be produced by cold fusion and too light to be produced by hot fusion.",
+        "uses": []
+      },
+      {
+        "mass_number": 279,
+        "symbol": "279Cn",
+        "common_name": null,
+        "is_stable": true,
+        "half_life_formatted": "Stable",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": null,
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "The missing isotopes 278Cn and 279Cn are too heavy to be produced by cold fusion and too light to be produced by hot fusion.",
+        "uses": []
+      },
+      {
+        "mass_number": 280,
+        "symbol": "280Cn",
+        "common_name": null,
+        "is_stable": true,
+        "half_life_formatted": "Stable",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": "0",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "79 ms\n\n\n\u03b1\n\n1996\n\n208Pb(70Zn,n)\n\n\n280Cn\n\n<0.",
+        "uses": []
+      },
+      {
+        "mass_number": 281,
+        "symbol": "281Cn",
+        "common_name": null,
+        "is_stable": false,
+        "half_life_formatted": "180.0 msec",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": null,
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "1 ms\n\n\nSF\n\n2024\n\n288Lv(\u2014,2\u03b1)\n\n\n281Cn\n\n0.",
+        "uses": []
+      },
+      {
+        "mass_number": 282,
+        "symbol": "282Cn",
+        "common_name": null,
+        "is_stable": false,
+        "half_life_formatted": "1.1 msec",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": "0",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "18 s\n\n\n\u03b1\n\n2010\n\n285Fl(\u2014,\u03b1)\n\n\n282Cn\n\n0.",
+        "uses": []
+      },
+      {
+        "mass_number": 283,
+        "symbol": "283Cn",
+        "common_name": null,
+        "is_stable": false,
+        "half_life_formatted": "4.7 sec",
+        "half_life_seconds": 4.7,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": null,
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "0\u00a0g/cm3 (predicted)Triple point283\u00a0K, \u200b25\u00a0kPa (predicted)Atomic propertiesOxidation statescommon: (none)\n+2 (+2), (+4)Ionization energies1st:\u00a01155\u00a0kJ/mol 2nd:\u00a02170\u00a0kJ/mol 3rd:\u00a03160\u00a0kJ/mol (more) (all estimated)Atomic radiuscalculated: 147\u00a0pm (predicted)Covalent radius122\u00a0pm (predicted)Other propertiesNatural occurrencesyntheticCrystal structure \u200bhexagonal\u00a0close-packed (hcp)(predicted)CAS Number54084-26-3 HistoryNamingafter Nicolaus CopernicusDiscoveryGesellschaft f\u00fcr Schwerionenforschung (1996)Isotopes of coperniciumve\n\n\nMain isotopes\n\nDecay\n\n\nIsotope\n\nabun\u00addance\n\nhalf-life (t1/2)\n\nmode\n\npro\u00adduct\n\n\n283Cn\n\nsynth\n\n3.",
+        "uses": []
+      },
+      {
+        "mass_number": 284,
+        "symbol": "284Cn",
+        "common_name": null,
+        "is_stable": false,
+        "half_life_formatted": "102.0 msec",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": "0",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "81 s\n\n\n\u03b1, SF, EC?\n\n2003\n\n287Fl(\u2014,\u03b1)\n\n\n284Cn\n\n121 ms\n\n\n\u03b1, SF\n\n2004\n\n288Fl(\u2014,\u03b1)\n\n\n285Cn\n\n30 s\n\n\n\u03b1\n\n1999\n\n289Fl(\u2014,\u03b1)\n\n\n285mCn\n\n15 s\n\n\n\u03b1\n\n2012\n\n293mLv(\u2014,2\u03b1)\n\n\n286Cn\n\n8.",
+        "uses": []
+      },
+      {
+        "mass_number": 285,
+        "symbol": "285Cn",
+        "common_name": null,
+        "is_stable": false,
+        "half_life_formatted": "30.0 sec",
+        "half_life_seconds": 30.0,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": null,
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "81\u00a0s\n\n\u03b196%\n\n279Ds\n\n\nSF4%\n\n\u2013\n\n\n\u03b5?\n\n283Rg\n\n\n285Cn\n\nsynth\n\n28\u00a0s\n\n\u03b1\n\n281Ds\n\n\n286Cn\n\nsynth\n\n8.",
+        "uses": []
+      },
+      {
+        "mass_number": 286,
+        "symbol": "286Cn",
+        "common_name": null,
+        "is_stable": false,
+        "half_life_formatted": "30.0 sec",
+        "half_life_seconds": 30.0,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": "0",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "81\u00a0s\n\n\u03b196%\n\n279Ds\n\n\nSF4%\n\n\u2013\n\n\n\u03b5?\n\n283Rg\n\n\n285Cn\n\nsynth\n\n28\u00a0s\n\n\u03b1\n\n281Ds\n\n\n286Cn\n\nsynth\n\n8.",
+        "uses": []
+      },
+      {
+        "mass_number": 287,
+        "symbol": "287Cn",
+        "common_name": null,
+        "is_stable": true,
+        "half_life_formatted": "Stable",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": null,
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "The isotopes 286Cn and 287Cn could be produced by charged-particle evaporation, in the reaction 244Pu(48Ca,\u03b1xn) with x equalling 1 or 2.",
+        "uses": []
+      },
+      {
+        "mass_number": 288,
+        "symbol": "288Cn",
+        "common_name": null,
+        "is_stable": true,
+        "half_life_formatted": "Stable",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": "0",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "",
+        "uses": []
+      }
+    ]
+  },
+  "media": {
+    "images": {
+      "icon_symbol": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 200 200\"><rect x=\"5\" y=\"5\" width=\"190\" height=\"190\" rx=\"15\" ry=\"15\" fill=\"#ffffff\" stroke=\"#333\" stroke-width=\"4\"/><text x=\"20\" y=\"40\" font-family=\"Arial, sans-serif\" font-size=\"24\" fill=\"#666\">112</text><text x=\"100\" y=\"110\" font-family=\"Arial, sans-serif\" font-size=\"80\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#000\">Cn</text><text x=\"100\" y=\"150\" font-family=\"Arial, sans-serif\" font-size=\"18\" text-anchor=\"middle\" fill=\"#333\">Copernicium</text><text x=\"100\" y=\"180\" font-family=\"Arial, sans-serif\" font-size=\"14\" text-anchor=\"middle\" fill=\"#666\">285.000</text></svg>",
+      "atom_2d_shell": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 500 500\"><circle cx=\"250\" cy=\"250\" r=\"25\" fill=\"#333\" /><text x=\"250\" y=\"256\" font-family=\"Arial, sans-serif\" font-size=\"16\" font-weight=\"bold\" fill=\"#fff\" text-anchor=\"middle\">Cn</text><circle cx=\"250\" cy=\"250\" r=\"50.0\" fill=\"none\" stroke=\"#ccc\" stroke-width=\"2\" /><circle cx=\"250.0\" cy=\"200.0\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"250.0\" cy=\"300.0\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"250\" cy=\"250\" r=\"74.28571428571428\" fill=\"none\" stroke=\"#ccc\" stroke-width=\"2\" /><circle cx=\"250.0\" cy=\"175.71428571428572\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"302.52793231671495\" cy=\"197.47206768328505\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"324.2857142857143\" cy=\"250.0\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"302.52793231671495\" cy=\"302.52793231671495\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"250.0\" cy=\"324.2857142857143\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"197.47206768328505\" cy=\"302.52793231671495\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"175.71428571428572\" cy=\"250.0\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"197.47206768328505\" cy=\"197.47206768328505\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"250\" cy=\"250\" r=\"98.57142857142857\" fill=\"none\" stroke=\"#ccc\" stroke-width=\"2\" /><circle cx=\"250.0\" cy=\"151.42857142857144\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"283.7134141278159\" cy=\"157.37315595110334\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"313.36049295481604\" cy=\"174.4899048925579\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"335.3653612301804\" cy=\"200.71428571428572\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"347.07390708263193\" cy=\"232.88325105854545\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"347.07390708263193\" cy=\"267.11674894145455\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"335.3653612301804\" cy=\"299.2857142857143\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"313.36049295481604\" cy=\"325.5100951074421\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"283.7134141278159\" cy=\"342.62684404889666\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"250.0\" cy=\"348.57142857142856\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"216.28658587218408\" cy=\"342.6268440488967\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"186.63950704518396\" cy=\"325.5100951074421\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"164.63463876981962\" cy=\"299.2857142857143\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"152.92609291736807\" cy=\"267.11674894145455\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"152.92609291736807\" cy=\"232.88325105854543\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"164.63463876981962\" cy=\"200.7142857142857\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"186.63950704518396\" cy=\"174.4899048925579\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"216.2865858721841\" cy=\"157.3731559511033\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"250\" cy=\"250\" r=\"122.85714285714286\" fill=\"none\" stroke=\"#ccc\" stroke-width=\"2\" /><circle cx=\"250.0\" cy=\"127.14285714285714\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"273.9682395619815\" cy=\"129.5035226933174\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"297.0153931191396\" cy=\"136.49480029147048\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"318.2557714852654\" cy=\"147.848019059973\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"336.87311883149016\" cy=\"163.12688116850987\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"352.151980940027\" cy=\"181.74422851473457\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"363.5051997085295\" cy=\"202.98460688086038\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"370.4964773066826\" cy=\"226.03176043801852\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"372.8571428571429\" cy=\"250.0\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"370.4964773066826\" cy=\"273.9682395619815\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"363.5051997085295\" cy=\"297.0153931191396\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"352.151980940027\" cy=\"318.2557714852654\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"336.87311883149016\" cy=\"336.87311883149016\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"318.2557714852654\" cy=\"352.151980940027\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"297.0153931191396\" cy=\"363.5051997085295\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"273.9682395619815\" cy=\"370.4964773066826\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"250.0\" cy=\"372.8571428571429\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"226.03176043801852\" cy=\"370.4964773066826\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"202.9846068808604\" cy=\"363.5051997085295\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"181.74422851473457\" cy=\"352.151980940027\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"163.1268811685099\" cy=\"336.87311883149016\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"147.848019059973\" cy=\"318.2557714852654\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"136.49480029147048\" cy=\"297.0153931191396\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"129.5035226933174\" cy=\"273.9682395619815\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"127.14285714285714\" cy=\"250.00000000000003\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"129.5035226933174\" cy=\"226.03176043801852\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"136.49480029147048\" cy=\"202.9846068808604\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"147.848019059973\" cy=\"181.74422851473457\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"163.12688116850984\" cy=\"163.1268811685099\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"181.74422851473457\" cy=\"147.848019059973\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"202.98460688086044\" cy=\"136.49480029147048\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"226.03176043801847\" cy=\"129.5035226933174\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"250\" cy=\"250\" r=\"147.14285714285714\" fill=\"none\" stroke=\"#ccc\" stroke-width=\"2\" /><circle cx=\"250.0\" cy=\"102.85714285714286\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"278.70614738237316\" cy=\"105.68445159781038\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"306.30913361943465\" cy=\"114.05772593048209\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"331.7481914300272\" cy=\"127.65518561833977\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"354.04571208887774\" cy=\"145.9542879111223\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"372.3448143816602\" cy=\"168.2518085699728\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"385.9422740695179\" cy=\"193.69086638056535\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"394.3155484021896\" cy=\"221.29385261762684\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"397.1428571428571\" cy=\"250.0\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"394.3155484021896\" cy=\"278.70614738237316\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"385.9422740695179\" cy=\"306.30913361943465\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"372.3448143816602\" cy=\"331.7481914300272\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"354.04571208887774\" cy=\"354.04571208887774\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"331.7481914300272\" cy=\"372.3448143816602\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"306.30913361943465\" cy=\"385.9422740695179\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"278.70614738237316\" cy=\"394.3155484021896\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"250.0\" cy=\"397.1428571428571\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"221.29385261762684\" cy=\"394.3155484021896\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"193.69086638056535\" cy=\"385.9422740695179\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"168.2518085699728\" cy=\"372.3448143816602\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"145.95428791112232\" cy=\"354.04571208887774\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"127.65518561833976\" cy=\"331.7481914300272\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"114.05772593048209\" cy=\"306.30913361943465\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"105.68445159781038\" cy=\"278.70614738237316\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"102.85714285714286\" cy=\"250.00000000000003\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"105.68445159781038\" cy=\"221.29385261762684\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"114.05772593048209\" cy=\"193.69086638056538\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"127.65518561833977\" cy=\"168.2518085699728\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"145.95428791112226\" cy=\"145.95428791112232\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"168.2518085699728\" cy=\"127.65518561833977\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"193.6908663805654\" cy=\"114.05772593048209\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"221.29385261762678\" cy=\"105.68445159781041\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"250\" cy=\"250\" r=\"171.42857142857142\" fill=\"none\" stroke=\"#ccc\" stroke-width=\"2\" /><circle cx=\"250.0\" cy=\"78.57142857142858\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"308.63202457011465\" cy=\"88.90983643670145\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"360.1921616605496\" cy=\"118.67809546531805\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"398.46149779161806\" cy=\"164.2857142857143\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"418.8241862306642\" cy=\"220.23174097138337\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"418.8241862306642\" cy=\"279.7682590286166\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"398.46149779161806\" cy=\"335.71428571428567\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"360.1921616605496\" cy=\"381.32190453468195\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"308.63202457011465\" cy=\"411.0901635632986\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"250.0\" cy=\"421.42857142857144\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"191.36797542988538\" cy=\"411.0901635632986\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"139.8078383394504\" cy=\"381.32190453468195\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"101.53850220838194\" cy=\"335.71428571428567\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"81.17581376933578\" cy=\"279.7682590286166\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"81.17581376933578\" cy=\"220.23174097138335\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"101.53850220838197\" cy=\"164.28571428571428\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"139.80783833945037\" cy=\"118.67809546531808\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"191.3679754298854\" cy=\"88.90983643670143\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"250\" cy=\"250\" r=\"195.71428571428572\" fill=\"none\" stroke=\"#ccc\" stroke-width=\"2\" /><circle cx=\"250.0\" cy=\"54.28571428571428\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"250.0\" cy=\"445.7142857142857\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/></svg>",
+      "emission_spectrum_visible": "assets/elements/spectra/112_Cn_visible.png"
+    },
+    "models_3d": {
+      "standard_state_lattice": "TODO",
+      "orbital_visualization": "assets/elements/models/orbital_d.obj"
+    }
+  },
+  "allotropes": [],
+  "discovery": {
+    "discoverer": "GSI Helmholtz Centre for Heavy Ion Research",
+    "year": 1996,
+    "location": "Germany",
+    "discovery_story": ""
+  }
+}

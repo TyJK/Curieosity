@@ -1,0 +1,183 @@
+{
+  "identity": {
+    "name": "Helium",
+    "symbol": "He",
+    "atomic_number": 2,
+    "group": 18,
+    "period": 1,
+    "block": "s",
+    "standard_atomic_weight": 4.002602,
+    "ground_state_term_symbol": "Unknown",
+    "cas_rn": "7440-59-7"
+  },
+  "narratives": {
+    "general_overview": "Helium (from Greek: \u1f25\u03bb\u03b9\u03bf\u03c2, romanized:\u00a0helios, lit.\u2009'sun') is a chemical element; it has symbol He and atomic number 2. It is a colorless, odorless, non-toxic, inert, monatomic gas and the first in the noble gas group in the periodic table. Its boiling point is the lowest among all the elements, and it does not have a melting point at standard pressures. It is the second-lightest and second-most abundant element in the observable universe, after hydrogen. It is present at about 24% of the total elemental mass, which is more than 12 times the mass of all the heavier elements combined. Its abundance is similar to this in both the Sun and Jupiter, because of the very high nuclear binding energy (per nucleon) of helium-4 with respect to the next three elements after helium. This helium-4 binding energy also accounts for why it is a product of both nuclear fusion and radioactive decay. The most common isotope of helium in the universe is helium-4, the vast majority of which was formed during the Big Bang. Large amounts of new helium are created by nuclear fusion of hydrogen in stars.\n\nHelium was first detected as an unknown, yellow spectral line signature in sunlight during a solar eclipse in 1868 by Georges Rayet, Captain C. T. Haig, Norman R. Pogson, and Lieutenant John Herschel, and was subsequently confirmed by French astronomer Jules Janssen. Janssen is often jointly credited with detecting the element, along with Norman Lockyer. Janssen recorded the helium spectral line during the solar eclipse of 1868, while Lockyer observed it from Britain. However, only Lockyer proposed that the line was due to a new element, which he named after the Sun. The formal discovery of the element was made in 1895 by chemists Sir William Ramsay, Per Teodor Cleve, and Nils Abraham Langlet, who found helium emanating from the uranium ore cleveite, which is now not regarded as a separate mineral species, but as a variety of uraninite. In 1903, large reserves of helium were found in natural gas fields in parts of the United States, by far the largest supplier of the gas today.",
+    "quantum_behavior": "",
+    "nuclear_stability": "",
+    "biological_role": "",
+    "discovery_story": ""
+  },
+  "quantum_mechanics": {
+    "electron_configuration": {
+      "shorthand": "1s2",
+      "full": "TODO: Calculation from Z required",
+      "valence_shell": "1s2",
+      "semantic_filling": {}
+    },
+    "ionization_energies_kj_mol": [
+      2372.314228726335,
+      5250.498106988377
+    ],
+    "electron_affinity_kj_mol": -1900.7545,
+    "electronegativity": {
+      "pauling": null,
+      "allen": 24.59,
+      "mulliken": null
+    },
+    "atomic_radii_pm": {
+      "calculated": 120.0,
+      "van_der_waals": 140.0,
+      "covalent_single": null,
+      "covalent_triple": 28.000000000000004,
+      "metallic": null
+    },
+    "magnetic_properties": {
+      "magnetic_ordering": "Unknown",
+      "molar_magnetic_susceptibility": null
+    }
+  },
+  "nuclear_data": {
+    "isotopes": [
+      {
+        "mass_number": 3,
+        "symbol": "3He",
+        "common_name": "Helium-3",
+        "is_stable": true,
+        "half_life_formatted": "Stable",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 0.02,
+        "nuclear_spin": "1/2",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "Helium-3 (3He see also helion) is a light, stable isotope of helium with two protons and one neutron. (In contrast, the most common isotope, helium-4, has two protons and two neutrons.) Helium-3 and hydrogen-1 are the only stable nuclides with more protons than neutrons. It was discovered in 1939. Helium-3 atoms are fermionic and become a superfluid at the temperature of 2.491\u00a0mK.\n\nHelium-3 occurs as a primordial nuclide, escaping from Earth's crust into its atmosphere and into outer space over millions of years. It is also thought to be a natural nucleogenic and cosmogenic nuclide, one produced when lithium is bombarded by natural neutrons, which can be released by spontaneous fission and by nuclear reactions with cosmic rays. Some found in the terrestrial atmosphere is a remnant of atmospheric and underwater nuclear weapons testing.",
+        "uses": []
+      },
+      {
+        "mass_number": 4,
+        "symbol": "4He",
+        "common_name": "Helium-4",
+        "is_stable": true,
+        "half_life_formatted": "Stable",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 9999.98,
+        "nuclear_spin": "0",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "Helium-4 (4He) is a stable isotope of the element helium. It is by far the more abundant of the two naturally occurring isotopes of helium, making up virtually all the helium on Earth. Its nucleus consists of two protons and two neutrons and is identical to an alpha particle.",
+        "uses": []
+      },
+      {
+        "mass_number": 5,
+        "symbol": "5He",
+        "common_name": null,
+        "is_stable": false,
+        "half_life_formatted": "602.0 ysec",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": "3/2",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "",
+        "uses": []
+      },
+      {
+        "mass_number": 6,
+        "symbol": "6He",
+        "common_name": null,
+        "is_stable": false,
+        "half_life_formatted": "806.92 msec",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": "0",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "Helium-6 decays by emitting a beta particle and has a half-life of 0.",
+        "uses": []
+      },
+      {
+        "mass_number": 7,
+        "symbol": "7He",
+        "common_name": null,
+        "is_stable": false,
+        "half_life_formatted": "2.51 zsec",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": "3/2",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "Helium-7 and helium-8 are created in certain nuclear reactions.",
+        "uses": []
+      },
+      {
+        "mass_number": 8,
+        "symbol": "8He",
+        "common_name": null,
+        "is_stable": false,
+        "half_life_formatted": "119.5 msec",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": "0",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "Helium-7 and helium-8 are created in certain nuclear reactions.",
+        "uses": []
+      },
+      {
+        "mass_number": 9,
+        "symbol": "9He",
+        "common_name": null,
+        "is_stable": false,
+        "half_life_formatted": "2.5 zsec",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": "1/2",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "",
+        "uses": []
+      },
+      {
+        "mass_number": 10,
+        "symbol": "10He",
+        "common_name": null,
+        "is_stable": false,
+        "half_life_formatted": "260.0 ysec",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": "0",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "The shortest-lived heavy helium isotope is the unbound helium-10 with a half-life of 2.",
+        "uses": []
+      }
+    ]
+  },
+  "media": {
+    "images": {
+      "icon_symbol": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 200 200\"><rect x=\"5\" y=\"5\" width=\"190\" height=\"190\" rx=\"15\" ry=\"15\" fill=\"#ffffff\" stroke=\"#333\" stroke-width=\"4\"/><text x=\"20\" y=\"40\" font-family=\"Arial, sans-serif\" font-size=\"24\" fill=\"#666\">2</text><text x=\"100\" y=\"110\" font-family=\"Arial, sans-serif\" font-size=\"80\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#000\">He</text><text x=\"100\" y=\"150\" font-family=\"Arial, sans-serif\" font-size=\"18\" text-anchor=\"middle\" fill=\"#333\">Helium</text><text x=\"100\" y=\"180\" font-family=\"Arial, sans-serif\" font-size=\"14\" text-anchor=\"middle\" fill=\"#666\">4.003</text></svg>",
+      "atom_2d_shell": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 500 500\"><circle cx=\"250\" cy=\"250\" r=\"25\" fill=\"#333\" /><text x=\"250\" y=\"256\" font-family=\"Arial, sans-serif\" font-size=\"16\" font-weight=\"bold\" fill=\"#fff\" text-anchor=\"middle\">He</text><circle cx=\"250\" cy=\"250\" r=\"50.0\" fill=\"none\" stroke=\"#ccc\" stroke-width=\"2\" /><circle cx=\"250.0\" cy=\"200.0\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"250.0\" cy=\"300.0\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/></svg>",
+      "emission_spectrum_visible": "assets/elements/spectra/2_He_visible.png"
+    },
+    "models_3d": {
+      "standard_state_lattice": "assets/elements/models/2_He_lattice_hex.obj",
+      "orbital_visualization": "assets/elements/models/orbital_s.obj"
+    }
+  },
+  "allotropes": [],
+  "discovery": {
+    "discoverer": "Sir William Ramsey, Nils Langet, P.T.Cleve",
+    "year": 1895,
+    "location": "Scotland/Sweden",
+    "discovery_story": ""
+  }
+}

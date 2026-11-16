@@ -1,0 +1,299 @@
+{
+  "identity": {
+    "name": "Carbon",
+    "symbol": "C",
+    "atomic_number": 6,
+    "group": 14,
+    "period": 2,
+    "block": "p",
+    "standard_atomic_weight": 12.011,
+    "ground_state_term_symbol": "Unknown",
+    "cas_rn": "7440-44-0"
+  },
+  "narratives": {
+    "general_overview": "Carbon (from Latin  carbo\u00a0'coal') is a chemical element;  it has symbol C and atomic number 6. It is nonmetallic and tetravalent\u2014meaning that its atoms are able to form up to four covalent bonds due to its valence shell exhibiting 4 electrons. It belongs to group 14 of the periodic table. Carbon makes up about 0.025 percent of Earth's crust. Three isotopes occur naturally, 12C and 13C being stable, while 14C is a radionuclide, decaying with a half-life of 5,700\u00a0years. Carbon is one of the few elements known since antiquity.\n\nCarbon is the 15th most abundant element in the Earth's crust, and the fourth most abundant element in the universe by mass after hydrogen, helium, and oxygen. Carbon's abundance, its unique diversity of organic compounds, and its unusual ability to form polymers at the temperatures commonly encountered on Earth, enables this element to serve as a common element of all known life. It is the second most abundant element in the human body by mass (about 18.5%) after oxygen.",
+    "quantum_behavior": "",
+    "nuclear_stability": "",
+    "biological_role": "",
+    "discovery_story": ""
+  },
+  "quantum_mechanics": {
+    "electron_configuration": {
+      "shorthand": "[He] 2s2 2p2",
+      "full": "TODO: Calculation from Z required",
+      "valence_shell": "2s2 2p2",
+      "semantic_filling": {}
+    },
+    "ionization_energies_kj_mol": [
+      1086.4488876799999,
+      2352.607552355,
+      4620.4524533,
+      6222.6572772,
+      37830.8576816,
+      47276.994653618145
+    ],
+    "electron_affinity_kj_mol": 121.77555171499999,
+    "electronegativity": {
+      "pauling": 2.55,
+      "allen": 15.05,
+      "mulliken": null
+    },
+    "atomic_radii_pm": {
+      "calculated": 70.0,
+      "van_der_waals": 170.0,
+      "covalent_single": 77.0,
+      "covalent_triple": 73.0,
+      "metallic": null
+    },
+    "magnetic_properties": {
+      "magnetic_ordering": "Unknown",
+      "molar_magnetic_susceptibility": null
+    }
+  },
+  "nuclear_data": {
+    "isotopes": [
+      {
+        "mass_number": 8,
+        "symbol": "8C",
+        "common_name": null,
+        "is_stable": false,
+        "half_life_formatted": "3.5 zsec",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": "0",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "There are 15 known isotopes of carbon and the shortest-lived of these is 8C which decays through proton emission and has a half-life of 3.",
+        "uses": []
+      },
+      {
+        "mass_number": 9,
+        "symbol": "9C",
+        "common_name": null,
+        "is_stable": false,
+        "half_life_formatted": "126.5 msec",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": "3/2",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "",
+        "uses": []
+      },
+      {
+        "mass_number": 10,
+        "symbol": "10C",
+        "common_name": null,
+        "is_stable": false,
+        "half_life_formatted": "19.3011 sec",
+        "half_life_seconds": 19.3011,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": "0",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "",
+        "uses": []
+      },
+      {
+        "mass_number": 11,
+        "symbol": "11C",
+        "common_name": null,
+        "is_stable": false,
+        "half_life_formatted": "20.3402 minute",
+        "half_life_seconds": 1220.412,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": "3/2",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "1 Mohs hardnessgraphite: 1\u20132 diamond: 10 CAS Numberatomic carbon: 7440-44-0graphite: 7782-42-5diamond: 7782-40-3 HistoryNamingfrom the Latin carbo for coal and charcoalDiscoveryEgyptians and Sumerians (3750 BCE)Recognized as an element byAntoine Lavoisier (1789)Isotopes of carbonve\n\n\nMain isotopes\n\nDecay\n\n\nIsotope\n\nabun\u00addance\n\nhalf-life (t1/2)\n\nmode\n\npro\u00adduct\n\n\n11C\n\nsynth\n\n20.",
+        "uses": []
+      },
+      {
+        "mass_number": 12,
+        "symbol": "12C",
+        "common_name": "Carbon-12",
+        "is_stable": true,
+        "half_life_formatted": "Stable",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 9894.0,
+        "nuclear_spin": "0",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "Carbon-12 (12C) is the most abundant of the two stable isotopes of carbon (carbon-13 being the other), amounting to 98.93% of element carbon on Earth; its abundance is due to the triple-alpha process by which it is created in stars. Carbon-12 is of particular importance in its use as the standard from which atomic masses of all nuclides are measured, thus, its atomic mass is exactly 12 daltons by definition. Carbon-12 is composed of 6 protons, 6 neutrons, and 6 electrons.\n\nSee carbon-13 for means of separating the two isotopes, thereby enriching both.",
+        "uses": []
+      },
+      {
+        "mass_number": 13,
+        "symbol": "13C",
+        "common_name": "Carbon-13",
+        "is_stable": true,
+        "half_life_formatted": "Stable",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 106.0,
+        "nuclear_spin": "1/2",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "Carbon-13 (13C) is a natural, stable isotope of carbon with a nucleus containing six protons and seven neutrons. It constitutes about 1.07% of natural carbon and is one of the so-called environmental isotopes.",
+        "uses": []
+      },
+      {
+        "mass_number": 14,
+        "symbol": "14C",
+        "common_name": "Carbon-14",
+        "is_stable": false,
+        "half_life_formatted": "5.7 kyear",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": "0",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "Carbon-14, C-14, 14C or radiocarbon, is a radioactive isotope of carbon with an atomic nucleus containing 6 protons and 8 neutrons. Its presence in organic matter is the basis of the radiocarbon dating method pioneered by Willard Libby and colleagues (1949) to date archaeological, geological and hydrogeological samples. Carbon-14 was discovered on February 27, 1940, by Martin Kamen and Sam Ruben at the University of California Radiation Laboratory in Berkeley, California. Its existence had been suggested by Franz Kurie in 1934.\n\nThere are three naturally occurring isotopes of carbon on Earth: carbon-12 (12C), which makes up 99% of all carbon on Earth; carbon-13 (13C), which makes up 1%; and carbon-14 (14C), which occurs in trace amounts, making up about 1.2 atoms per 1012 atoms of carbon in the atmosphere. 12C and 13C are both stable; 14C is unstable, with half-life 5700\u00b130 years, decaying into nitrogen-14 (14N) through beta decay. Pure carbon-14 would have a specific activity of 62.4\u00a0mCi/mmol (2.31\u00a0GBq/mmol), or 164.9\u00a0GBq/g. The primary natural source of carbon-14 on Earth is cosmic ray action on nitrogen in the atmosphere, and it is therefore a cosmogenic nuclide. Open-air nuclear testing between 1955 and 1980 contributed to this pool, however.",
+        "uses": []
+      },
+      {
+        "mass_number": 15,
+        "symbol": "15C",
+        "common_name": null,
+        "is_stable": false,
+        "half_life_formatted": "2.449 sec",
+        "half_life_seconds": 2.449,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": "1/2",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "",
+        "uses": []
+      },
+      {
+        "mass_number": 16,
+        "symbol": "16C",
+        "common_name": null,
+        "is_stable": false,
+        "half_life_formatted": "750.0 msec",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": "0",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "",
+        "uses": []
+      },
+      {
+        "mass_number": 17,
+        "symbol": "17C",
+        "common_name": null,
+        "is_stable": false,
+        "half_life_formatted": "193.0 msec",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": "3/2",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "",
+        "uses": []
+      },
+      {
+        "mass_number": 18,
+        "symbol": "18C",
+        "common_name": null,
+        "is_stable": false,
+        "half_life_formatted": "92.0 msec",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": "0",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "",
+        "uses": []
+      },
+      {
+        "mass_number": 19,
+        "symbol": "19C",
+        "common_name": null,
+        "is_stable": false,
+        "half_life_formatted": "46.2 msec",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": "1/2",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "The exotic 19C exhibits a nuclear halo, which means its radius is appreciably larger than would be expected if the nucleus were a sphere of constant density.",
+        "uses": []
+      },
+      {
+        "mass_number": 20,
+        "symbol": "20C",
+        "common_name": null,
+        "is_stable": false,
+        "half_life_formatted": "16.0 msec",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": "0",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "",
+        "uses": []
+      },
+      {
+        "mass_number": 21,
+        "symbol": "21C",
+        "common_name": null,
+        "is_stable": true,
+        "half_life_formatted": "Stable",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": "1/2",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "",
+        "uses": []
+      },
+      {
+        "mass_number": 22,
+        "symbol": "22C",
+        "common_name": null,
+        "is_stable": false,
+        "half_life_formatted": "6.2 msec",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": "0",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "",
+        "uses": []
+      },
+      {
+        "mass_number": 23,
+        "symbol": "23C",
+        "common_name": null,
+        "is_stable": true,
+        "half_life_formatted": "Stable",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": "3/2",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "",
+        "uses": []
+      }
+    ]
+  },
+  "media": {
+    "images": {
+      "icon_symbol": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 200 200\"><rect x=\"5\" y=\"5\" width=\"190\" height=\"190\" rx=\"15\" ry=\"15\" fill=\"#ffffff\" stroke=\"#333\" stroke-width=\"4\"/><text x=\"20\" y=\"40\" font-family=\"Arial, sans-serif\" font-size=\"24\" fill=\"#666\">6</text><text x=\"100\" y=\"110\" font-family=\"Arial, sans-serif\" font-size=\"80\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#000\">C</text><text x=\"100\" y=\"150\" font-family=\"Arial, sans-serif\" font-size=\"18\" text-anchor=\"middle\" fill=\"#333\">Carbon</text><text x=\"100\" y=\"180\" font-family=\"Arial, sans-serif\" font-size=\"14\" text-anchor=\"middle\" fill=\"#666\">12.011</text></svg>",
+      "atom_2d_shell": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 500 500\"><circle cx=\"250\" cy=\"250\" r=\"25\" fill=\"#333\" /><text x=\"250\" y=\"256\" font-family=\"Arial, sans-serif\" font-size=\"16\" font-weight=\"bold\" fill=\"#fff\" text-anchor=\"middle\">C</text><circle cx=\"250\" cy=\"250\" r=\"50.0\" fill=\"none\" stroke=\"#ccc\" stroke-width=\"2\" /><circle cx=\"250.0\" cy=\"200.0\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"250.0\" cy=\"300.0\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"250\" cy=\"250\" r=\"135.0\" fill=\"none\" stroke=\"#ccc\" stroke-width=\"2\" /><circle cx=\"250.0\" cy=\"115.0\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"385.0\" cy=\"250.0\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"250.0\" cy=\"385.0\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"115.0\" cy=\"250.00000000000003\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/></svg>",
+      "emission_spectrum_visible": "assets/elements/spectra/6_C_visible.png"
+    },
+    "models_3d": {
+      "standard_state_lattice": "assets/elements/models/6_C_lattice_dia.obj",
+      "orbital_visualization": "assets/elements/models/orbital_p.obj"
+    }
+  },
+  "allotropes": [],
+  "discovery": {
+    "discoverer": "Known to the ancients",
+    "year": null,
+    "location": null,
+    "discovery_story": ""
+  }
+}

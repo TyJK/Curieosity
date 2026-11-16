@@ -1,0 +1,110 @@
+{
+  "identity": {
+    "name": "Oganesson",
+    "symbol": "Og",
+    "atomic_number": 118,
+    "group": 18,
+    "period": 7,
+    "block": "p",
+    "standard_atomic_weight": 294.0,
+    "ground_state_term_symbol": "Unknown",
+    "cas_rn": "54144-19-3"
+  },
+  "narratives": {
+    "general_overview": "Oganesson is a synthetic chemical element; it has symbol Og and atomic number 118. It was first synthesized in 2002 at the Joint Institute for Nuclear Research (JINR) in Dubna, near Moscow, Russia, by a joint team of Russian and American scientists. In December 2015, it was recognized as one of four new elements by the Joint Working Party of the international scientific bodies IUPAC and IUPAP. It was formally named on 28 November 2016. The name honors the nuclear physicist Yuri Oganessian, who played a leading role in the discovery of the heaviest elements in the periodic table.\n\nOganesson has the highest atomic number and highest atomic mass of all known elements. On the periodic table of the elements it is a p-block element, a member of group 18, and the last member of period 7. Its only known isotope, oganesson-294, is highly radioactive, with a half-life of 0.7 ms and, as of 2025, only five atoms have been successfully produced. This has so far prevented any experimental studies of its chemistry. Because of relativistic effects, theoretical studies predict that it would be a solid at room temperature, and significantly reactive, unlike the other members of group 18 (the noble gases).",
+    "quantum_behavior": "",
+    "nuclear_stability": "",
+    "biological_role": "",
+    "discovery_story": ""
+  },
+  "quantum_mechanics": {
+    "electron_configuration": {
+      "shorthand": "[Rn] 5f14 6d10 7s2 7p6",
+      "full": "TODO: Calculation from Z required",
+      "valence_shell": "5f14 6d10 7s2 7p6",
+      "semantic_filling": {}
+    },
+    "ionization_energies_kj_mol": [],
+    "electron_affinity_kj_mol": 5.40316,
+    "electronegativity": {
+      "pauling": null,
+      "allen": null,
+      "mulliken": null
+    },
+    "atomic_radii_pm": {
+      "calculated": null,
+      "van_der_waals": null,
+      "covalent_single": null,
+      "covalent_triple": null,
+      "metallic": null
+    },
+    "magnetic_properties": {
+      "magnetic_ordering": "Unknown",
+      "molar_magnetic_susceptibility": null
+    }
+  },
+  "nuclear_data": {
+    "isotopes": [
+      {
+        "mass_number": 293,
+        "symbol": "293Og",
+        "common_name": null,
+        "is_stable": true,
+        "half_life_formatted": "Stable",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": null,
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "The production of 293Og and its daughter 289Lv, as well as the even heavier isotope 297Og, is also possible using this reaction.",
+        "uses": []
+      },
+      {
+        "mass_number": 294,
+        "symbol": "294Og",
+        "common_name": null,
+        "is_stable": false,
+        "half_life_formatted": "0.7 msec",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": "0",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "6\u00a0g/cm3 (liquid, 327\u00a0K, calculated)Atomic propertiesOxidation statescommon: (none)\n (\u22121), (+1), (+2), (+4), (+6)Ionization energies1st:\u00a0860\u00a0kJ/mol (calculated)2nd:\u00a01560\u00a0kJ/mol (calculated) Atomic radiusempirical: 152\u00a0pm (predicted)Covalent radius157\u00a0pm (predicted)Other propertiesNatural occurrencesyntheticCrystal structure \u200bface-centered cubic (fcc)(extrapolated)CAS Number54144-19-3 HistoryNamingafter Yuri OganessianPredictionHans Peter J\u00f8rgen Julius Thomsen (1895)DiscoveryJoint Institute for Nuclear Research and Lawrence Livermore National Laboratory (2002)Isotopes of oganessonve\n\n\nMain isotopes\n\nDecay\n\n\nIsotope\n\nabun\u00addance\n\nhalf-life (t1/2)\n\nmode\n\npro\u00adduct\n\n\n294Og\n\nsynth\n\n0.",
+        "uses": []
+      },
+      {
+        "mass_number": 295,
+        "symbol": "295Og",
+        "common_name": null,
+        "is_stable": false,
+        "half_life_formatted": "680.0 msec",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": null,
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "From 1 October 2015 to 6 April 2016, the Dubna team performed a similar experiment with 48Ca projectiles aimed at a mixed-isotope californium target containing 249Cf, 250Cf, and 251Cf, with the aim of producing the heavier oganesson isotopes 295Og and 296Og.",
+        "uses": []
+      }
+    ]
+  },
+  "media": {
+    "images": {
+      "icon_symbol": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 200 200\"><rect x=\"5\" y=\"5\" width=\"190\" height=\"190\" rx=\"15\" ry=\"15\" fill=\"#ffffff\" stroke=\"#333\" stroke-width=\"4\"/><text x=\"20\" y=\"40\" font-family=\"Arial, sans-serif\" font-size=\"24\" fill=\"#666\">118</text><text x=\"100\" y=\"110\" font-family=\"Arial, sans-serif\" font-size=\"80\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#000\">Og</text><text x=\"100\" y=\"150\" font-family=\"Arial, sans-serif\" font-size=\"18\" text-anchor=\"middle\" fill=\"#333\">Oganesson</text><text x=\"100\" y=\"180\" font-family=\"Arial, sans-serif\" font-size=\"14\" text-anchor=\"middle\" fill=\"#666\">294.000</text></svg>",
+      "atom_2d_shell": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 500 500\"><circle cx=\"250\" cy=\"250\" r=\"25\" fill=\"#333\" /><text x=\"250\" y=\"256\" font-family=\"Arial, sans-serif\" font-size=\"16\" font-weight=\"bold\" fill=\"#fff\" text-anchor=\"middle\">Og</text><circle cx=\"250\" cy=\"250\" r=\"50.0\" fill=\"none\" stroke=\"#ccc\" stroke-width=\"2\" /><circle cx=\"250.0\" cy=\"200.0\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"250.0\" cy=\"300.0\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"250\" cy=\"250\" r=\"74.28571428571428\" fill=\"none\" stroke=\"#ccc\" stroke-width=\"2\" /><circle cx=\"250.0\" cy=\"175.71428571428572\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"302.52793231671495\" cy=\"197.47206768328505\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"324.2857142857143\" cy=\"250.0\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"302.52793231671495\" cy=\"302.52793231671495\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"250.0\" cy=\"324.2857142857143\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"197.47206768328505\" cy=\"302.52793231671495\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"175.71428571428572\" cy=\"250.0\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"197.47206768328505\" cy=\"197.47206768328505\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"250\" cy=\"250\" r=\"98.57142857142857\" fill=\"none\" stroke=\"#ccc\" stroke-width=\"2\" /><circle cx=\"250.0\" cy=\"151.42857142857144\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"283.7134141278159\" cy=\"157.37315595110334\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"313.36049295481604\" cy=\"174.4899048925579\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"335.3653612301804\" cy=\"200.71428571428572\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"347.07390708263193\" cy=\"232.88325105854545\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"347.07390708263193\" cy=\"267.11674894145455\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"335.3653612301804\" cy=\"299.2857142857143\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"313.36049295481604\" cy=\"325.5100951074421\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"283.7134141278159\" cy=\"342.62684404889666\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"250.0\" cy=\"348.57142857142856\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"216.28658587218408\" cy=\"342.6268440488967\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"186.63950704518396\" cy=\"325.5100951074421\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"164.63463876981962\" cy=\"299.2857142857143\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"152.92609291736807\" cy=\"267.11674894145455\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"152.92609291736807\" cy=\"232.88325105854543\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"164.63463876981962\" cy=\"200.7142857142857\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"186.63950704518396\" cy=\"174.4899048925579\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"216.2865858721841\" cy=\"157.3731559511033\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"250\" cy=\"250\" r=\"122.85714285714286\" fill=\"none\" stroke=\"#ccc\" stroke-width=\"2\" /><circle cx=\"250.0\" cy=\"127.14285714285714\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"273.9682395619815\" cy=\"129.5035226933174\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"297.0153931191396\" cy=\"136.49480029147048\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"318.2557714852654\" cy=\"147.848019059973\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"336.87311883149016\" cy=\"163.12688116850987\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"352.151980940027\" cy=\"181.74422851473457\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"363.5051997085295\" cy=\"202.98460688086038\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"370.4964773066826\" cy=\"226.03176043801852\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"372.8571428571429\" cy=\"250.0\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"370.4964773066826\" cy=\"273.9682395619815\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"363.5051997085295\" cy=\"297.0153931191396\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"352.151980940027\" cy=\"318.2557714852654\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"336.87311883149016\" cy=\"336.87311883149016\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"318.2557714852654\" cy=\"352.151980940027\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"297.0153931191396\" cy=\"363.5051997085295\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"273.9682395619815\" cy=\"370.4964773066826\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"250.0\" cy=\"372.8571428571429\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"226.03176043801852\" cy=\"370.4964773066826\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"202.9846068808604\" cy=\"363.5051997085295\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"181.74422851473457\" cy=\"352.151980940027\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"163.1268811685099\" cy=\"336.87311883149016\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"147.848019059973\" cy=\"318.2557714852654\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"136.49480029147048\" cy=\"297.0153931191396\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"129.5035226933174\" cy=\"273.9682395619815\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"127.14285714285714\" cy=\"250.00000000000003\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"129.5035226933174\" cy=\"226.03176043801852\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"136.49480029147048\" cy=\"202.9846068808604\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"147.848019059973\" cy=\"181.74422851473457\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"163.12688116850984\" cy=\"163.1268811685099\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"181.74422851473457\" cy=\"147.848019059973\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"202.98460688086044\" cy=\"136.49480029147048\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"226.03176043801847\" cy=\"129.5035226933174\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"250\" cy=\"250\" r=\"147.14285714285714\" fill=\"none\" stroke=\"#ccc\" stroke-width=\"2\" /><circle cx=\"250.0\" cy=\"102.85714285714286\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"278.70614738237316\" cy=\"105.68445159781038\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"306.30913361943465\" cy=\"114.05772593048209\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"331.7481914300272\" cy=\"127.65518561833977\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"354.04571208887774\" cy=\"145.9542879111223\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"372.3448143816602\" cy=\"168.2518085699728\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"385.9422740695179\" cy=\"193.69086638056535\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"394.3155484021896\" cy=\"221.29385261762684\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"397.1428571428571\" cy=\"250.0\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"394.3155484021896\" cy=\"278.70614738237316\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"385.9422740695179\" cy=\"306.30913361943465\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"372.3448143816602\" cy=\"331.7481914300272\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"354.04571208887774\" cy=\"354.04571208887774\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"331.7481914300272\" cy=\"372.3448143816602\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"306.30913361943465\" cy=\"385.9422740695179\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"278.70614738237316\" cy=\"394.3155484021896\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"250.0\" cy=\"397.1428571428571\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"221.29385261762684\" cy=\"394.3155484021896\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"193.69086638056535\" cy=\"385.9422740695179\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"168.2518085699728\" cy=\"372.3448143816602\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"145.95428791112232\" cy=\"354.04571208887774\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"127.65518561833976\" cy=\"331.7481914300272\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"114.05772593048209\" cy=\"306.30913361943465\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"105.68445159781038\" cy=\"278.70614738237316\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"102.85714285714286\" cy=\"250.00000000000003\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"105.68445159781038\" cy=\"221.29385261762684\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"114.05772593048209\" cy=\"193.69086638056538\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"127.65518561833977\" cy=\"168.2518085699728\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"145.95428791112226\" cy=\"145.95428791112232\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"168.2518085699728\" cy=\"127.65518561833977\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"193.6908663805654\" cy=\"114.05772593048209\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"221.29385261762678\" cy=\"105.68445159781041\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"250\" cy=\"250\" r=\"171.42857142857142\" fill=\"none\" stroke=\"#ccc\" stroke-width=\"2\" /><circle cx=\"250.0\" cy=\"78.57142857142858\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"308.63202457011465\" cy=\"88.90983643670145\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"360.1921616605496\" cy=\"118.67809546531805\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"398.46149779161806\" cy=\"164.2857142857143\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"418.8241862306642\" cy=\"220.23174097138337\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"418.8241862306642\" cy=\"279.7682590286166\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"398.46149779161806\" cy=\"335.71428571428567\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"360.1921616605496\" cy=\"381.32190453468195\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"308.63202457011465\" cy=\"411.0901635632986\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"250.0\" cy=\"421.42857142857144\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"191.36797542988538\" cy=\"411.0901635632986\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"139.8078383394504\" cy=\"381.32190453468195\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"101.53850220838194\" cy=\"335.71428571428567\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"81.17581376933578\" cy=\"279.7682590286166\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"81.17581376933578\" cy=\"220.23174097138335\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"101.53850220838197\" cy=\"164.28571428571428\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"139.80783833945037\" cy=\"118.67809546531808\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"191.3679754298854\" cy=\"88.90983643670143\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"250\" cy=\"250\" r=\"195.71428571428572\" fill=\"none\" stroke=\"#ccc\" stroke-width=\"2\" /><circle cx=\"250.0\" cy=\"54.28571428571428\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"388.3908986036529\" cy=\"111.60910139634711\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"445.7142857142857\" cy=\"250.0\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"388.3908986036529\" cy=\"388.3908986036529\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"250.0\" cy=\"445.7142857142857\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"111.60910139634714\" cy=\"388.3908986036529\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"54.28571428571428\" cy=\"250.00000000000003\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"111.60910139634709\" cy=\"111.60910139634714\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/></svg>",
+      "emission_spectrum_visible": "assets/elements/spectra/118_Og_visible.png"
+    },
+    "models_3d": {
+      "standard_state_lattice": "TODO",
+      "orbital_visualization": "assets/elements/models/orbital_p.obj"
+    }
+  },
+  "allotropes": [],
+  "discovery": {
+    "discoverer": "Joint Institute for Nuclear Research",
+    "year": 2002,
+    "location": "Russia",
+    "discovery_story": ""
+  }
+}

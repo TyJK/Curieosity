@@ -1,0 +1,344 @@
+{
+  "identity": {
+    "name": "Fluorine",
+    "symbol": "F",
+    "atomic_number": 9,
+    "group": 17,
+    "period": 2,
+    "block": "p",
+    "standard_atomic_weight": 18.998403163,
+    "ground_state_term_symbol": "Unknown",
+    "cas_rn": "7782-41-4"
+  },
+  "narratives": {
+    "general_overview": "",
+    "quantum_behavior": "",
+    "nuclear_stability": "",
+    "biological_role": "",
+    "discovery_story": ""
+  },
+  "quantum_mechanics": {
+    "electron_configuration": {
+      "shorthand": "[He] 2s2 2p5",
+      "full": "TODO: Calculation from Z required",
+      "valence_shell": "2s2 2p5",
+      "semantic_filling": {}
+    },
+    "ionization_energies_kj_mol": [
+      1681.0407877000002,
+      3374.15860285,
+      6050.3794503,
+      8411.079875,
+      11023.314765,
+      15163.88266835,
+      17867.748398,
+      92036.87747549999,
+      106434.29490134699
+    ],
+    "electron_affinity_kj_mol": 328.16378820450007,
+    "electronegativity": {
+      "pauling": 3.98,
+      "allen": 24.8,
+      "mulliken": null
+    },
+    "atomic_radii_pm": {
+      "calculated": 50.0,
+      "van_der_waals": 147.0,
+      "covalent_single": 67.0,
+      "covalent_triple": 56.99999999999999,
+      "metallic": null
+    },
+    "magnetic_properties": {
+      "magnetic_ordering": "Unknown",
+      "molar_magnetic_susceptibility": null
+    }
+  },
+  "nuclear_data": {
+    "isotopes": [
+      {
+        "mass_number": 13,
+        "symbol": "13F",
+        "common_name": null,
+        "is_stable": true,
+        "half_life_formatted": "Stable",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": "1/2",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "",
+        "uses": []
+      },
+      {
+        "mass_number": 14,
+        "symbol": "14F",
+        "common_name": null,
+        "is_stable": false,
+        "half_life_formatted": "500.0 ysec",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": "2",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "",
+        "uses": []
+      },
+      {
+        "mass_number": 15,
+        "symbol": "15F",
+        "common_name": null,
+        "is_stable": false,
+        "half_life_formatted": "1.1 zsec",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": "1/2",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "",
+        "uses": []
+      },
+      {
+        "mass_number": 16,
+        "symbol": "16F",
+        "common_name": null,
+        "is_stable": false,
+        "half_life_formatted": "21.0 zsec",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": "0",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "",
+        "uses": []
+      },
+      {
+        "mass_number": 17,
+        "symbol": "17F",
+        "common_name": null,
+        "is_stable": false,
+        "half_life_formatted": "64.37 sec",
+        "half_life_seconds": 64.37,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": "5/2",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "",
+        "uses": []
+      },
+      {
+        "mass_number": 18,
+        "symbol": "18F",
+        "common_name": "Fluorine-18",
+        "is_stable": false,
+        "half_life_formatted": "109.734 minute",
+        "half_life_seconds": 6584.04,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": "1",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "Fluorine-18 (18F, also called radiofluorine) is a fluorine radioisotope which is an important source of positrons. Its half-life is 109.734 minutes, less than two hours, and one of the shortest of radioisotopes with use outside research. It decays by positron emission 96.7% of the time and electron capture 3.3% of the time. Both modes of decay yield stable oxygen-18.",
+        "uses": []
+      },
+      {
+        "mass_number": 19,
+        "symbol": "19F",
+        "common_name": null,
+        "is_stable": true,
+        "half_life_formatted": "Stable",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 10000.0,
+        "nuclear_spin": "1/2",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "",
+        "uses": []
+      },
+      {
+        "mass_number": 20,
+        "symbol": "20F",
+        "common_name": null,
+        "is_stable": false,
+        "half_life_formatted": "11.0062 sec",
+        "half_life_seconds": 11.0062,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": "2",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "",
+        "uses": []
+      },
+      {
+        "mass_number": 21,
+        "symbol": "21F",
+        "common_name": null,
+        "is_stable": false,
+        "half_life_formatted": "4.158 sec",
+        "half_life_seconds": 4.158,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": "5/2",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "",
+        "uses": []
+      },
+      {
+        "mass_number": 22,
+        "symbol": "22F",
+        "common_name": null,
+        "is_stable": false,
+        "half_life_formatted": "4.23 sec",
+        "half_life_seconds": 4.23,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": "4",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "",
+        "uses": []
+      },
+      {
+        "mass_number": 23,
+        "symbol": "23F",
+        "common_name": null,
+        "is_stable": false,
+        "half_life_formatted": "2.23 sec",
+        "half_life_seconds": 2.23,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": "5/2",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "",
+        "uses": []
+      },
+      {
+        "mass_number": 24,
+        "symbol": "24F",
+        "common_name": null,
+        "is_stable": false,
+        "half_life_formatted": "384.0 msec",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": "3",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "",
+        "uses": []
+      },
+      {
+        "mass_number": 25,
+        "symbol": "25F",
+        "common_name": null,
+        "is_stable": false,
+        "half_life_formatted": "80.0 msec",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": "5/2",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "",
+        "uses": []
+      },
+      {
+        "mass_number": 26,
+        "symbol": "26F",
+        "common_name": null,
+        "is_stable": false,
+        "half_life_formatted": "8.2 msec",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": "1",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "",
+        "uses": []
+      },
+      {
+        "mass_number": 27,
+        "symbol": "27F",
+        "common_name": null,
+        "is_stable": false,
+        "half_life_formatted": "5.0 msec",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": "5/2",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "",
+        "uses": []
+      },
+      {
+        "mass_number": 28,
+        "symbol": "28F",
+        "common_name": null,
+        "is_stable": false,
+        "half_life_formatted": "46.0 zsec",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": "4",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "",
+        "uses": []
+      },
+      {
+        "mass_number": 29,
+        "symbol": "29F",
+        "common_name": null,
+        "is_stable": false,
+        "half_life_formatted": "2.5 msec",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": "5/2",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "",
+        "uses": []
+      },
+      {
+        "mass_number": 30,
+        "symbol": "30F",
+        "common_name": null,
+        "is_stable": true,
+        "half_life_formatted": "Stable",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": null,
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "",
+        "uses": []
+      },
+      {
+        "mass_number": 31,
+        "symbol": "31F",
+        "common_name": null,
+        "is_stable": true,
+        "half_life_formatted": "Stable",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": "5/2",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "",
+        "uses": []
+      }
+    ]
+  },
+  "media": {
+    "images": {
+      "icon_symbol": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 200 200\"><rect x=\"5\" y=\"5\" width=\"190\" height=\"190\" rx=\"15\" ry=\"15\" fill=\"#ffffff\" stroke=\"#333\" stroke-width=\"4\"/><text x=\"20\" y=\"40\" font-family=\"Arial, sans-serif\" font-size=\"24\" fill=\"#666\">9</text><text x=\"100\" y=\"110\" font-family=\"Arial, sans-serif\" font-size=\"80\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#000\">F</text><text x=\"100\" y=\"150\" font-family=\"Arial, sans-serif\" font-size=\"18\" text-anchor=\"middle\" fill=\"#333\">Fluorine</text><text x=\"100\" y=\"180\" font-family=\"Arial, sans-serif\" font-size=\"14\" text-anchor=\"middle\" fill=\"#666\">18.998</text></svg>",
+      "atom_2d_shell": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 500 500\"><circle cx=\"250\" cy=\"250\" r=\"25\" fill=\"#333\" /><text x=\"250\" y=\"256\" font-family=\"Arial, sans-serif\" font-size=\"16\" font-weight=\"bold\" fill=\"#fff\" text-anchor=\"middle\">F</text><circle cx=\"250\" cy=\"250\" r=\"50.0\" fill=\"none\" stroke=\"#ccc\" stroke-width=\"2\" /><circle cx=\"250.0\" cy=\"200.0\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"250.0\" cy=\"300.0\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"250\" cy=\"250\" r=\"135.0\" fill=\"none\" stroke=\"#ccc\" stroke-width=\"2\" /><circle cx=\"250.0\" cy=\"115.0\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"355.54725013318404\" cy=\"165.828876749071\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"381.6152681445462\" cy=\"280.04032608410245\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"308.57430478087036\" cy=\"371.6307971668266\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"191.42569521912966\" cy=\"371.6307971668266\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"118.3847318554538\" cy=\"280.0403260841024\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"144.45274986681596\" cy=\"165.82887674907101\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/></svg>",
+      "emission_spectrum_visible": "assets/elements/spectra/9_F_visible.png"
+    },
+    "models_3d": {
+      "standard_state_lattice": "assets/elements/models/9_F_lattice_mcl.obj",
+      "orbital_visualization": "assets/elements/models/orbital_p.obj"
+    }
+  },
+  "allotropes": [],
+  "discovery": {
+    "discoverer": "Henri Moissan",
+    "year": 1886,
+    "location": "France",
+    "discovery_story": ""
+  }
+}

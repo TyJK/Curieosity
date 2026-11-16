@@ -1,0 +1,639 @@
+[
+  {
+    "name": "THP Protection",
+    "type": "Protection",
+    "reactants": [
+      "[#6]1[#6][#6][#6][#6]=[#8]1",
+      "[OX2H]"
+    ],
+    "products": [
+      "[#6]1[#6][#6][#6][#6][#8]1[#8][#6]"
+    ],
+    "smarts_visual": "[#6]1[#6][#6][#6][#6]=[#8]1.[OX2H]>>[#6]1[#6][#6][#6][#6][#8]1[#8][#6]"
+  },
+  {
+    "name": "Alkyne Addition",
+    "type": "C-C Bond Formation",
+    "reactants": [
+      "[C]#[C]",
+      "[C]=[O]"
+    ],
+    "products": [
+      "[C]#[C][C]([OH])"
+    ],
+    "smarts_visual": "[C]#[C].[C]=[O]>>[C]#[C][C]([OH])"
+  },
+  {
+    "name": "Anhydride Acylation",
+    "type": "Acylation",
+    "reactants": [
+      "[CX3](=[OX1])[OX2][CX3](=[OX1])",
+      "[$([OX2H]),$([NX3;H2,H1])]"
+    ],
+    "products": [
+      "[$([CX3](=[OX1])[OX2][#6]),$([CX3](=[OX1])[NX3])]"
+    ],
+    "smarts_visual": "[CX3](=[OX1])[OX2][CX3](=[OX1]).[$([OX2H]),$([NX3;H2,H1])]>>[$([CX3](=[OX1])[OX2][#6]),$([CX3](=[OX1])[NX3])]"
+  },
+  {
+    "name": "Amide N-Alkylation",
+    "type": "Alkylation",
+    "reactants": [
+      "[#6](=[O])[NX3H1]",
+      "[C][$(Cl),$(Br),$(I),$(OS(=O)(=O))]"
+    ],
+    "products": [
+      "[#6](=[O])[NX3][C]"
+    ],
+    "smarts_visual": "[#6](=[O])[NX3H1].[C][$(Cl),$(Br),$(I),$(OS(=O)(=O))]>>[#6](=[O])[NX3][C]"
+  },
+  {
+    "name": "Epoxide Opening (Amine)",
+    "type": "Ring Opening",
+    "reactants": [
+      "[C]1[O][C]1",
+      "[NX3;H2,H1]"
+    ],
+    "products": [
+      "[C]([O])[C][N]"
+    ],
+    "smarts_visual": "[C]1[O][C]1.[NX3;H2,H1]>>[C]([O])[C][N]"
+  },
+  {
+    "name": "Friedel-Crafts Cyclization",
+    "type": "Cyclization",
+    "reactants": [
+      "[c].[CX3](=[OX1])[Cl,OH]"
+    ],
+    "products": [
+      "[c][CX3](=[OX1])"
+    ],
+    "smarts_visual": "[c].[CX3](=[OX1])[Cl,OH]>>[c][CX3](=[OX1])"
+  },
+  {
+    "name": "Heterocycle Formation",
+    "type": "Heterocycle Formation",
+    "reactants": [
+      "[NX3][CX3](=[OX1])[NX3]",
+      "[C]=[C]"
+    ],
+    "products": [
+      "[n]1[c][n][c][c][c]1"
+    ],
+    "smarts_visual": "[NX3][CX3](=[OX1])[NX3].[C]=[C]>>[n]1[c][n][c][c][c]1"
+  },
+  {
+    "name": "Thionation",
+    "type": "Functional Group Interconversion",
+    "reactants": [
+      "[C]=[O]",
+      "P(=S)"
+    ],
+    "products": [
+      "[C]=[S]"
+    ],
+    "smarts_visual": "[C]=[O].P(=S)>>[C]=[S]"
+  },
+  {
+    "name": "Urea Formation",
+    "type": "Condensation",
+    "reactants": [
+      "[N]=[C]=[O]",
+      "[NX3;H2,H1]"
+    ],
+    "products": [
+      "[NX3][CX3](=[OX1])[NX3]"
+    ],
+    "smarts_visual": "[N]=[C]=[O].[NX3;H2,H1]>>[NX3][CX3](=[OX1])[NX3]"
+  },
+  {
+    "name": "Sulfonamide Formation",
+    "type": "Condensation",
+    "reactants": [
+      "[S](=[O])(=[O])[Cl]",
+      "[NX3;H2,H1]"
+    ],
+    "products": [
+      "[S](=[O])(=[O])[NX3]"
+    ],
+    "smarts_visual": "[S](=[O])(=[O])[Cl].[NX3;H2,H1]>>[S](=[O])(=[O])[NX3]"
+  },
+  {
+    "name": "Fischer Esterification",
+    "type": "Condensation",
+    "reactants": [
+      "[CX3](=[OX1])[OX2H]",
+      "[OX2H]"
+    ],
+    "products": [
+      "[CX3](=[OX1])[OX2][#6]"
+    ],
+    "smarts_visual": "[CX3](=[OX1])[OX2H].[OX2H]>>[CX3](=[OX1])[OX2][#6]"
+  },
+  {
+    "name": "Amide Coupling",
+    "type": "Acylation",
+    "reactants": [
+      "[CX3](=[OX1])[OX2H]",
+      "[NX3;H2,H1]"
+    ],
+    "products": [
+      "[CX3](=[OX1])[NX3]"
+    ],
+    "smarts_visual": "[CX3](=[OX1])[OX2H].[NX3;H2,H1]>>[CX3](=[OX1])[NX3]"
+  },
+  {
+    "name": "Schotten-Baumann (Chloride)",
+    "type": "Acylation",
+    "reactants": [
+      "[CX3](=[OX1])[Cl]",
+      "[NX3;H2,H1]"
+    ],
+    "products": [
+      "[CX3](=[OX1])[NX3]"
+    ],
+    "smarts_visual": "[CX3](=[OX1])[Cl].[NX3;H2,H1]>>[CX3](=[OX1])[NX3]"
+  },
+  {
+    "name": "Aldol Condensation",
+    "type": "Condensation",
+    "reactants": [
+      "[CX3](=[OX1])[#6]",
+      "[CX3](=[OX1])[#6]"
+    ],
+    "products": [
+      "[C]=[C][C](=[O])"
+    ],
+    "smarts_visual": "[CX3](=[OX1])[#6].[CX3](=[OX1])[#6]>>[C]=[C][C](=[O])"
+  },
+  {
+    "name": "Knoevenagel Condensation",
+    "type": "Condensation",
+    "reactants": [
+      "[CH1](=[OX1])",
+      "[CH2]"
+    ],
+    "products": [
+      "[C]=[C]"
+    ],
+    "smarts_visual": "[CH1](=[OX1]).[CH2]>>[C]=[C]"
+  },
+  {
+    "name": "Imine Formation",
+    "type": "Condensation",
+    "reactants": [
+      "[CX3](=[OX1])[#6]",
+      "[NX3;H2,H1]"
+    ],
+    "products": [
+      "[C]=[N]"
+    ],
+    "smarts_visual": "[CX3](=[OX1])[#6].[NX3;H2,H1]>>[C]=[N]"
+  },
+  {
+    "name": "N-Alkylation",
+    "type": "Alkylation",
+    "reactants": [
+      "[NX3;H2,H1]",
+      "[C][$(Cl),$(Br),$(I),$(OS(=O)(=O))]"
+    ],
+    "products": [
+      "[NX3][C]"
+    ],
+    "smarts_visual": "[NX3;H2,H1].[C][$(Cl),$(Br),$(I),$(OS(=O)(=O))]>>[NX3][C]"
+  },
+  {
+    "name": "Williamson Ether Synthesis",
+    "type": "Alkylation",
+    "reactants": [
+      "[OX2H]",
+      "[C][$(Cl),$(Br),$(I),$(OS(=O)(=O))]"
+    ],
+    "products": [
+      "[OX2][C]"
+    ],
+    "smarts_visual": "[OX2H].[C][$(Cl),$(Br),$(I),$(OS(=O)(=O))]>>[OX2][C]"
+  },
+  {
+    "name": "Friedel-Crafts Alkylation",
+    "type": "Alkylation",
+    "reactants": [
+      "[c]",
+      "[C][F,Cl,Br,I]"
+    ],
+    "products": [
+      "[c][C]"
+    ],
+    "smarts_visual": "[c].[C][F,Cl,Br,I]>>[c][C]"
+  },
+  {
+    "name": "S-Alkylation",
+    "type": "Alkylation",
+    "reactants": [
+      "[SX2H]",
+      "[C][$(Cl),$(Br),$(I),$(OS(=O)(=O))]"
+    ],
+    "products": [
+      "[SX2][C]"
+    ],
+    "smarts_visual": "[SX2H].[C][$(Cl),$(Br),$(I),$(OS(=O)(=O))]>>[SX2][C]"
+  },
+  {
+    "name": "Friedel-Crafts Acylation",
+    "type": "Acylation",
+    "reactants": [
+      "[c]",
+      "[CX3](=[OX1])[Cl]"
+    ],
+    "products": [
+      "[c][CX3](=[OX1])"
+    ],
+    "smarts_visual": "[c].[CX3](=[OX1])[Cl]>>[c][CX3](=[OX1])"
+  },
+  {
+    "name": "Aromatic Sulfonation",
+    "type": "Electrophilic Substitution",
+    "reactants": [
+      "[c]",
+      "[S](=[O])(=[O])[O]"
+    ],
+    "products": [
+      "[c][S](=[O])(=[O])[O]"
+    ],
+    "smarts_visual": "[c].[S](=[O])(=[O])[O]>>[c][S](=[O])(=[O])[O]"
+  },
+  {
+    "name": "Aromatic Nitration",
+    "type": "Electrophilic Substitution",
+    "reactants": [
+      "[c]",
+      "[N+](=O)[O-]"
+    ],
+    "products": [
+      "[c][N+](=O)[O-]"
+    ],
+    "smarts_visual": "[c].[N+](=O)[O-]>>[c][N+](=O)[O-]"
+  },
+  {
+    "name": "Sandmeyer Reaction",
+    "type": "Substitution",
+    "reactants": [
+      "[c][N+]#N"
+    ],
+    "products": [
+      "[c][$(Cl),$(Br),$(I),$(C#N)]"
+    ],
+    "smarts_visual": "[c][N+]#N>>[c][$(Cl),$(Br),$(I),$(C#N)]"
+  },
+  {
+    "name": "Jones Oxidation",
+    "type": "Oxidation",
+    "reactants": [
+      "[CH2][OH]"
+    ],
+    "products": [
+      "[CX3](=[OX1])[OX2H]"
+    ],
+    "smarts_visual": "[CH2][OH]>>[CX3](=[OX1])[OX2H]"
+  },
+  {
+    "name": "Swern Oxidation",
+    "type": "Oxidation",
+    "reactants": [
+      "[CH][OH]"
+    ],
+    "products": [
+      "[CX3](=[OX1])[#6]"
+    ],
+    "smarts_visual": "[CH][OH]>>[CX3](=[OX1])[#6]"
+  },
+  {
+    "name": "Epoxidation",
+    "type": "Oxidation",
+    "reactants": [
+      "[C]=[C]"
+    ],
+    "products": [
+      "[C]1[O][C]1"
+    ],
+    "smarts_visual": "[C]=[C]>>[C]1[O][C]1"
+  },
+  {
+    "name": "Baeyer-Villiger Oxidation",
+    "type": "Oxidation",
+    "reactants": [
+      "[CX3](=[OX1])[#6]"
+    ],
+    "products": [
+      "[CX3](=[OX1])[OX2][#6]"
+    ],
+    "smarts_visual": "[CX3](=[OX1])[#6]>>[CX3](=[OX1])[OX2][#6]"
+  },
+  {
+    "name": "Alcohol to Aldehyde",
+    "type": "Oxidation",
+    "reactants": [
+      "[CH2][OH]"
+    ],
+    "products": [
+      "[CH1](=[OX1])"
+    ],
+    "smarts_visual": "[CH2][OH]>>[CH1](=[OX1])"
+  },
+  {
+    "name": "Nitro Reduction",
+    "type": "Reduction",
+    "reactants": [
+      "[N+](=O)[O-]"
+    ],
+    "products": [
+      "[NH2]"
+    ],
+    "smarts_visual": "[N+](=O)[O-]>>[NH2]"
+  },
+  {
+    "name": "Carbonyl Reduction",
+    "type": "Reduction",
+    "reactants": [
+      "[CX3](=[OX1])[#6]"
+    ],
+    "products": [
+      "[CH][OH]"
+    ],
+    "smarts_visual": "[CX3](=[OX1])[#6]>>[CH][OH]"
+  },
+  {
+    "name": "Dehalogenation (Zinc/Elimination)",
+    "type": "Elimination",
+    "reactants": [
+      "[C][F,Cl,Br,I]",
+      "[C][F,Cl,Br,I]"
+    ],
+    "products": [
+      "[C]=[C]"
+    ],
+    "smarts_visual": "[C][F,Cl,Br,I].[C][F,Cl,Br,I]>>[C]=[C]"
+  },
+  {
+    "name": "Hydrogenation",
+    "type": "Reduction",
+    "reactants": [
+      "[C]=[C]"
+    ],
+    "products": [
+      "[CH][CH]"
+    ],
+    "smarts_visual": "[C]=[C]>>[CH][CH]"
+  },
+  {
+    "name": "Nitrile Reduction",
+    "type": "Reduction",
+    "reactants": [
+      "[C]#[N]"
+    ],
+    "products": [
+      "[CH2][NH2]"
+    ],
+    "smarts_visual": "[C]#[N]>>[CH2][NH2]"
+  },
+  {
+    "name": "Ester to Alcohol",
+    "type": "Reduction",
+    "reactants": [
+      "[CX3](=[OX1])[OX2][#6]"
+    ],
+    "products": [
+      "[OX2H]"
+    ],
+    "smarts_visual": "[CX3](=[OX1])[OX2][#6]>>[OX2H]"
+  },
+  {
+    "name": "Amide to Amine",
+    "type": "Reduction",
+    "reactants": [
+      "[CX3](=[OX1])[NX3]"
+    ],
+    "products": [
+      "[CH2][NX3]"
+    ],
+    "smarts_visual": "[CX3](=[OX1])[NX3]>>[CH2][NX3]"
+  },
+  {
+    "name": "Suzuki Coupling",
+    "type": "C-C Coupling",
+    "reactants": [
+      "[c][F,Cl,Br,I]",
+      "[B]([O])[O]"
+    ],
+    "products": [
+      "[c][c]"
+    ],
+    "smarts_visual": "[c][F,Cl,Br,I].[B]([O])[O]>>[c][c]"
+  },
+  {
+    "name": "Sonogashira Coupling",
+    "type": "C-C Coupling",
+    "reactants": [
+      "[c][F,Cl,Br,I]",
+      "[C]#[C]"
+    ],
+    "products": [
+      "[c][C]#[C]"
+    ],
+    "smarts_visual": "[c][F,Cl,Br,I].[C]#[C]>>[c][C]#[C]"
+  },
+  {
+    "name": "Heck Reaction",
+    "type": "C-C Coupling",
+    "reactants": [
+      "[c][F,Cl,Br,I]",
+      "[C]=[C]"
+    ],
+    "products": [
+      "[c][C]=[C]"
+    ],
+    "smarts_visual": "[c][F,Cl,Br,I].[C]=[C]>>[c][C]=[C]"
+  },
+  {
+    "name": "Click Chemistry",
+    "type": "Heterocycle Formation",
+    "reactants": [
+      "[N]=[N+]=[N-]",
+      "[C]#[C]"
+    ],
+    "products": [
+      "[n]1[n][n][c][c]1"
+    ],
+    "smarts_visual": "[N]=[N+]=[N-].[C]#[C]>>[n]1[n][n][c][c]1"
+  },
+  {
+    "name": "Boc Protection",
+    "type": "Protection",
+    "reactants": [
+      "[NX3;H2,H1]"
+    ],
+    "products": [
+      "[NX3][C](=[O])[O][C]([C])([C])[C]"
+    ],
+    "smarts_visual": "[NX3;H2,H1]>>[NX3][C](=[O])[O][C]([C])([C])[C]"
+  },
+  {
+    "name": "Boc Deprotection",
+    "type": "Deprotection",
+    "reactants": [
+      "[NX3][C](=[O])[O][C]([C])([C])[C]"
+    ],
+    "products": [
+      "[NX3;H2,H1]"
+    ],
+    "smarts_visual": "[NX3][C](=[O])[O][C]([C])([C])[C]>>[NX3;H2,H1]"
+  },
+  {
+    "name": "Fmoc Protection",
+    "type": "Protection",
+    "reactants": [
+      "[NX3;H2,H1]"
+    ],
+    "products": [
+      "[NX3][C](=[O])[O][CH2][c]"
+    ],
+    "smarts_visual": "[NX3;H2,H1]>>[NX3][C](=[O])[O][CH2][c]"
+  },
+  {
+    "name": "Fmoc Deprotection",
+    "type": "Deprotection",
+    "reactants": [
+      "[NX3][C](=[O])[O][CH2][c]"
+    ],
+    "products": [
+      "[NX3;H2,H1]"
+    ],
+    "smarts_visual": "[NX3][C](=[O])[O][CH2][c]>>[NX3;H2,H1]"
+  },
+  {
+    "name": "TBDMS Protection",
+    "type": "Protection",
+    "reactants": [
+      "[OX2H]"
+    ],
+    "products": [
+      "[OX2][Si]([C])([C])([C])"
+    ],
+    "smarts_visual": "[OX2H]>>[OX2][Si]([C])([C])([C])"
+  },
+  {
+    "name": "TBDMS Deprotection",
+    "type": "Deprotection",
+    "reactants": [
+      "[OX2][Si]([C])([C])([C])"
+    ],
+    "products": [
+      "[OX2H]"
+    ],
+    "smarts_visual": "[OX2][Si]([C])([C])([C])>>[OX2H]"
+  },
+  {
+    "name": "Acetal Formation",
+    "type": "Protection",
+    "reactants": [
+      "[CX3](=[OX1])[#6]",
+      "[OX2H]"
+    ],
+    "products": [
+      "[C]([O])([O])"
+    ],
+    "smarts_visual": "[CX3](=[OX1])[#6].[OX2H]>>[C]([O])([O])"
+  },
+  {
+    "name": "Acid to Acid Chloride",
+    "type": "Functional Group Interconversion",
+    "reactants": [
+      "[CX3](=[OX1])[OX2H]"
+    ],
+    "products": [
+      "[CX3](=[OX1])[Cl]"
+    ],
+    "smarts_visual": "[CX3](=[OX1])[OX2H]>>[CX3](=[OX1])[Cl]"
+  },
+  {
+    "name": "Alcohol to Alkyl Halide",
+    "type": "Functional Group Interconversion",
+    "reactants": [
+      "[OX2H]"
+    ],
+    "products": [
+      "[C][F,Cl,Br,I]"
+    ],
+    "smarts_visual": "[OX2H]>>[C][F,Cl,Br,I]"
+  },
+  {
+    "name": "Nitrile Hydrolysis",
+    "type": "Hydrolysis",
+    "reactants": [
+      "[C]#[N]"
+    ],
+    "products": [
+      "[CX3](=[OX1])[OX2H]"
+    ],
+    "smarts_visual": "[C]#[N]>>[CX3](=[OX1])[OX2H]"
+  },
+  {
+    "name": "Ester Hydrolysis",
+    "type": "Hydrolysis",
+    "reactants": [
+      "[CX3](=[OX1])[OX2][#6]"
+    ],
+    "products": [
+      "[CX3](=[OX1])[OX2H]"
+    ],
+    "smarts_visual": "[CX3](=[OX1])[OX2][#6]>>[CX3](=[OX1])[OX2H]"
+  },
+  {
+    "name": "Anhydride Formation",
+    "type": "Dehydration",
+    "reactants": [
+      "[CX3](=[OX1])[OX2H]",
+      "[CX3](=[OX1])[OX2H]"
+    ],
+    "products": [
+      "[CX3](=[OX1])[O][CX3](=[OX1])"
+    ],
+    "smarts_visual": "[CX3](=[OX1])[OX2H].[CX3](=[OX1])[OX2H]>>[CX3](=[OX1])[O][CX3](=[OX1])"
+  },
+  {
+    "name": "Sultone Formation",
+    "type": "Cyclization",
+    "reactants": [
+      "[C]=[C]",
+      "[S](=[O])(=[O])[O]"
+    ],
+    "products": [
+      "[C]1[C][S](=[O])(=[O])[O]1"
+    ],
+    "smarts_visual": "[C]=[C].[S](=[O])(=[O])[O]>>[C]1[C][S](=[O])(=[O])[O]1"
+  },
+  {
+    "name": "Grignard Reaction",
+    "type": "C-C Bond Formation",
+    "reactants": [
+      "[CX3](=[OX1])[#6]",
+      "[Mg,Li,Zn,Na,K]"
+    ],
+    "products": [
+      "[C]([OH])[#6]"
+    ],
+    "smarts_visual": "[CX3](=[OX1])[#6].[Mg,Li,Zn,Na,K]>>[C]([OH])[#6]"
+  },
+  {
+    "name": "Neutralization (Salt Formation)",
+    "type": "Neutralization",
+    "reactants": [
+      "[CX3](=[OX1])[OX2H]",
+      "[O-,N]"
+    ],
+    "products": [
+      "[CX3](=[OX1])[O-]"
+    ],
+    "smarts_visual": "[CX3](=[OX1])[OX2H].[O-,N]>>[CX3](=[OX1])[O-]"
+  }
+]

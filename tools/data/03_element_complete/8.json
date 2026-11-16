@@ -1,0 +1,329 @@
+{
+  "identity": {
+    "name": "Oxygen",
+    "symbol": "O",
+    "atomic_number": 8,
+    "group": 16,
+    "period": 2,
+    "block": "p",
+    "standard_atomic_weight": 15.999,
+    "ground_state_term_symbol": "Unknown",
+    "cas_rn": "7782-44-7"
+  },
+  "narratives": {
+    "general_overview": "Oxygen is a chemical element; it has the symbol\u00a0O and its atomic number is\u00a08. It is a member of the chalcogen group in the periodic table, a highly reactive nonmetal, and a potent oxidizing agent that readily forms oxides with most elements as well as with other compounds. Oxygen is the most abundant element in Earth's crust, making up almost half of the Earth's crust in the form of various oxides such as water, carbon dioxide, iron oxides and silicates. It is also the third-most abundant element in the universe after hydrogen and helium.\n\nAt standard temperature and pressure, two oxygen atoms will bind covalently to form dioxygen, a colorless and odorless diatomic gas with the chemical formula O2. Dioxygen gas currently constitutes approximately 20.95% molar fraction of the Earth's atmosphere, though this has changed considerably over long periods of time in Earth's history. A much rarer triatomic allotrope of oxygen, ozone (O3), strongly absorbs the UVB and UVC wavelengths and forms a protective ozone layer at the lower stratosphere, which shields the biosphere from ionizing ultraviolet radiation. However, ozone present at the surface is a corrosive byproduct of smog and thus an air pollutant.",
+    "quantum_behavior": "",
+    "nuclear_stability": "",
+    "biological_role": "",
+    "discovery_story": ""
+  },
+  "quantum_mechanics": {
+    "electron_configuration": {
+      "shorthand": "[He] 2s2 2p4",
+      "full": "TODO: Calculation from Z required",
+      "valence_shell": "2s2 2p4",
+      "semantic_filling": {}
+    },
+    "ionization_energies_kj_mol": [
+      1313.938036675,
+      3388.6612631999997,
+      5300.4555769,
+      7469.2415475,
+      10989.545015,
+      13326.402066499999,
+      71333.96270044999,
+      84077.985532993
+    ],
+    "electron_affinity_kj_mol": 140.9755360475,
+    "electronegativity": {
+      "pauling": 3.44,
+      "allen": 21.36,
+      "mulliken": null
+    },
+    "atomic_radii_pm": {
+      "calculated": 60.0,
+      "van_der_waals": 152.0,
+      "covalent_single": 65.0,
+      "covalent_triple": 66.0,
+      "metallic": null
+    },
+    "magnetic_properties": {
+      "magnetic_ordering": "Unknown",
+      "molar_magnetic_susceptibility": null
+    }
+  },
+  "nuclear_data": {
+    "isotopes": [
+      {
+        "mass_number": 11,
+        "symbol": "11O",
+        "common_name": null,
+        "is_stable": false,
+        "half_life_formatted": "198.0 ysec",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": "3/2",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "Fifteen radioisotopes have been characterized, ranging from 11O to 28O.",
+        "uses": []
+      },
+      {
+        "mass_number": 12,
+        "symbol": "12O",
+        "common_name": null,
+        "is_stable": false,
+        "half_life_formatted": "8.9 zsec",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": "0",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "",
+        "uses": []
+      },
+      {
+        "mass_number": 13,
+        "symbol": "13O",
+        "common_name": null,
+        "is_stable": false,
+        "half_life_formatted": "8.58 msec",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": "3/2",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "",
+        "uses": []
+      },
+      {
+        "mass_number": 14,
+        "symbol": "14O",
+        "common_name": null,
+        "is_stable": false,
+        "half_life_formatted": "70.621 sec",
+        "half_life_seconds": 70.621,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": "0",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "24\u00a0seconds and 14O with a half-life of 70.",
+        "uses": []
+      },
+      {
+        "mass_number": 15,
+        "symbol": "15O",
+        "common_name": null,
+        "is_stable": false,
+        "half_life_formatted": "122.266 sec",
+        "half_life_seconds": 122.266,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": "1/2",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "0\u00d710\u22126\u00a0cm3/mol (293\u00a0K)Speed of sound330 m/s (gas, at\u00a027\u00a0\u00b0C)CAS Number7782-44-7 HistoryNamingfrom the Greek \u1f40\u03be\u03cd\u03c2 (acid, literally 'sharp', from the taste of acids) and -\u03b3\u03b5\u03bd\u03ae\u03c2 (producer)DiscoveryMichael SendivogiusCarl Wilhelm Scheele (1604, 1771)Named\u00a0byAntoine Lavoisier (1777)Isotopes of oxygenve\n\n\nMain isotopes\n\nDecay\n\n\nIsotope\n\nabun\u00addance\n\nhalf-life (t1/2)\n\nmode\n\npro\u00adduct\n\n\n15O\n\ntrace\n\n122.",
+        "uses": []
+      },
+      {
+        "mass_number": 16,
+        "symbol": "16O",
+        "common_name": "Oxygen-16",
+        "is_stable": true,
+        "half_life_formatted": "Stable",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 9975.7,
+        "nuclear_spin": "0",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "Oxygen-16 (symbol: 16O or 168O) is a stable isotope of oxygen, with 8 neutrons and 8 protons in its nucleus, and when not ionized, 8 electrons orbiting the nucleus. It is the most abundant isotope of oxygen, accounting for about 99.76% of all oxygen.\n\nThe relative and absolute abundances of oxygen-16 are high because it is a principal product of stellar evolution and because it is a primordial isotope, meaning it can be made by stars that were initially made exclusively of hydrogen. Most oxygen-16 is synthesized at the end of the helium fusion process in stars; the triple-alpha process creates carbon-12, which captures an additional helium-4 to make oxygen-16. It is also created by the neon-burning process.",
+        "uses": []
+      },
+      {
+        "mass_number": 17,
+        "symbol": "17O",
+        "common_name": "Oxygen-17",
+        "is_stable": true,
+        "half_life_formatted": "Stable",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 3.8350000000000004,
+        "nuclear_spin": "5/2",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "Oxygen-17 (17O) is a stable isotope of oxygen with a low isotopic abundance of about 0.038% (still more than twice as high as deuterium).\n\nAs the only stable isotope of oxygen possessing a nuclear spin (+5\u20442) and a favorable characteristic of field-independent relaxation in liquid water, 17O enables NMR studies of oxidative metabolic pathways through compounds containing 17O (i.e. metabolically produced H217O water by oxidative phosphorylation in mitochondria) at high magnetic fields.",
+        "uses": []
+      },
+      {
+        "mass_number": 18,
+        "symbol": "18O",
+        "common_name": "Oxygen-18",
+        "is_stable": true,
+        "half_life_formatted": "Stable",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 20.45,
+        "nuclear_spin": "0",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "Oxygen-18 (18O, \u03a9) is one of the stable isotopes of oxygen, with roughly 0.20% abundance, and considered one of the environmental isotopes.\n\n18O is an important precursor for the production of fluorodeoxyglucose (FDG) used in positron emission tomography (PET). Generally, in the radiopharmaceutical industry, heavy-oxygen water (H2\u03a9) is bombarded with hydrogen ions in either a cyclotron or linear accelerator, producing fluorine-18. This is then synthesized into FDG and injected into a patient.",
+        "uses": []
+      },
+      {
+        "mass_number": 19,
+        "symbol": "19O",
+        "common_name": null,
+        "is_stable": false,
+        "half_life_formatted": "26.47 sec",
+        "half_life_seconds": 26.47,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": "5/2",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "",
+        "uses": []
+      },
+      {
+        "mass_number": 20,
+        "symbol": "20O",
+        "common_name": null,
+        "is_stable": false,
+        "half_life_formatted": "13.51 sec",
+        "half_life_seconds": 13.51,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": "0",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "",
+        "uses": []
+      },
+      {
+        "mass_number": 21,
+        "symbol": "21O",
+        "common_name": null,
+        "is_stable": false,
+        "half_life_formatted": "3.42 sec",
+        "half_life_seconds": 3.42,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": "5/2",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "",
+        "uses": []
+      },
+      {
+        "mass_number": 22,
+        "symbol": "22O",
+        "common_name": null,
+        "is_stable": false,
+        "half_life_formatted": "2.25 sec",
+        "half_life_seconds": 2.25,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": "0",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "",
+        "uses": []
+      },
+      {
+        "mass_number": 23,
+        "symbol": "23O",
+        "common_name": null,
+        "is_stable": false,
+        "half_life_formatted": "97.0 msec",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": "1/2",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "",
+        "uses": []
+      },
+      {
+        "mass_number": 24,
+        "symbol": "24O",
+        "common_name": null,
+        "is_stable": false,
+        "half_life_formatted": "77.4 msec",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": "0",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "",
+        "uses": []
+      },
+      {
+        "mass_number": 25,
+        "symbol": "25O",
+        "common_name": null,
+        "is_stable": false,
+        "half_life_formatted": "5.18 zsec",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": "3/2",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "",
+        "uses": []
+      },
+      {
+        "mass_number": 26,
+        "symbol": "26O",
+        "common_name": null,
+        "is_stable": false,
+        "half_life_formatted": "4.2 psec",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": "0",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "",
+        "uses": []
+      },
+      {
+        "mass_number": 27,
+        "symbol": "27O",
+        "common_name": null,
+        "is_stable": true,
+        "half_life_formatted": "Stable",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": "3/2",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "",
+        "uses": []
+      },
+      {
+        "mass_number": 28,
+        "symbol": "28O",
+        "common_name": null,
+        "is_stable": true,
+        "half_life_formatted": "Stable",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": "0",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "Fifteen radioisotopes have been characterized, ranging from 11O to 28O.",
+        "uses": []
+      }
+    ]
+  },
+  "media": {
+    "images": {
+      "icon_symbol": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 200 200\"><rect x=\"5\" y=\"5\" width=\"190\" height=\"190\" rx=\"15\" ry=\"15\" fill=\"#ffffff\" stroke=\"#333\" stroke-width=\"4\"/><text x=\"20\" y=\"40\" font-family=\"Arial, sans-serif\" font-size=\"24\" fill=\"#666\">8</text><text x=\"100\" y=\"110\" font-family=\"Arial, sans-serif\" font-size=\"80\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#000\">O</text><text x=\"100\" y=\"150\" font-family=\"Arial, sans-serif\" font-size=\"18\" text-anchor=\"middle\" fill=\"#333\">Oxygen</text><text x=\"100\" y=\"180\" font-family=\"Arial, sans-serif\" font-size=\"14\" text-anchor=\"middle\" fill=\"#666\">15.999</text></svg>",
+      "atom_2d_shell": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 500 500\"><circle cx=\"250\" cy=\"250\" r=\"25\" fill=\"#333\" /><text x=\"250\" y=\"256\" font-family=\"Arial, sans-serif\" font-size=\"16\" font-weight=\"bold\" fill=\"#fff\" text-anchor=\"middle\">O</text><circle cx=\"250\" cy=\"250\" r=\"50.0\" fill=\"none\" stroke=\"#ccc\" stroke-width=\"2\" /><circle cx=\"250.0\" cy=\"200.0\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"250.0\" cy=\"300.0\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"250\" cy=\"250\" r=\"135.0\" fill=\"none\" stroke=\"#ccc\" stroke-width=\"2\" /><circle cx=\"250.0\" cy=\"115.0\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"366.9134295108992\" cy=\"182.5\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"366.9134295108992\" cy=\"317.5\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"250.0\" cy=\"385.0\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"133.08657048910078\" cy=\"317.5\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"133.08657048910078\" cy=\"182.5\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/></svg>",
+      "emission_spectrum_visible": "assets/elements/spectra/8_O_visible.png"
+    },
+    "models_3d": {
+      "standard_state_lattice": "assets/elements/models/8_O_lattice_cub.obj",
+      "orbital_visualization": "assets/elements/models/orbital_p.obj"
+    }
+  },
+  "allotropes": [],
+  "discovery": {
+    "discoverer": "Joseph Priestly, Carl Wilhelm Scheele",
+    "year": 1774,
+    "location": "England/Sweden",
+    "discovery_story": ""
+  }
+}

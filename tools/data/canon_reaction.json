@@ -1,0 +1,301 @@
+{
+  "identity": {
+    "id": "",
+    "name": "",
+    "name_systematic": "",
+    "reaction_smiles": "",
+    "reaction_smarts": "",
+    "equation_display": "",
+    "equation_html": "",
+    "ec_number": "",
+    "reaction_class": "",
+    "reaction_subclass": "",
+    "named_reaction": "",
+    "is_canon": true,
+    "synonyms": [""],
+    "description": ""
+  },
+  "classification": {
+    "primary_type": "",
+    "secondary_types": [""],
+    "organic_inorganic": "",
+    "is_reversible": false,
+    "is_spontaneous": false,
+    "is_biochemical": false,
+    "is_nuclear": false,
+    "is_industrial": false,
+    "phase_type": "",
+    "tags": [""],
+    "roles": [""]
+  },
+  "stoichiometry": {
+    "reactants": [
+      {
+        "substance_id": "",
+        "substance_name": "",
+        "smiles": "",
+        "formula": "",
+        "coefficient": 1,
+        "state": "",
+        "concentration_mol_l": null,
+        "is_limiting": false,
+        "is_excess": false,
+        "role": ""
+      }
+    ],
+    "products": [
+      {
+        "substance_id": "",
+        "substance_name": "",
+        "smiles": "",
+        "formula": "",
+        "coefficient": 1,
+        "state": "",
+        "is_major": true,
+        "is_desired": true,
+        "role": ""
+      }
+    ],
+    "catalysts": [
+      {
+        "substance_id": "",
+        "substance_name": "",
+        "smiles": "",
+        "formula": "",
+        "catalyst_type": "",
+        "loading_mol_percent": null,
+        "is_consumed": false,
+        "poison_susceptibility": [""],
+        "regeneration_possible": false,
+        "alternatives": [""]
+      }
+    ],
+    "solvents": [
+      {
+        "substance_id": "",
+        "substance_name": "",
+        "smiles": "",
+        "role": "",
+        "is_aqueous": false,
+        "alternatives": [""]
+      }
+    ],
+    "reagents": [
+      {
+        "substance_id": "",
+        "substance_name": "",
+        "smiles": "",
+        "formula": "",
+        "coefficient": 1,
+        "role": "",
+        "is_consumed": true
+      }
+    ],
+    "atmosphere": {
+      "gas": "",
+      "is_inert_required": false,
+      "is_anhydrous_required": false
+    },
+    "balanced": true,
+    "atom_map": ""
+  },
+  "conditions": {
+    "process_type": "",
+    "process_types_valid": [""],
+    "vessel_required": "",
+    "temperature": {
+      "value_k": null,
+      "min_k": null,
+      "max_k": null,
+      "optimal_k": null
+    },
+    "pressure": {
+      "value_atm": null,
+      "min_atm": null,
+      "max_atm": null,
+      "optimal_atm": null
+    },
+    "time": {
+      "value_seconds": null,
+      "min_seconds": null,
+      "max_seconds": null
+    },
+    "ph": {
+      "value": null,
+      "min": null,
+      "max": null,
+      "optimal": null,
+      "buffer_required": false
+    },
+    "concentration": {
+      "total_mol_l": null,
+      "is_dilute": false,
+      "is_concentrated": false
+    },
+    "mixing": {
+      "required": false,
+      "type": "",
+      "rate_rpm": null
+    },
+    "irradiation": {
+      "required": false,
+      "wavelength_nm": null,
+      "wavelength_range_nm": [null, null],
+      "source": "",
+      "intensity_w_m2": null
+    },
+    "electrochemical": {
+      "required": false,
+      "voltage_v": null,
+      "current_a": null,
+      "electrode_anode": "",
+      "electrode_cathode": "",
+      "electrolyte": ""
+    },
+    "special_conditions": [""],
+    "exclusions": [""]
+  },
+  "thermodynamics": {
+    "delta_h": {
+      "value_kj_mol": null
+    },
+    "delta_s": {
+      "value_j_mol_k": null
+    },
+    "delta_g": {
+      "value_kj_mol": null,
+      "value_at_temperature_k": 298.15
+    },
+    "equilibrium_constant": {
+      "value": null,
+      "temperature_k": 298.15,
+      "pressure_atm": 1.0
+    },
+    "heat_capacity_change_j_mol_k": null,
+    "bond_energies": {
+      "bonds_broken_kj_mol": null,
+      "bonds_formed_kj_mol": null,
+      "net_kj_mol": null
+    }
+  },
+  "mechanism": {
+    "type": "", 
+    "description": "", 
+    "is_concerted": false, 
+    "intermediates": [
+      {
+        "substance_id": "", 
+        "name": ""
+      }
+    ],
+    "stereochemistry": {
+      "outcome": "", 
+      "ee_percent": null
+    },
+    "regiochemistry": {
+      "rule": "", 
+      "selectivity_ratio": ""
+    }
+  },
+  "yield": {
+	  "typical": {
+	    "percent": 0.0,
+	    "description": "",
+	    "conditions_ref": {}
+	  },
+	  "optimal": {
+	    "percent": 0.0,
+	    "description": "",
+	    "conditions_ref": {}
+	  },
+	  "industrial": {
+	    "percent": 0.0,
+	    "description": "",
+	    "conditions_ref": {}
+	  },
+    "conversion_percent": null,
+    "selectivity_percent": null,
+    "limiting_factors": [""],
+    "recycle_required": false,
+    "recycle_efficiency_percent": null
+  },
+  "safety": {
+    "summary": "",
+    "hazard_level": "",
+    "primary_hazards": [""],
+    "exotherm_risk": {
+      "is_risk": false,
+      "runaway_temperature_k": null,
+      "onset_temperature_k": null,
+      "adiabatic_temperature_rise_k": null
+    },
+	"risk_profile": {
+	  "ghs_codes": ["H200", "H314"],
+	  "tags": ["exothermic_runaway", "gas_evolution", "water_reactive"],
+	  "notes": "Violent reaction if cooling fails."
+	},
+    "ppe_required": [""],
+    "engineering_controls": [""],
+    "emergency_procedures": "",
+    "incompatibilities": [""],
+    "storage_requirements": [""],
+    "disposal_requirements": "",
+    "regulatory_status": "",
+    "ghs_hazard_statements": [""],
+    "ghs_precautionary_statements": [""]
+  },
+  "narrative": {
+    "discovery_story": "",
+    "discoverer": "",
+    "discovery_year": null,
+    "real_world_applications": [""],
+    "quotes": [
+      {
+        "text": "",
+        "attribution": "",
+        "year": null
+      }
+    ],
+    "video_links": [""]
+  },
+  "validation": {
+    "status": "",
+    "simulation_reproducible": null,
+    "simulation_match_type": "",
+    "simulation_discrepancies": [""],
+    "experimental_verification": {
+      "is_verified": false,
+      "source": ""
+    }
+  },
+  "media": {
+    "icon_2d": "",
+    "diagram_2d": "",
+    "reaction_arrow_svg": "",
+    "mechanism_diagram": "",
+    "energy_diagram": ""
+  },
+  "cross_references": {
+    "rxno_id": "",
+    "ord_id": "",
+    "reaxys_id": "",
+    "cas_reaction_id": "",
+    "pubchem_reaction_id": "",
+    "nist_id": "",
+    "wikipedia_url": "",
+    "chemspider_reaction": "",
+    "scopus_ids": [""],
+    "related_patents": [""],
+    "internal_refs": {
+      "related_compound_ids": [""],
+      "related_element_ids": [""],
+      "related_reaction_ids": [""],
+      "blueprint_ids": [""]
+    }
+  },
+  "_metadata": {
+    "schema_version": "1.0.0",
+    "generation_method": "",
+    "processing_pipeline_version": ""
+  }
+}

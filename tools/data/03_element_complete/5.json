@@ -1,0 +1,298 @@
+{
+  "identity": {
+    "name": "Boron",
+    "symbol": "B",
+    "atomic_number": 5,
+    "group": 13,
+    "period": 2,
+    "block": "p",
+    "standard_atomic_weight": 10.81,
+    "ground_state_term_symbol": "Unknown",
+    "cas_rn": "7440-42-8"
+  },
+  "narratives": {
+    "general_overview": "Boron is a chemical element; it has symbol\u00a0B and atomic number\u00a05. In its crystalline form it is a brittle, dark, lustrous metalloid; in its amorphous form it is a brown powder. As the lightest element of the boron group it has three valence electrons for forming covalent bonds, resulting in many compounds such as boric acid, the mineral sodium borate, and the ultra-hard crystals of boron carbide and boron nitride.\n\nBoron is synthesized entirely by cosmic ray spallation and supernovas and not by stellar nucleosynthesis, so it is a low-abundance element in the Solar System and in the Earth's crust. It constitutes about 0.001 percent by weight of Earth's crust. It is concentrated on Earth by the water-solubility of its more common naturally occurring compounds, the borate minerals. These are mined industrially as evaporites, such as borax and kernite. The largest known deposits are in Turkey, the largest producer of boron minerals.",
+    "quantum_behavior": "",
+    "nuclear_stability": "",
+    "biological_role": "",
+    "discovery_story": ""
+  },
+  "quantum_mechanics": {
+    "electron_configuration": {
+      "shorthand": "[He] 2s2 2p",
+      "full": "TODO: Calculation from Z required",
+      "valence_shell": "2s2 2p",
+      "semantic_filling": {}
+    },
+    "ionization_energies_kj_mol": [
+      800.634363215,
+      2427.06377255,
+      3659.73297615,
+      25025.736957815,
+      32826.7077809125
+    ],
+    "electron_affinity_kj_mol": 26.989073655,
+    "electronegativity": {
+      "pauling": 2.04,
+      "allen": 12.13,
+      "mulliken": null
+    },
+    "atomic_radii_pm": {
+      "calculated": 85.0,
+      "van_der_waals": 192.0,
+      "covalent_single": null,
+      "covalent_triple": 84.0,
+      "metallic": 80.0
+    },
+    "magnetic_properties": {
+      "magnetic_ordering": "Unknown",
+      "molar_magnetic_susceptibility": null
+    }
+  },
+  "nuclear_data": {
+    "isotopes": [
+      {
+        "mass_number": 6,
+        "symbol": "6B",
+        "common_name": null,
+        "is_stable": true,
+        "half_life_formatted": "Stable",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": "2",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "",
+        "uses": []
+      },
+      {
+        "mass_number": 7,
+        "symbol": "7B",
+        "common_name": null,
+        "is_stable": false,
+        "half_life_formatted": "570.0 ysec",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": "3/2",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "There are 13 known isotopes of boron; the shortest-lived isotope is 7B which decays through proton emission and alpha decay with a half-life of 3.",
+        "uses": []
+      },
+      {
+        "mass_number": 8,
+        "symbol": "8B",
+        "common_name": null,
+        "is_stable": false,
+        "half_life_formatted": "771.9 msec",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": "2",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "5 CAS Number7440-42-8 HistoryNamingafter borax, from which it was isolated; Ultimately from Arabic \u0628\u064e\u0648\u0652\u0631\u064e\u0642 (bawraq)DiscoveryJoseph Louis Gay-Lussac and Louis Jacques Th\u00e9nard (30 June 1808)First isolationHumphry Davy (9 July 1808)Isotopes of boronve\n\n\nMain isotopes\n\nDecay\n\n\nIsotope\n\nabun\u00addance\n\nhalf-life (t1/2)\n\nmode\n\npro\u00adduct\n\n\n8B\n\nsynth\n\n771.",
+        "uses": []
+      },
+      {
+        "mass_number": 9,
+        "symbol": "9B",
+        "common_name": null,
+        "is_stable": false,
+        "half_life_formatted": "800.0 zsec",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": "3/2",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "",
+        "uses": []
+      },
+      {
+        "mass_number": 10,
+        "symbol": "10B",
+        "common_name": null,
+        "is_stable": true,
+        "half_life_formatted": "Stable",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 1964.9999999999998,
+        "nuclear_spin": "3",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "",
+        "uses": []
+      },
+      {
+        "mass_number": 11,
+        "symbol": "11B",
+        "common_name": null,
+        "is_stable": true,
+        "half_life_formatted": "Stable",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 8034.999999999999,
+        "nuclear_spin": "3/2",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "",
+        "uses": []
+      },
+      {
+        "mass_number": 12,
+        "symbol": "12B",
+        "common_name": null,
+        "is_stable": false,
+        "half_life_formatted": "20.2 msec",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": "1",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "",
+        "uses": []
+      },
+      {
+        "mass_number": 13,
+        "symbol": "13B",
+        "common_name": null,
+        "is_stable": false,
+        "half_life_formatted": "17.16 msec",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": "3/2",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "",
+        "uses": []
+      },
+      {
+        "mass_number": 14,
+        "symbol": "14B",
+        "common_name": null,
+        "is_stable": false,
+        "half_life_formatted": "12.36 msec",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": "2",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "",
+        "uses": []
+      },
+      {
+        "mass_number": 15,
+        "symbol": "15B",
+        "common_name": null,
+        "is_stable": false,
+        "half_life_formatted": "10.18 msec",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": "3/2",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "",
+        "uses": []
+      },
+      {
+        "mass_number": 16,
+        "symbol": "16B",
+        "common_name": null,
+        "is_stable": true,
+        "half_life_formatted": "Stable",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": "0",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "",
+        "uses": []
+      },
+      {
+        "mass_number": 17,
+        "symbol": "17B",
+        "common_name": null,
+        "is_stable": false,
+        "half_life_formatted": "5.08 msec",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": "3/2",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "The exotic 17B exhibits a nuclear halo, i.",
+        "uses": []
+      },
+      {
+        "mass_number": 18,
+        "symbol": "18B",
+        "common_name": null,
+        "is_stable": true,
+        "half_life_formatted": "Stable",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": "2",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "",
+        "uses": []
+      },
+      {
+        "mass_number": 19,
+        "symbol": "19B",
+        "common_name": null,
+        "is_stable": false,
+        "half_life_formatted": "2.92 msec",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": "3/2",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "",
+        "uses": []
+      },
+      {
+        "mass_number": 20,
+        "symbol": "20B",
+        "common_name": null,
+        "is_stable": true,
+        "half_life_formatted": "Stable",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": "1",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "",
+        "uses": []
+      },
+      {
+        "mass_number": 21,
+        "symbol": "21B",
+        "common_name": null,
+        "is_stable": true,
+        "half_life_formatted": "Stable",
+        "half_life_seconds": null,
+        "decay_modes": [],
+        "abundance_percent": 0.0,
+        "nuclear_spin": "3/2",
+        "binding_energy_per_nucleon_mev": null,
+        "narrative": "",
+        "uses": []
+      }
+    ]
+  },
+  "media": {
+    "images": {
+      "icon_symbol": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 200 200\"><rect x=\"5\" y=\"5\" width=\"190\" height=\"190\" rx=\"15\" ry=\"15\" fill=\"#ffffff\" stroke=\"#333\" stroke-width=\"4\"/><text x=\"20\" y=\"40\" font-family=\"Arial, sans-serif\" font-size=\"24\" fill=\"#666\">5</text><text x=\"100\" y=\"110\" font-family=\"Arial, sans-serif\" font-size=\"80\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#000\">B</text><text x=\"100\" y=\"150\" font-family=\"Arial, sans-serif\" font-size=\"18\" text-anchor=\"middle\" fill=\"#333\">Boron</text><text x=\"100\" y=\"180\" font-family=\"Arial, sans-serif\" font-size=\"14\" text-anchor=\"middle\" fill=\"#666\">10.810</text></svg>",
+      "atom_2d_shell": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 500 500\"><circle cx=\"250\" cy=\"250\" r=\"25\" fill=\"#333\" /><text x=\"250\" y=\"256\" font-family=\"Arial, sans-serif\" font-size=\"16\" font-weight=\"bold\" fill=\"#fff\" text-anchor=\"middle\">B</text><circle cx=\"250\" cy=\"250\" r=\"50.0\" fill=\"none\" stroke=\"#ccc\" stroke-width=\"2\" /><circle cx=\"250.0\" cy=\"200.0\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"250.0\" cy=\"300.0\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"250\" cy=\"250\" r=\"135.0\" fill=\"none\" stroke=\"#ccc\" stroke-width=\"2\" /><circle cx=\"250.0\" cy=\"115.0\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"366.9134295108992\" cy=\"317.5\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/><circle cx=\"133.08657048910078\" cy=\"317.5\" r=\"6\" fill=\"#3498db\" stroke=\"#fff\" stroke-width=\"1\"/></svg>",
+      "emission_spectrum_visible": "assets/elements/spectra/5_B_visible.png"
+    },
+    "models_3d": {
+      "standard_state_lattice": "assets/elements/models/5_B_lattice_tet.obj",
+      "orbital_visualization": "assets/elements/models/orbital_p.obj"
+    }
+  },
+  "allotropes": [],
+  "discovery": {
+    "discoverer": "Sir H. Davy, J.L. Gay-Lussac, L.J. Th\u00e9nard",
+    "year": 1808,
+    "location": "England/France",
+    "discovery_story": ""
+  }
+}

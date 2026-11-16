@@ -1,0 +1,14 @@
+# Licences the release notices (THIRD-PARTY-LICENSES.html) accept from the game's
+# dependencies; all are permissive. A new dependency under another licence stops the
+# release build until it is looked at and added here.
+accepted = [
+    "Apache-2.0",
+    "MIT",
+    "MIT-0",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "Zlib",
+    "CC0-1.0",
+    "Unicode-3.0",
+]
