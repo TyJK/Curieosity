@@ -1,17 +1,17 @@
 // tests/content.rs
 //
 // Content checks: the authored game is loaded exactly as the game loads it (substance
-// library + authored substance layer, scraped + authored reactions) and checked for the
+// library + authored substance layer, authored reactions) and checked for the
 // things that would break a playthrough or a library page. The scripted in-game
 // playthrough (`cargo run --release -- --autoplay`) covers what these can't: the real UI.
 //
-// Run with `cargo test --release` (the scraped library is ~75 MB of RON, slow to parse in
-// a debug build).
+// Run with `cargo test --release` (the packed substance library is several MB of RON,
+// slow to parse in a debug build).
 use std::collections::{BTreeSet, HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 
-use chem_alchemy::data::common::ProcessType;
+use chem_alchemy::data::common::{un_class_name, Grade, ProcessType, Property};
 use chem_alchemy::data::reactions::Reactions;
 use chem_alchemy::data::substances::{SubstancePatches, Substances};
 use chem_alchemy::resources::player_progress::{SaveData, SAVE_VERSION};
@@ -44,9 +44,8 @@ fn content() -> &'static Content {
         let mut subs: Substances = load("substances.ron");
         let patches: SubstancePatches = load("authored_substances.ron");
         patches.apply_to(&mut subs);
-        let scraped: Reactions = load("reactions.ron");
         let authored: Reactions = load("authored_reactions.ron");
-        let db = RecipeDatabase::from_parts(&scraped, &authored);
+        let db = RecipeDatabase::from_authored(&authored);
         Content { subs, authored, db }
     })
 }
@@ -100,8 +99,8 @@ fn every_substance_in_play_has_a_page() {
         if desc.is_empty() {
             bad.push(format!("{} ({}): no description", s.name, id));
         }
-        if s.wikipedia().is_none() {
-            bad.push(format!("{} ({}): no Wikipedia reference", s.name, id));
+        if s.primary_reference().is_none() {
+            bad.push(format!("{} ({}): no reference", s.name, id));
         }
         if s.name.trim().is_empty() || s.formula.trim().is_empty() {
             bad.push(format!("{id}: missing name or formula"));
@@ -211,9 +210,12 @@ fn reaction_ids_are_sequential_and_in_range() {
     ids.sort_unstable();
     let unique: HashSet<u32> = ids.iter().copied().collect();
     assert_eq!(unique.len(), ids.len(), "duplicate authored reaction ids");
-    assert!(ids.iter().all(|id| (100..2000).contains(id)), "ids outside 100..2000");
-    assert_eq!(ids.first(), Some(&100));
-    assert_eq!(*ids.last().unwrap() as usize, 100 + ids.len() - 1, "ids have gaps");
+    // authored ids start at a million (tools/data/gen_authored.py AUTHORED_REACTION_BASE)
+    const BASE: u32 = 1_000_000;
+    assert_eq!(ids.first(), Some(&BASE));
+    assert_eq!(*ids.last().unwrap() as usize, BASE as usize + ids.len() - 1, "ids have gaps");
+    // every reaction the game matches on is an authored one, each under its own key
+    assert_eq!(c.db.map.len(), ids.len(), "two reactions share a (vessel, reactant set)");
     assert!(ids.len() >= 1200, "only {} authored reactions", ids.len());
 }
 
@@ -223,11 +225,11 @@ fn every_reaction_sits_in_an_era() {
     let n = c.db.epochs.len();
     assert!(n >= 2);
     for r in &c.db.authored {
-        let e = r.epoch.expect("authored reactions carry an era") as usize;
+        let e = r.epoch as usize;
         assert!(e < n, "{} {} is in era {e} of {n}", r.id, r.name);
     }
     for (i, e) in c.db.epochs.iter().enumerate() {
-        assert!(c.db.authored.iter().any(|r| r.epoch == Some(i as u8)), "era {} ({}) is empty", i, e.name);
+        assert!(c.db.authored.iter().any(|r| r.epoch == i as u8), "era {} ({}) is empty", i, e.name);
     }
 }
 
@@ -383,13 +385,85 @@ fn every_compound_in_play_has_a_structure_picture() {
 }
 
 #[test]
+fn every_locked_preview_is_a_whole_page_and_nothing_makes_it() {
+    let c = content();
+    let dir = root().join("assets/structures");
+    let mut bad = Vec::new();
+    let mut previews = 0;
+    for s in c.subs.0.values().filter(|s| s.stage.is_some()) {
+        previews += 1;
+        if c.db.canon.contains(&s.id) {
+            bad.push(format!("{} ({}): a reaction, milestone or the start kit uses it", s.name, s.id));
+        }
+        if s.description.as_deref().map(str::trim).unwrap_or("").is_empty() {
+            bad.push(format!("{} ({}): no description", s.name, s.id));
+        }
+        if s.primary_reference().is_none() {
+            bad.push(format!("{} ({}): no reference", s.name, s.id));
+        }
+        if !dir.join(format!("{}.png", s.id)).exists() {
+            bad.push(format!("{} ({}): no structures/<id>.png", s.name, s.id));
+        }
+    }
+    assert!(bad.is_empty(), "{} locked previews incomplete:\n{}", bad.len(), bad.join("\n"));
+    assert!(previews > 0, "no locked previews of later stages");
+}
+
+/// The industry facts (foundations for the factory stages) load and make sense: transport
+/// classes are real UN classes, tonnages are positive, medicines sell at pharmaceutical grade,
+/// and the big commodities carry them.
+#[test]
+fn industry_facts_are_well_formed() {
+    let c = content();
+    let mut bad = Vec::new();
+    let (mut tons, mut classes, mut graded) = (0, 0, 0);
+    for s in c.subs.0.values() {
+        if let Some(t) = s.production_t_year {
+            tons += 1;
+            if !(t > 0.0 && t.is_finite()) {
+                bad.push(format!("{} ({}): production {t}", s.name, s.id));
+            }
+        }
+        if let Some(k) = s.transport_class() {
+            classes += 1;
+            if un_class_name(k).is_none() {
+                bad.push(format!("{} ({}): no UN class {k:?}", s.name, s.id));
+            }
+        }
+        if s.properties.contains(&Property::IsMedicine) && !s.grades.contains(&Grade::Pharmaceutical) {
+            bad.push(format!("{} ({}): a medicine not sold at pharmaceutical grade", s.name, s.id));
+        }
+        graded += usize::from(!s.grades.is_empty());
+        if s.grades.contains(&Grade::Technical) {
+            bad.push(format!("{} ({}): lists technical grade, which everything sells at", s.name, s.id));
+        }
+    }
+    assert!(bad.is_empty(), "{} industry facts wrong:\n{}", bad.len(), bad.join("\n"));
+    assert!(tons > 500 && classes > 500 && graded > 500, "{tons} tonnages, {classes} classes, {graded} graded");
+    let ethanol = c.subs.0.values().find(|s| s.name == "Ethanol").expect("Ethanol");
+    assert_eq!(ethanol.transport_class(), Some("3"));
+    assert!(ethanol.production_t_year.is_some());
+    // the big commodities the national records miss carry a rough world figure instead
+    let worlds: Vec<f32> = c.subs.0.values().filter_map(|s| s.world_t_year).collect();
+    assert!(worlds.len() > 40 && worlds.iter().all(|t| *t > 0.0 && t.is_finite()), "{worlds:?}");
+    let acid = c.subs.0.values().find(|s| s.name == "Sulfuric Acid").expect("Sulfuric Acid");
+    assert!(acid.world_t_year.is_some_and(|t| t > 1.0e8), "sulfuric acid is made by the hundred million tonnes");
+    let mut order: Vec<f32> = [Grade::Technical, Grade::Food, Grade::Pharmaceutical, Grade::Electronic]
+        .iter()
+        .map(|g| g.min_purity())
+        .collect();
+    order.dedup();
+    assert!(order.windows(2).all(|w| w[0] < w[1]), "grades must get stricter in order: {order:?}");
+}
+
+#[test]
 fn a_save_round_trips() {
     let data = SaveData {
         version: SAVE_VERSION,
         discovered: vec![1, 5, 8, 12, 900, 15000],
         unlocked: vec![ProcessType::Mix, ProcessType::Heat, ProcessType::Smelting, ProcessType::Catalysis],
         dormant: vec![999_999_901],
-        dormant_vessels: vec!["Centrifuge".into()],
+        dormant_vessels: vec!["Replicator".into()],
     };
     let back = SaveData::parse(&data.to_text()).unwrap();
     assert_eq!(back, data);
@@ -425,7 +499,7 @@ fn old_saves_still_load_after_content_changes() {
     assert!(finished.dormant.len() * 100 <= finished.discovered.len(), "over 1% of an old game went dormant");
     // and an unknown vessel is kept by name
     let odd = SaveData::parse(&std::fs::read_to_string(dir.join("v1_unknown_content.ron")).unwrap()).unwrap();
-    assert_eq!(odd.dormant_vessels, vec!["Centrifuge".to_string()]);
+    assert_eq!(odd.dormant_vessels, vec!["Replicator".to_string()]);
 }
 
 #[test]

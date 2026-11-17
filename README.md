@@ -3,7 +3,7 @@
 # Curieosity
 
 A free chemistry discovery game. Start with fire, ore and wood; put substances in vessels
-and react them; discover 1,263 substances across 1,252 reactions and 25 vessels, from the
+and react them; discover 2,704 substances across 2,683 reactions and 27 vessels, from the
 first copper smelted to oganesson. Every substance has a page, written for the game or
 drawn from Wikipedia and other open sources, with a link to read more.
 
@@ -15,6 +15,10 @@ Download the latest build for Windows, macOS or Linux from
 [Releases](../../releases), unzip it, and run `Curieosity`. Progress saves itself.
 
 Mouse, keyboard (Tab, arrows, Enter, Esc) and controllers all work.
+
+On Android (12 or later, 64-bit), install the APK from the
+Android workflow's latest run (see below). Swipe the shelf to scroll it; hold a tile a
+moment to lift it onto a vessel, or tap a tile and then a vessel. Back works as Esc.
 
 ## Build from source
 
@@ -32,6 +36,7 @@ cargo test --release                                    unit tests and content c
 cargo run --release -- --autoplay --steps 0             the interaction checks
 cargo run --release -- --autoplay --steps 0 --only keyboard,sound   some of them
 cargo run --release -- --autoplay                       the checks, then the whole tech tree
+cargo run --release -- --autoplay --window 915x412      the same at a phone's size
 ```
 
 The review run plays the game through its real input, writes a report with screenshots to
@@ -46,6 +51,15 @@ The reactions, substances, eras and milestones are written in `tools/data/`
 balances and the whole tree can be played through. It also packs the game's share of the
 full scraped library, which is too big for this repository and lives in `library/`
 (see `tools/data/pack_library.py`).
+
+## Android
+
+`android/` holds the Android build: a small library crate that starts the game, and the
+Gradle project that packs it with `assets/` into an APK. The Android workflow builds it
+on GitHub's runners (which have the Android SDK): Actions, then "Android", then "Run
+workflow"; the APK is the run's artifact. To build it yourself you need the Android SDK
+and NDK, the `aarch64-linux-android` Rust target and `cargo install cargo-ndk`; then, in
+`android/`, run the two build steps from `.github/workflows/android.yml`.
 
 ## Steam
 

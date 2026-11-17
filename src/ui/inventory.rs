@@ -1,7 +1,8 @@
 // src/ui/inventory.rs
 //
 // The shelf: every discovered substance, filtered by category, as draggable tiles; and the
-// chips that stand for a substance inside a vessel. New tiles and products pop in.
+// chips that stand for a substance inside a vessel. New tiles and products pop in. Only the
+// tiles in sight (and a screen either side) are built: see ui/virtual_list.rs.
 use bevy::prelude::*;
 use bevy::ui::ScrollPosition;
 
@@ -10,12 +11,18 @@ use crate::data::common::{MatterState, Property};
 use crate::data::substances::Substances;
 use crate::resources::player_progress::PlayerProgress;
 use crate::resources::ui_fonts::UiFonts;
+use crate::systems::drag_drop::{DragGhost, Swiping};
 use crate::ui::theme::{self, Weight};
+use crate::ui::virtual_list::VirtualList;
 use crate::GameData;
 
-/// The wrapping grid that holds the item cards.
+/// The grid that holds the tiles (a VirtualList: only the tiles in sight are built).
 #[derive(Component)]
 pub struct InventoryContent;
+
+/// A shelf tile's size, and the gap between tiles.
+pub const TILE: Vec2 = Vec2::new(84.0, 104.0);
+const TILE_GAP: f32 = 8.0;
 
 /// The clipping viewport that scrolls.
 #[derive(Component)]
@@ -101,6 +108,8 @@ pub enum InvCategory {
     Gas,
     Liquid,
     Solid,
+    /// Locked previews from later stages (the Substance Library only; never on the shelf).
+    Coming,
 }
 
 const TABS: [(InvCategory, &str); 9] = [
@@ -151,6 +160,7 @@ pub fn matches_category(sub: &crate::data::substances::Substance, cat: InvCatego
         InvCategory::Gas => sub.state == MatterState::Gas,
         InvCategory::Liquid => sub.state == MatterState::Liquid,
         InvCategory::Solid => sub.state == MatterState::Solid,
+        InvCategory::Coming => sub.stage.is_some(),
     }
 }
 
@@ -293,14 +303,14 @@ pub fn spawn_inventory_panel(mut commands: Commands, fonts: Res<UiFonts>, assets
                 .with_children(|scroll| {
                     scroll.spawn((
                         InventoryContent,
+                        VirtualList::new(TILE, Vec2::splat(TILE_GAP)),
+                        // clipped below, so a label spilling out of the last row's tiles never
+                        // lengthens the scroll: the shelf's extent is the grid and nothing else
                         Node {
                             width: Val::Percent(100.0),
-                            flex_direction: FlexDirection::Row,
-                            flex_wrap: FlexWrap::Wrap,
-                            align_content: AlignContent::FlexStart,
-                            align_items: AlignItems::FlexStart,
-                            column_gap: Val::Px(8.0),
-                            row_gap: Val::Px(8.0),
+                            height: Val::Px(0.0),
+                            flex_shrink: 0.0,
+                            overflow: Overflow::clip_y(),
                             ..default()
                         },
                         Name::new("InventoryContent"),
@@ -344,7 +354,7 @@ pub fn shelf_hover_system(
     }
 }
 
-fn short(s: &str, n: usize) -> String {
+pub(crate) fn short(s: &str, n: usize) -> String {
     if s.chars().count() > n {
         s.chars().take(n - 1).collect::<String>() + "…"
     } else {
@@ -360,29 +370,27 @@ fn shelf_key(s: &crate::data::substances::Substance) -> (u8, u32) {
     }
 }
 
-/// Keeps the shelf in step with the discovered set. A new category or tile layout rebuilds
-/// it; a discovery only inserts the new tiles in their places (with a pop), so a shelf of a
-/// thousand tiles never rebuilds just because one more turned up.
+/// Keeps the shelf's list in step with the discovered set and the category. A new category
+/// or tile layout rebuilds it; a discovery only adds the new ids (popping in if they are in
+/// sight), so a shelf of a thousand tiles never rebuilds just because one more turned up.
+/// Which tiles are built at all is the window's business (`shelf_window_system`).
 #[allow(clippy::too_many_arguments)]
 pub fn populate_inventory_system(
     mut commands: Commands,
     game_data: Res<GameData>,
     substances_assets: Res<Assets<Substances>>,
-    content_query: Query<(Entity, Option<&Children>), With<InventoryContent>>,
-    tiles: Query<&Ingredient, With<ShelfTile>>,
+    mut content_query: Query<&mut VirtualList, With<InventoryContent>>,
     mut tabs: Query<(&CategoryTab, &mut theme::Skin)>,
     mut count_q: Query<&mut Text, With<ShelfCount>>,
     settings: Option<Res<crate::ui::settings::Settings>>,
     mut scroll_q: Query<&mut ScrollPosition, With<InventoryScroll>>,
-    look: (Res<UiFonts>, Res<AssetServer>),
     progress: Res<PlayerProgress>,
     filter: Res<InvCategory>,
     recipe_db: Option<Res<crate::resources::recipe_database::RecipeDatabase>>,
-    dragging: Query<(), With<crate::systems::drag_drop::DragGhost>>,
+    dragging: Query<(), With<DragGhost>>,
     mut layout: Local<Option<(InvCategory, bool)>>,
     mut pending: Local<bool>,
 ) {
-    let (fonts, asset_server) = look;
     // Wait for the authored layer to be applied and the save/start set to be loaded.
     if recipe_db.is_none() || !progress.ready {
         return;
@@ -395,7 +403,7 @@ pub fn populate_inventory_system(
     if !(rebuild || progress.is_changed() || *pending) {
         return;
     }
-    let Ok((content_entity, children)) = content_query.single() else {
+    let Ok(mut list) = content_query.single_mut() else {
         return;
     };
 
@@ -405,16 +413,13 @@ pub fn populate_inventory_system(
     if let Ok(mut t) = count_q.single_mut() {
         t.0 = format!("{} on the shelf", items.len());
     }
-
-    // what is on the shelf now, in order
-    let shown: Vec<(Entity, u32)> =
-        children.map(|c| c.iter().filter_map(|e| tiles.get(e).ok().map(|i| (e, i.id))).collect()).unwrap_or_default();
-    let wanted: std::collections::HashSet<u32> = items.iter().map(|s| s.id).collect();
-    let gone: Vec<Entity> = shown.iter().filter(|(_, id)| !wanted.contains(id)).map(|(e, _)| *e).collect();
+    let ids: Vec<u32> = items.iter().map(|s| s.id).collect();
+    let wanted: std::collections::HashSet<u32> = ids.iter().copied().collect();
+    let gone = list.ids().iter().any(|id| !wanted.contains(id));
 
     // Removing tiles (a new game) or rebuilding despawns tiles, possibly one being
     // dragged: its drag would never end. Hold off until the drag is over.
-    if (rebuild || !gone.is_empty()) && !dragging.is_empty() {
+    if (rebuild || gone) && !dragging.is_empty() {
         *pending = true;
         return;
     }
@@ -435,39 +440,108 @@ pub fn populate_inventory_system(
                 skin.active = active;
             }
         }
-        commands.entity(content_entity).despawn_children();
-        let new: Vec<Entity> =
-            items.iter().map(|sub| spawn_shelf_tile(&mut commands, sub, names_first, &fonts, &asset_server)).collect();
-        commands.entity(content_entity).add_children(&new);
+        for e in list.clear() {
+            commands.entity(e).despawn();
+        }
+        list.set(ids, []);
         info!("Inventory: {} shown ({:?}), {} discovered", items.len(), *filter, progress.discovered.len());
         return;
     }
 
-    for e in gone {
-        commands.entity(e).despawn();
+    let had: std::collections::HashSet<u32> = list.ids().iter().copied().collect();
+    let fresh: Vec<u32> = ids.iter().copied().filter(|id| !had.contains(id)).collect();
+    list.set(ids, fresh);
+}
+
+/// Builds the shelf tiles in sight (and a screen either side), drops those far out of it,
+/// and keeps the built ones in their cells and in shelf order. Cheap when nothing moved.
+#[allow(clippy::too_many_arguments, clippy::type_complexity)]
+pub fn shelf_window_system(
+    mut commands: Commands,
+    game_data: Res<GameData>,
+    substances_assets: Res<Assets<Substances>>,
+    settings: Option<Res<crate::ui::settings::Settings>>,
+    look: (Res<UiFonts>, Res<AssetServer>),
+    focus: Option<Res<crate::ui::focus::KeyFocus>>,
+    mut content_q: Query<(Entity, &mut VirtualList, &mut Node, &ComputedNode), With<InventoryContent>>,
+    scroll_q: Query<(&ComputedNode, &ScrollPosition), With<InventoryScroll>>,
+    mut tiles: Query<&mut Node, (With<ShelfTile>, Without<InventoryContent>)>,
+    busy: Query<(Has<DragGhost>, Has<Swiping>, &Interaction), With<ShelfTile>>,
+) {
+    let (fonts, asset_server) = look;
+    let Ok((content, mut list, mut node, cn)) = content_q.single_mut() else {
+        return;
+    };
+    let Ok((view, scroll)) = scroll_q.single() else {
+        return;
+    };
+    let Some(substances) = substances_assets.get(&game_data.substances) else {
+        return;
+    };
+    let focused = focus.and_then(|f| f.entity);
+    // a tile being dragged, swiped, pressed or focused stays built wherever it scrolls to
+    let keep = |e: Entity| {
+        Some(e) == focused || busy.get(e).is_ok_and(|(drag, swipe, i)| drag || swipe || *i == Interaction::Pressed)
+    };
+    let width = cn.size.x * cn.inverse_scale_factor();
+    let view_h = view.size.y * view.inverse_scale_factor();
+    let Some(pass) = list.plan(width, view_h, scroll.0.y, keep) else {
+        return;
+    };
+    if node.height != Val::Px(pass.height) {
+        node.height = Val::Px(pass.height);
     }
-    let have: std::collections::HashSet<u32> = shown.iter().map(|(_, id)| *id).collect();
-    // insert in ascending final position, so each index is right when it is used
-    let mut added = 0;
-    for (i, sub) in items.iter().enumerate() {
-        if have.contains(&sub.id) {
-            continue;
+    for e in &pass.drop {
+        commands.entity(*e).despawn();
+    }
+    for (e, at) in &pass.moves {
+        if let Ok(mut n) = tiles.get_mut(*e) {
+            n.left = Val::Px(at.x);
+            n.top = Val::Px(at.y);
         }
-        let e = spawn_shelf_tile(&mut commands, sub, names_first, &fonts, &asset_server);
-        commands.entity(e).insert((PopIn::new(added as f32 * 0.06), NewGlow::default()));
-        commands.entity(content_entity).insert_children(i, &[e]);
-        added += 1;
+    }
+    let names_first = settings.as_ref().is_some_and(|s| s.names_first);
+    let mut popped = 0;
+    for (id, at, fresh) in &pass.build {
+        let Some(sub) = substances.0.get(id) else { continue };
+        let e = spawn_shelf_tile(&mut commands, sub, names_first, &fonts, &asset_server, *at);
+        if *fresh {
+            commands.entity(e).insert((PopIn::new(popped as f32 * 0.06), NewGlow::default()));
+            popped += 1;
+        }
+        list.record(*id, e, *at);
+    }
+    if !pass.build.is_empty() || !pass.drop.is_empty() {
+        commands.entity(content).replace_children(&list.order());
     }
 }
 
-/// One shelf tile, not yet parented: a periodic-table card for an element, the drawn
-/// structure with formula and name for a compound.
+/// Scrolls the shelf so the tile for `id` comes into sight (the window builds it a frame
+/// later). False when that substance is not on the shelf under the current category.
+pub fn reveal_on_shelf(world: &mut World, id: u32) -> bool {
+    let Some(y) = world
+        .query_filtered::<(&VirtualList, &ComputedNode), With<InventoryContent>>()
+        .iter(world)
+        .next()
+        .and_then(|(list, cn)| list.offset_of(id, cn.size.x * cn.inverse_scale_factor()))
+    else {
+        return false;
+    };
+    for mut sp in world.query_filtered::<&mut ScrollPosition, With<InventoryScroll>>().iter_mut(world) {
+        sp.0.y = (y - TILE_GAP).max(0.0);
+    }
+    true
+}
+
+/// One shelf tile, not yet parented, placed at `at` in the shelf's grid: a periodic-table
+/// card for an element, the drawn structure with formula and name for a compound.
 pub fn spawn_shelf_tile(
     commands: &mut Commands,
     sub: &crate::data::substances::Substance,
     names_first: bool,
     fonts: &UiFonts,
     asset_server: &AssetServer,
+    at: Vec2,
 ) -> Entity {
     let ingredient = Ingredient {
         id: sub.id,
@@ -503,8 +577,11 @@ pub fn spawn_shelf_tile(
             crate::ui::onboarding::Tip::Substance(sub.id),
             Interaction::default(),
             Node {
-                width: Val::Px(84.0),
-                height: Val::Px(104.0),
+                position_type: PositionType::Absolute,
+                left: Val::Px(at.x),
+                top: Val::Px(at.y),
+                width: Val::Px(TILE.x),
+                height: Val::Px(TILE.y),
                 flex_direction: FlexDirection::Column,
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::SpaceBetween,

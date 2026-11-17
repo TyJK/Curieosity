@@ -1,18 +1,17 @@
 """
-Packs the game's content: from the full scraped library in library/ (about 110,000
-substances, 95,000 reactions and a picture for each substance, too big for the repository
-or a download) it keeps only what a player can ever reach, and writes it where the game
-loads it:
+Packs the game's substances: from the full scraped library in library/ (about 110,000
+substances and a picture for many of them, too big for the repository or a download) it
+keeps the ones the game uses, and writes them where the game loads them:
 
-    library/substances.ron   ->  assets/data/substances.ron   (the reachable substances)
-    library/reactions.ron    ->  assets/data/reactions.ron    (the reachable reactions)
+    library/substances.ron   ->  assets/data/substances.ron   (the substances in play)
     library/structures/*.png ->  assets/structures/*.png      (their pictures)
 
-Reachable means: every substance the authored game uses (the start kit, milestone grants,
-and everything the authored reactions use, make or need as a catalyst), then everything a
-library reaction makes from reachable substances, repeated until nothing new appears. The
-library reactions kept are exactly those whose reactants are all reachable, so the packed
-game plays identically to the full library: anything left out could never be made.
+In play means every substance the authored game refers to: the start kit, milestone
+grants, and everything the authored reactions use, make or need as a catalyst. Every
+reaction in the game is authored (assets/data/authored_reactions.ron). The library's own
+reactions (library/reactions.ron) are not used: their substance ids are mis-mapped in the
+scrape, so even the ones that balance mostly describe the wrong chemistry. The few true
+ones were written up as authored reactions instead.
 
 gen_authored.py runs this after writing the authored layer; run it yourself after changing
 the library (a new scrape, or audit_library.py --write):
@@ -20,7 +19,11 @@ the library (a new scrape, or audit_library.py --write):
     python tools/data/pack_library.py            pack
     python tools/data/pack_library.py --check    report what would change, write nothing
 
-The library's line endings are kept, so the packed files diff cleanly.
+Values the library only estimates (authored_facts.ESTIMATED: Joback group-contribution
+melting and boiling points and enthalpies of formation) are left out of the packed file, so
+a page shows measured values or none.
+
+The library's line endings are kept, so the packed file diffs cleanly.
 """
 import argparse
 import re
@@ -34,7 +37,6 @@ DATA = ROOT / "assets" / "data"
 STRUCTURES = ROOT / "assets" / "structures"
 
 SUB_ENTRY = re.compile(r"\n    (\d+): \(")
-RXN_ENTRY = re.compile(r"\n        \(\n            id: (\d+),")
 
 
 def read_text(path):
@@ -48,13 +50,36 @@ def ids_in(text, field):
 
 
 def authored_ids():
-    """Every substance id the authored game refers to."""
+    """Every substance id the authored game refers to, and the locked previews of later
+    stages (substances with a page but no reaction yet)."""
     ar, _ = read_text(DATA / "authored_reactions.ron")
     ids = ids_in(ar, "substance_id") | {int(x) for x in re.findall(r"Catalyst\((\d+)\)", ar)}
     for block in re.findall(r"(?:start|grant): \[([^\]]*)\]", ar):
         ids |= {int(x) for x in re.findall(r"\d+", block)}
     ids |= ids_in(ar, "on")
+    au_path = DATA / "authored_substances.ron"
+    if au_path.exists():
+        au, _ = read_text(au_path)
+        ids |= {int(m.group(1)) for m in re.finditer(r"^ {4}(\d+): \(.*\bstage: ", au, re.M)}
     return ids
+
+
+def estimated_values():
+    """field -> library ids whose value for it is only an estimate (absent: none known)."""
+    try:
+        sys.path.insert(0, str(Path(__file__).resolve().parent))
+        from authored_facts import ESTIMATED
+    except ImportError:
+        return {}
+    return ESTIMATED
+
+
+def drop_estimates(sid, block, estimated):
+    """The block with its estimated values set to None."""
+    for field, ids in estimated.items():
+        if sid in ids:
+            block = re.sub(rf"(\n {{12}}{field}: )Some\([^)]*\),", r"\1None,", block)
+    return block
 
 
 def split_entries(text, pattern, closing):
@@ -73,53 +98,39 @@ def split_entries(text, pattern, closing):
     return head, blocks, tail
 
 
-def reaction_sides(block):
-    m = re.search(r"reactants: \[(.*?)\],\s*\n\s*products: \[(.*?)\],", block, re.S)
-    if not m:
-        return set(), set()
-    return ids_in(m.group(1), "substance_id"), ids_in(m.group(2), "substance_id")
-
-
 def pack(check=False):
-    for p in (LIBRARY / "substances.ron", LIBRARY / "reactions.ron"):
-        if not p.exists():
-            sys.exit(f"{p.relative_to(ROOT)} is missing: the full library lives in library/ (see the module docstring)")
-    subs_text, sub_eol = read_text(LIBRARY / "substances.ron")
-    rxn_text, rxn_eol = read_text(LIBRARY / "reactions.ron")
+    library = LIBRARY / "substances.ron"
+    if not library.exists():
+        sys.exit(f"{library.relative_to(ROOT)} is missing: the full library lives in library/ (see the module docstring)")
+    subs_text, sub_eol = read_text(library)
     s_head, subs, s_tail = split_entries(subs_text, SUB_ENTRY, r"\n\}\)\s*$")
-    r_head, rxns, r_tail = split_entries(rxn_text, RXN_ENTRY, r"\n    \],\n\)\s*$")
-    sides = [(rid, *reaction_sides(b)) for rid, b in rxns]
 
-    reach = set(authored_ids())
-    while True:
-        grew = False
-        for _, ins, outs in sides:
-            if ins and ins <= reach and not outs <= reach:
-                reach |= outs
-                grew = True
-        if not grew:
-            break
-    keep_rxn = {rid for rid, ins, _ in sides if ins and ins <= reach}
-    library_ids = {sid for sid, _ in subs}
-    keep_sub = reach & library_ids
+    in_play = authored_ids()
+    keep = in_play & {sid for sid, _ in subs}
+    estimated = estimated_values()
+    sub_out = s_head + "".join(drop_estimates(sid, b, estimated) for sid, b in subs if sid in keep) + s_tail
+    pictures = sorted(i for i in in_play if (LIBRARY / "structures" / f"{i}.png").exists())
+    retired = DATA / "reactions.ron"  # the library reactions the game used to load
 
-    sub_out = s_head + "".join(b for sid, b in subs if sid in keep_sub) + s_tail
-    rxn_out = r_head + "".join(b for rid, b in rxns if rid in keep_rxn) + r_tail
-    pictures = sorted(i for i in reach if (LIBRARY / "structures" / f"{i}.png").exists())
-
-    print(f"library   {len(subs):>7} substances, {len(rxns):>6} reactions")
-    print(f"reachable {len(reach):>7} substances ({len(keep_sub)} from the library), {len(keep_rxn)} library reactions")
-    print(f"pictures  {len(pictures):>7} of {len(reach)} reachable substances have one in library/structures")
+    print(f"library   {len(subs):>7} substances")
+    print(f"in play   {len(in_play):>7} substances ({len(keep)} from the library, the rest authored)")
+    print(f"pictures  {len(pictures):>7} of {len(in_play)} in play have one in library/structures")
     if check:
+        if retired.exists():
+            print(f"would remove {retired.relative_to(ROOT)}: the game no longer loads library reactions")
         return
     DATA.mkdir(parents=True, exist_ok=True)
     changed = 0
-    for path, text, eol in ((DATA / "substances.ron", sub_out, sub_eol), (DATA / "reactions.ron", rxn_out, rxn_eol)):
-        data = text.replace("\n", eol).encode("utf-8")
-        if not path.exists() or path.read_bytes() != data:
-            path.write_bytes(data)
-            changed += 1
-            print(f"wrote     {path.relative_to(ROOT)} ({len(data) // 1024} KB)")
+    path = DATA / "substances.ron"
+    data = sub_out.replace("\n", sub_eol).encode("utf-8")
+    if not path.exists() or path.read_bytes() != data:
+        path.write_bytes(data)
+        changed += 1
+        print(f"wrote     {path.relative_to(ROOT)} ({len(data) // 1024} KB)")
+    if retired.exists():
+        retired.unlink()
+        changed += 1
+        print(f"removed   {retired.relative_to(ROOT)}: the game no longer loads library reactions")
     STRUCTURES.mkdir(parents=True, exist_ok=True)
     want = {f"{i}.png" for i in pictures}
     copied = removed = 0

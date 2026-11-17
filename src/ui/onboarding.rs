@@ -608,7 +608,7 @@ pub fn next_step<'a>(
 ) -> Option<&'a Reaction> {
     let side = db.side_epoch();
     let ready = |r: &&Reaction| node_state(r, progress, unlocks) == NodeState::Available;
-    db.authored.iter().filter(|r| r.epoch != side).find(ready).or_else(|| db.authored.iter().find(ready))
+    db.authored.iter().filter(|r| Some(r.epoch) != side).find(ready).or_else(|| db.authored.iter().find(ready))
 }
 
 #[allow(clippy::too_many_arguments, clippy::type_complexity)]

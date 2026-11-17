@@ -2,22 +2,24 @@
 //
 // The Substance Library: every substance the player has discovered, searchable and
 // filterable on the left; on the right, its page: structure (or Bohr model), formula,
-// state and tags, the description, physical data, the known reactions that make it and
-// use it (click one to open it in the Reaction Library), and its references.
+// state and tags, the description, physical data, what industry does with it (how much is
+// made, how it travels and is kept, the grades it sells at), the known reactions that make it
+// and use it (click one to open it in the Reaction Library), and its references.
 use bevy::prelude::*;
 use bevy::ui::ScrollPosition;
 
 use crate::components::format_formula;
-use crate::data::common::{MatterState, Property};
+use crate::data::common::{handling, un_class_name, MatterState, Property};
 use crate::data::reactions::Reaction;
 use crate::data::substances::{Substance, Substances};
 use crate::resources::player_progress::PlayerProgress;
 use crate::resources::recipe_database::RecipeDatabase;
 use crate::resources::ui_fonts::UiFonts;
-use crate::ui::inventory::{element_tile_color, is_element_formula, matches_category, InvCategory};
+use crate::ui::inventory::{element_tile_color, is_element_formula, matches_category, short, InvCategory};
 use crate::ui::process_toolbar::{vessel_art_path, vessel_name};
 use crate::ui::reaction_library::ReactionLibState;
 use crate::ui::theme::{self, Kind, Skin, Weight};
+use crate::ui::virtual_list::VirtualList;
 use crate::GameData;
 
 #[derive(Resource, Default)]
@@ -32,7 +34,7 @@ pub struct CodexFilter {
     pub search: String,
 }
 
-const CODEX_TABS: [(InvCategory, &str); 9] = [
+const CODEX_TABS: [(InvCategory, &str); 10] = [
     (InvCategory::All, "All"),
     (InvCategory::Elements, "Elements"),
     (InvCategory::Compounds, "Compounds"),
@@ -42,6 +44,7 @@ const CODEX_TABS: [(InvCategory, &str); 9] = [
     (InvCategory::Gas, "Gas"),
     (InvCategory::Liquid, "Liquid"),
     (InvCategory::Solid, "Solid"),
+    (InvCategory::Coming, "Coming later"),
 ];
 
 const LIST_W: f32 = 380.0;
@@ -59,6 +62,9 @@ pub struct CodexListContent;
 /// The "Text: Wikipedia, CC BY-SA 4.0." line under a page's text.
 #[derive(Component)]
 pub struct CodexTextCredit;
+/// One card of a page's "In industry" section.
+#[derive(Component)]
+pub struct CodexIndustryCard;
 #[derive(Component)]
 pub struct CodexDetail;
 #[derive(Component)]
@@ -69,6 +75,15 @@ pub struct CodexSearchText;
 pub struct CodexCountText;
 #[derive(Component)]
 pub struct CodexEntry(pub u32);
+
+/// "Nothing matches yet.", under the list (outside it: the list's children are its rows).
+#[derive(Component)]
+pub struct CodexEmptyText;
+
+/// A list row's height (one line of name, one of formula, beside a 36 px picture), and the
+/// gap between rows. Rows are one fixed height so the list can build only those in sight.
+const ROW_H: f32 = 48.0;
+const ROW_GAP: f32 = 4.0;
 #[derive(Component)]
 pub struct CodexRefLink(pub String);
 /// A reaction row on a substance page: opens it in the Reaction Library.
@@ -172,6 +187,154 @@ fn facts(sub: &Substance) -> Vec<(&'static str, String)> {
     f
 }
 
+/// The name a chemical index files a substance under: leading locants, stereo descriptors and
+/// position prefixes don't count, so "(+)-Glaucine" sits under G, "1,4-Dioxane" under D,
+/// "L-Lysine" under L and "p-Xylene" under X.
+pub fn index_name(name: &str) -> String {
+    let lower = name.to_lowercase();
+    let mut s = lower.as_str();
+    loop {
+        let t = s.trim_start_matches(|c: char| !c.is_alphabetic());
+        let next = match t.find('-') {
+            Some(i) if is_name_prefix(&t[..i]) => &t[i + 1..],
+            _ => t,
+        };
+        if next.len() == s.len() || next.is_empty() {
+            break;
+        }
+        s = next;
+    }
+    if s.chars().any(char::is_alphabetic) {
+        s.to_string()
+    } else {
+        lower.clone()
+    }
+}
+
+/// A prefix an index skips: tert-, cis-, or locants and descriptors such as N,N'-, 2R,3S-, D-, α-.
+fn is_name_prefix(p: &str) -> bool {
+    if matches!(p, "tert" | "sec" | "cis" | "trans" | "exo" | "endo" | "meso" | "rac") {
+        return true;
+    }
+    let p: String = p.chars().filter(|c| !matches!(c, '(' | ')' | '[' | ']')).collect();
+    !p.is_empty()
+        && p.split(',').all(|part| {
+            let letters = part.chars().filter(|c| c.is_alphabetic()).count();
+            !part.is_empty()
+                && part.chars().count() <= 3
+                && letters <= 1
+                && part.chars().all(|c| c.is_alphanumeric() || matches!(c, '\'' | '′' | '+' | '±' | '−'))
+        })
+}
+
+/// A yearly tonnage, rounded the way people say it ("47.6 million t").
+fn tonnes(t: f32) -> String {
+    if t >= 1.0e9 {
+        format!("{:.1} billion t", t / 1.0e9)
+    } else if t >= 1.0e6 {
+        format!("{:.1} million t", t / 1.0e6)
+    } else if t >= 1.0e4 {
+        format!("{:.0} thousand t", t / 1.0e3)
+    } else {
+        format!("{:.0} t", t)
+    }
+}
+
+/// A rough world tonnage, at two significant figures ("270 million t", "3,300 t").
+fn rough_tonnes(t: f32) -> String {
+    let (v, unit) = if t >= 1.0e12 {
+        (t / 1.0e12, " trillion t")
+    } else if t >= 1.0e9 {
+        (t / 1.0e9, " billion t")
+    } else if t >= 1.0e6 {
+        (t / 1.0e6, " million t")
+    } else {
+        (t, " t")
+    };
+    let two = if v >= 100.0 {
+        format!("{:.0}", (v / 10.0).round() * 10.0)
+    } else if v >= 10.0 {
+        format!("{:.0}", v)
+    } else {
+        format!("{:.1}", v).trim_end_matches(".0").to_string()
+    };
+    if unit == " t" && v >= 1000.0 {
+        // thousands separators for the small totals (precious metals)
+        let n = v.round() as u64;
+        return format!("{},{:03} t", n / 1000, n % 1000);
+    }
+    format!("{two}{unit}")
+}
+
+/// (label, value) cards for what industry does with a substance: how much is made, how it
+/// travels and is kept, and the stricter grades it also sells at. Empty for substances
+/// industry doesn't trade in.
+fn industry(sub: &Substance) -> Vec<(&'static str, String)> {
+    let mut f = Vec::new();
+    if let Some(t) = sub.world_t_year {
+        f.push(("Made a year (world)", format!("about {}", rough_tonnes(t))));
+    }
+    if let Some(t) = sub.production_t_year {
+        f.push(("Made a year (US)", tonnes(t)));
+    }
+    let class = sub.transport_class();
+    if let Some(c) = class {
+        f.push(("Transport", format!("UN class {} · {}", c, un_class_name(c).unwrap_or("Dangerous goods"))));
+    }
+    if !f.is_empty() {
+        f.push(("Handling", handling(sub.state, class).to_string()));
+    }
+    if !sub.grades.is_empty() {
+        let grades: Vec<&str> = sub.grades.iter().map(|g| g.label()).collect();
+        f.push(("Also sold as", format!("{} grade", grades.join(", "))));
+    }
+    f
+}
+
+/// Under the industry cards when a tonnage shows: what the figure is.
+const PRODUCTION_NOTE: &str = "US figures: the production and imports reported to regulators, \
+often the low end of a reporting band.";
+
+/// Under the industry cards when a world figure shows.
+const WORLD_NOTE: &str = "World figures are rough estimates, rounded: totals this big are too large to \
+track precisely.";
+
+/// A wrapping grid of (label, value) cards; the industry ones carry `CodexIndustryCard`.
+fn spawn_fact_grid(p: &mut ChildSpawnerCommands, fonts: &UiFonts, facts: Vec<(&'static str, String)>, industry: bool) {
+    p.spawn(Node { flex_wrap: FlexWrap::Wrap, column_gap: Val::Px(10.0), row_gap: Val::Px(10.0), ..default() })
+        .with_children(|grid| {
+            for (k, v) in facts {
+                grid.spawn((
+                    Node {
+                        min_width: Val::Px(150.0),
+                        max_width: Val::Px(320.0),
+                        flex_direction: FlexDirection::Column,
+                        row_gap: Val::Px(2.0),
+                        padding: UiRect::axes(Val::Px(12.0), Val::Px(9.0)),
+                        border: UiRect::all(Val::Px(1.0)),
+                        ..default()
+                    },
+                    BorderRadius::all(Val::Px(theme::R_MD)),
+                    BackgroundColor(theme::RAISED),
+                    BorderColor::all(theme::LINE),
+                ))
+                .insert_if(CodexIndustryCard, || industry)
+                .with_children(|c| {
+                    c.spawn(theme::label(fonts, k.to_uppercase(), 10.0, Weight::Bold, theme::TEXT_3));
+                    c.spawn(theme::para(fonts, v, theme::MD, theme::TEXT, Val::Px(296.0)));
+                });
+            }
+        });
+}
+
+/// Shown under every medicine's story: the game teaches how medicines are made, not how to use them.
+const MEDICINE_NOTE: &str = "Medicines are shown here for how they are made and what they do. Real medicines \
+are made under licence to strict purity standards, and taken only as a doctor or pharmacist directs.";
+
+/// Shown under a class of compounds: why its formula is one member's.
+const CLASS_NOTE: &str = "A family of closely related compounds, made and used as one. \
+The formula and structure shown are a typical member's.";
+
 fn tags(sub: &Substance) -> Vec<(&'static str, Color)> {
     let mut t = Vec::new();
     for p in &sub.properties {
@@ -184,6 +347,8 @@ fn tags(sub: &Substance) -> Vec<(&'static str, Color)> {
             Property::IsRadioactive => t.push(("Radioactive", theme::GREEN)),
             Property::IsPolymer => t.push(("Polymer", Color::srgb(1.0, 0.5, 0.8))),
             Property::IsMonomer => t.push(("Monomer", Color::srgb(1.0, 0.65, 0.85))),
+            Property::IsMedicine => t.push(("Medicine", Color::srgb(0.45, 0.90, 0.80))),
+            Property::IsClass => t.push(("Class", Color::srgb(0.75, 0.70, 1.0))),
             _ => {}
         }
     }
@@ -309,12 +474,13 @@ pub fn spawn_codex(mut commands: Commands, fonts: Res<UiFonts>, assets: Res<Asse
                 .with_children(|scroll| {
                     scroll.spawn((
                         CodexListContent,
-                        Node {
-                            width: Val::Percent(100.0),
-                            flex_direction: FlexDirection::Column,
-                            row_gap: Val::Px(4.0),
-                            ..default()
-                        },
+                        VirtualList::new(Vec2::new(0.0, ROW_H), Vec2::new(0.0, ROW_GAP)),
+                        Node { width: Val::Percent(100.0), height: Val::Px(0.0), flex_shrink: 0.0, ..default() },
+                    ));
+                    scroll.spawn((
+                        CodexEmptyText,
+                        theme::label(fonts, "Nothing matches yet.", theme::SM, Weight::Regular, theme::TEXT_3),
+                        Node { display: Display::None, ..default() },
                     ));
                 });
             });
@@ -366,19 +532,17 @@ pub fn codex_button_system(
 
 // --- list ---------------------------------------------------------------------------------
 pub fn populate_codex_list_system(
-    mut commands: Commands,
     state: Res<CodexState>,
     filter: Res<CodexFilter>,
     game_data: Res<GameData>,
     substances_assets: Res<Assets<Substances>>,
     progress: Res<PlayerProgress>,
-    list_q: Query<Entity, With<CodexListContent>>,
+    mut list_q: Query<&mut VirtualList, With<CodexListContent>>,
+    mut empty_q: Query<&mut Node, With<CodexEmptyText>>,
     mut tabs: Query<(&CodexCategoryTab, &mut Skin)>,
     mut rows: Query<(&CodexEntry, &mut Skin), Without<CodexCategoryTab>>,
     mut count_q: Query<&mut Text, With<CodexCountText>>,
     mut list_scroll: Query<(&CodexScrollable, &mut ScrollPosition)>,
-    fonts: Res<UiFonts>,
-    assets: Res<AssetServer>,
     mut prev_open: Local<bool>,
 ) {
     let just_opened = state.open && !*prev_open;
@@ -399,7 +563,7 @@ pub fn populate_codex_list_system(
     let Some(subs) = substances_assets.get(&game_data.substances) else {
         return;
     };
-    let Ok(list) = list_q.single() else {
+    let Ok(mut list) = list_q.single_mut() else {
         return;
     };
 
@@ -418,74 +582,153 @@ pub fn populate_codex_list_system(
     }
 
     let q = filter.search.to_lowercase();
+    // "Coming later" lists the locked previews of later stages; every other tab, what has been found
+    let coming = filter.category == InvCategory::Coming;
     let mut items: Vec<&Substance> = subs
         .0
         .values()
         .filter(|s| {
-            progress.discovered.contains(&s.id)
+            (if coming { s.stage.is_some() } else { progress.discovered.contains(&s.id) })
                 && matches_category(s, filter.category)
                 && (q.is_empty() || s.name.to_lowercase().contains(&q) || s.formula.to_lowercase().contains(&q))
         })
         .collect();
-    items.sort_by(|a, b| {
-        let ka = a.element_info.as_ref().map(|e| (0u8, e.atomic_number, String::new())).unwrap_or((
-            1,
-            0,
-            a.name.to_lowercase(),
-        ));
-        let kb = b.element_info.as_ref().map(|e| (0u8, e.atomic_number, String::new())).unwrap_or((
-            1,
-            0,
-            b.name.to_lowercase(),
-        ));
-        ka.cmp(&kb)
+    // elements by atomic number, then everything else as a chemical index files it
+    items.sort_by_cached_key(|s| match &s.element_info {
+        Some(e) => (0u8, e.atomic_number, String::new(), String::new()),
+        None => (1, 0, index_name(&s.name), s.name.to_lowercase()),
     });
     if let Ok(mut t) = count_q.single_mut() {
-        t.0 = format!("{} of {} discovered shown", items.len(), progress.discovered.len());
+        t.0 = if coming {
+            let total = subs.0.values().filter(|s| s.stage.is_some()).count();
+            format!("{} of {} coming in later stages shown", items.len(), total)
+        } else {
+            format!("{} of {} discovered shown", items.len(), progress.discovered.len())
+        };
     }
 
-    commands.entity(list).despawn_children();
-    commands.entity(list).with_children(|parent| {
-        for sub in &items {
-            let mut row = parent.spawn((
-                theme::button(
-                    Kind::Row,
-                    Node {
-                        width: Val::Percent(100.0),
-                        align_items: AlignItems::Center,
-                        column_gap: Val::Px(10.0),
-                        padding: UiRect::axes(Val::Px(8.0), Val::Px(6.0)),
-                        ..default()
-                    },
-                    theme::R_MD,
-                ),
-                CodexEntry(sub.id),
+    if let Ok(mut node) = empty_q.single_mut() {
+        let d = if items.is_empty() { Display::Flex } else { Display::None };
+        if node.display != d {
+            node.display = d;
+        }
+    }
+    list.set(items.iter().map(|s| s.id).collect(), []);
+}
+
+/// Builds the list rows in sight (and a screen either side) and drops the rest; a closed
+/// library builds none and lets go of its pictures. Cheap when nothing moved.
+#[allow(clippy::too_many_arguments, clippy::type_complexity)]
+pub fn codex_window_system(
+    mut commands: Commands,
+    state: Res<CodexState>,
+    game_data: Res<GameData>,
+    substances_assets: Res<Assets<Substances>>,
+    focus: Option<Res<crate::ui::focus::KeyFocus>>,
+    mut content_q: Query<(Entity, &mut VirtualList, &mut Node, &ComputedNode), With<CodexListContent>>,
+    scroll_q: Query<(&CodexScrollable, &ComputedNode, &ScrollPosition)>,
+    mut rows: Query<&mut Node, (With<CodexEntry>, Without<CodexListContent>)>,
+    pressed: Query<&Interaction, With<CodexEntry>>,
+    fonts: Res<UiFonts>,
+    assets: Res<AssetServer>,
+) {
+    let Ok((content, mut list, mut node, cn)) = content_q.single_mut() else {
+        return;
+    };
+    let Some((_, view, scroll)) = scroll_q.iter().find(|(m, _, _)| m.is_left) else {
+        return;
+    };
+    let Some(subs) = substances_assets.get(&game_data.substances) else {
+        return;
+    };
+    let focused = focus.and_then(|f| f.entity);
+    let keep = |e: Entity| Some(e) == focused || pressed.get(e).is_ok_and(|i| *i == Interaction::Pressed);
+    let (width, view_h) = if state.open {
+        (cn.size.x * cn.inverse_scale_factor(), view.size.y * view.inverse_scale_factor())
+    } else {
+        (0.0, 0.0)
+    };
+    let Some(pass) = list.plan(width, view_h, scroll.0.y, keep) else {
+        return;
+    };
+    if state.open && node.height != Val::Px(pass.height) {
+        node.height = Val::Px(pass.height);
+    }
+    for e in &pass.drop {
+        commands.entity(*e).despawn();
+    }
+    for (e, at) in &pass.moves {
+        if let Ok(mut n) = rows.get_mut(*e) {
+            n.top = Val::Px(at.y);
+        }
+    }
+    for (id, at, _) in &pass.build {
+        let Some(sub) = subs.0.get(id) else { continue };
+        let e = spawn_codex_row(&mut commands, sub, Some(sub.id) == state.selected, at.y, &fonts, &assets);
+        list.record(*id, e, *at);
+    }
+    if !pass.build.is_empty() || !pass.drop.is_empty() {
+        commands.entity(content).replace_children(&list.order());
+    }
+}
+
+/// One list row, not yet parented, `top` pixels down the list: picture, name, formula.
+fn spawn_codex_row(
+    commands: &mut Commands,
+    sub: &Substance,
+    selected: bool,
+    top: f32,
+    fonts: &UiFonts,
+    assets: &AssetServer,
+) -> Entity {
+    let mut row = commands.spawn((
+        theme::button(
+            Kind::Row,
+            Node {
+                position_type: PositionType::Absolute,
+                left: Val::Px(0.0),
+                right: Val::Px(0.0),
+                top: Val::Px(top),
+                height: Val::Px(ROW_H),
+                align_items: AlignItems::Center,
+                column_gap: Val::Px(10.0),
+                padding: UiRect::axes(Val::Px(8.0), Val::Px(6.0)),
+                ..default()
+            },
+            theme::R_MD,
+        ),
+        CodexEntry(sub.id),
+    ));
+    if selected {
+        row.insert(Skin::active(Kind::Row, true));
+    }
+    row.with_children(|row| {
+        spawn_thumb(row, fonts, assets, sub, 36.0);
+        // one line each, so every row is the same height; the page shows the full name
+        row.spawn((
+            Node {
+                flex_direction: FlexDirection::Column,
+                flex_shrink: 1.0,
+                min_width: Val::Px(0.0),
+                overflow: Overflow::clip(),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .with_children(|c| {
+            c.spawn((
+                theme::label(fonts, short(&sub.name, 40), theme::SM, Weight::Semibold, theme::TEXT),
+                TextLayout::new_with_no_wrap(),
+                Pickable::IGNORE,
             ));
-            if Some(sub.id) == state.selected {
-                row.insert(Skin::active(Kind::Row, true));
-            }
-            row.with_children(|row| {
-                spawn_thumb(row, &fonts, &assets, sub, 36.0);
-                row.spawn((
-                    Node { flex_direction: FlexDirection::Column, flex_shrink: 1.0, ..default() },
-                    Pickable::IGNORE,
-                ))
-                .with_children(|c| {
-                    c.spawn((
-                        theme::label(&fonts, sub.name.clone(), theme::SM, Weight::Semibold, theme::TEXT),
-                        Pickable::IGNORE,
-                    ));
-                    c.spawn((
-                        theme::label(&fonts, format_formula(&sub.formula), theme::XS, Weight::Regular, theme::CYAN),
-                        Pickable::IGNORE,
-                    ));
-                });
-            });
-        }
-        if items.is_empty() {
-            parent.spawn(theme::label(&fonts, "Nothing matches yet.", theme::SM, Weight::Regular, theme::TEXT_3));
-        }
+            c.spawn((
+                theme::label(fonts, format_formula(&sub.formula), theme::XS, Weight::Regular, theme::CYAN),
+                TextLayout::new_with_no_wrap(),
+                Pickable::IGNORE,
+            ));
+        });
     });
+    row.id()
 }
 
 /// A small picture of a substance: its element symbol in block colour, or its structure.
@@ -807,8 +1050,11 @@ pub fn update_codex_detail_system(
                         for (t, c) in tags(sub) {
                             theme::spawn_chip(chips, fonts, t, c);
                         }
+                        if sub.stage.is_some() {
+                            theme::spawn_chip(chips, fonts, "Coming later", theme::GOLD);
+                        }
                     });
-                    if let Some((_, url)) = sub.references.iter().find(|(l, _)| l.to_lowercase().contains("wiki")) {
+                    if let Some((label, url)) = crate::data::common::primary_reference(&sub.references) {
                         info.spawn(Node { margin: UiRect::top(Val::Px(6.0)), ..default() }).with_children(|b| {
                             theme::spawn_button(
                                 b,
@@ -816,7 +1062,7 @@ pub fn update_codex_detail_system(
                                 assets,
                                 Kind::Primary,
                                 Some("external"),
-                                "Read on Wikipedia",
+                                &format!("Read on {label}"),
                                 CodexRefLink(url.clone()),
                             );
                         });
@@ -824,6 +1070,20 @@ pub fn update_codex_detail_system(
                 });
             },
         );
+
+        // --- a locked preview says what it is waiting for ---
+        if let Some(stage) = &sub.stage {
+            p.spawn(theme::para(
+                fonts,
+                format!(
+                    "Coming later: nothing in the game makes {} yet. It arrives with the {} stage.",
+                    sub.name, stage
+                ),
+                theme::MD,
+                theme::GOLD,
+                Val::Px(820.0),
+            ));
+        }
 
         // --- the story ---
         let mut story: Vec<String> = Vec::new();
@@ -844,6 +1104,12 @@ pub fn update_codex_detail_system(
                 p.spawn(theme::para(fonts, line.to_string(), theme::MD, theme::TEXT_2, Val::Px(820.0)));
             }
         }
+        if sub.properties.contains(&Property::IsClass) {
+            p.spawn(theme::para(fonts, CLASS_NOTE.to_string(), theme::SM, theme::TEXT_3, Val::Px(820.0)));
+        }
+        if sub.properties.contains(&Property::IsMedicine) {
+            p.spawn(theme::para(fonts, MEDICINE_NOTE.to_string(), theme::SM, theme::GOLD, Val::Px(820.0)));
+        }
         // where the text comes from, as its licence asks
         let mut credit: Vec<String> =
             sub.text_source.as_deref().and_then(crate::ui::credits::text_credit).into_iter().collect();
@@ -860,29 +1126,20 @@ pub fn update_codex_detail_system(
         let facts = facts(sub);
         if !facts.is_empty() {
             theme::spawn_section_title(p, fonts, "Properties");
-            p.spawn(Node { flex_wrap: FlexWrap::Wrap, column_gap: Val::Px(10.0), row_gap: Val::Px(10.0), ..default() })
-                .with_children(|grid| {
-                    for (k, v) in facts {
-                        grid.spawn((
-                            Node {
-                                min_width: Val::Px(150.0),
-                                max_width: Val::Px(320.0),
-                                flex_direction: FlexDirection::Column,
-                                row_gap: Val::Px(2.0),
-                                padding: UiRect::axes(Val::Px(12.0), Val::Px(9.0)),
-                                border: UiRect::all(Val::Px(1.0)),
-                                ..default()
-                            },
-                            BorderRadius::all(Val::Px(theme::R_MD)),
-                            BackgroundColor(theme::RAISED),
-                            BorderColor::all(theme::LINE),
-                        ))
-                        .with_children(|c| {
-                            c.spawn(theme::label(fonts, k.to_uppercase(), 10.0, Weight::Bold, theme::TEXT_3));
-                            c.spawn(theme::para(fonts, v, theme::MD, theme::TEXT, Val::Px(296.0)));
-                        });
-                    }
-                });
+            spawn_fact_grid(p, fonts, facts, false);
+        }
+
+        // --- industry ---
+        let industry = industry(sub);
+        if !industry.is_empty() {
+            theme::spawn_section_title(p, fonts, "In industry");
+            spawn_fact_grid(p, fonts, industry, true);
+            if sub.world_t_year.is_some() {
+                p.spawn(theme::para(fonts, WORLD_NOTE.to_string(), theme::XS, theme::TEXT_3, Val::Px(820.0)));
+            }
+            if sub.production_t_year.is_some() {
+                p.spawn(theme::para(fonts, PRODUCTION_NOTE.to_string(), theme::XS, theme::TEXT_3, Val::Px(820.0)));
+            }
         }
 
         // --- reactions that make it / use it ---
@@ -935,8 +1192,11 @@ pub fn update_codex_detail_system(
                 p.spawn(theme::para(fonts, e, theme::SM, theme::TEXT_2, Val::Px(820.0)));
             }
         }
-        let others: Vec<&(String, String)> =
-            sub.references.iter().filter(|(l, _)| !l.to_lowercase().contains("wiki")).collect();
+        let others: Vec<&(String, String)> = sub
+            .references
+            .iter()
+            .filter(|x| Some(*x) != crate::data::common::primary_reference(&sub.references))
+            .collect();
         if !others.is_empty() {
             theme::spawn_section_title(p, fonts, "References");
             p.spawn(Node { flex_wrap: FlexWrap::Wrap, column_gap: Val::Px(8.0), row_gap: Val::Px(8.0), ..default() })
@@ -1018,6 +1278,53 @@ pub fn codex_link_click_system(
             codex.open = false;
             rlib.open = true;
             rlib.selected = Some(link.0);
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn index_names_skip_locants_and_descriptors() {
+        for (name, filed) in [
+            ("(+)-Glaucine", "glaucine"),
+            ("1,4-Dioxane", "dioxane"),
+            ("L-Lysine", "lysine"),
+            ("p-Xylene", "xylene"),
+            ("N,N-Dimethylformamide", "dimethylformamide"),
+            ("α-Hexylcinnamaldehyde", "hexylcinnamaldehyde"),
+            ("tert-Butanol", "butanol"),
+            ("(2R,3S)-Isocitric acid", "isocitric acid"),
+            ("1H-Indole", "indole"),
+            // real words and multipliers stay
+            ("Co-trimoxazole", "co-trimoxazole"),
+            ("Di-tert-butyl peroxide", "di-tert-butyl peroxide"),
+            ("Sodium 2-ethylhexanoate", "sodium 2-ethylhexanoate"),
+            ("Water", "water"),
+            // nothing left to file under: the whole name
+            ("U-238", "u-238"),
+        ] {
+            assert_eq!(index_name(name), filed, "{name}");
+        }
+    }
+
+    #[test]
+    fn rough_tonnages_read_at_two_figures() {
+        for (t, said) in [
+            (4.0e12, "4 trillion t"),
+            (5.0e10, "50 billion t"),
+            (1.9e9, "1.9 billion t"),
+            (2.7e8, "270 million t"),
+            (9.5e7, "95 million t"),
+            (3.5e6, "3.5 million t"),
+            (1.2e6, "1.2 million t"),
+            (3.7e5, "370,000 t"),
+            (3.3e3, "3,300 t"),
+            (180.0, "180 t"),
+        ] {
+            assert_eq!(rough_tonnes(t), said, "{t}");
         }
     }
 }

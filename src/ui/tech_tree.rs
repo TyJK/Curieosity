@@ -644,7 +644,7 @@ pub fn populate_tech_views_system(
     // Authored reactions, already sorted by (epoch, id).
     let rxns: Vec<&Reaction> = db.authored.iter().collect();
     let n_epochs = db.epochs.len().max(1);
-    let epoch_of = |r: &Reaction| (r.epoch.unwrap_or(0) as usize).min(n_epochs - 1);
+    let epoch_of = |r: &Reaction| (r.epoch as usize).min(n_epochs - 1);
 
     // Producer map over EARLIER authored reactions only (keeps the depth pass acyclic).
     // Utility substances that appear everywhere never create depth or edges.
@@ -1229,7 +1229,7 @@ pub fn update_tech_detail_system(
 
     let st = node_state(r, &progress, &unlocks);
     let accent = theme::process_color(&r.process);
-    let e = r.epoch.unwrap_or(0);
+    let e = r.epoch;
     let needs = links.needs.get(&r.id).cloned().unwrap_or_default();
     let process_locked = !unlocks.0.contains(&r.process);
     let known = r.reactants.iter().chain(r.products.iter()).all(|s| progress.discovered.contains(&s.substance_id));

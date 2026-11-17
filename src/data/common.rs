@@ -37,6 +37,8 @@ pub enum ProcessType {
     Bioreactor,
     CrystalPuller,
     CvdChamber,
+    Centrifuge,
+    Ultracentrifuge,
 }
 
 /// One vessel: its name, family, tier within the family, and art.
@@ -80,12 +82,14 @@ pub const VESSEL_SPECS: &[VesselSpec] = &[
     v("Blast Furnace", ProcessType::BlastFurnace, "Heat", 3, "blast_furnace", false),
     v("Fractionating Column", ProcessType::Column, "Distillation", 2, "column", false),
     v("Electrolytic Cell", ProcessType::ElectrolyticCell, "Electrolysis", 2, "electrolytic_cell", false),
+    v("Centrifuge", ProcessType::Centrifuge, "Separation", 1, "centrifuge", false),
     v("Air Liquefier", ProcessType::AirLiquefier, "Cool", 2, "air_liquefier", false),
     v("Autoclave", ProcessType::Pressurize, "Pressure", 1, "autoclave", false),
     v("Arc Furnace", ProcessType::ArcFurnace, "Heat", 4, "arc_furnace", false),
     v("High-Pressure Reactor", ProcessType::HighPressure, "Pressure", 2, "high_pressure", true),
     v("Catalytic Cracker", ProcessType::Cracker, "Catalysis", 2, "cracker", true),
     v("Bioreactor", ProcessType::Bioreactor, "Biology", 2, "bioreactor", true),
+    v("Ultracentrifuge", ProcessType::Ultracentrifuge, "Separation", 2, "ultracentrifuge", false),
     v("Nuclear Reactor", ProcessType::NuclearReactor, "Radiation", 2, "nuclear_reactor", false),
     v("Crystal Puller", ProcessType::CrystalPuller, "Fabrication", 1, "crystal_puller", false),
     v("Diamond Press", ProcessType::DiamondPress, "Pressure", 3, "diamond_press", true),
@@ -116,6 +120,12 @@ impl ProcessType {
     }
 }
 
+/// The reference a page leads with: its Wikipedia article if it has one, else its first
+/// reference (PubChem, for compounds without an article of their own).
+pub fn primary_reference(refs: &[(String, String)]) -> Option<&(String, String)> {
+    refs.iter().find(|(_, url)| url.contains("wikipedia.org")).or_else(|| refs.first())
+}
+
 /// Specific conditions required for a reaction to occur.
 /// Based on the GDD's technical implementation plan and
 /// advanced process details.
@@ -142,6 +152,89 @@ pub enum Property {
     IsPolymer,
     IsElectrolyte,
     IsPhotochromic,
+    /// A medicine: the Codex marks it and says how medicines are really made and taken.
+    IsMedicine,
+    /// A family of closely related compounds treated as one; its formula is a typical member's.
+    IsClass,
+}
+
+/// A commercial grade: how pure buyers of that grade expect it to be. Everything is sold at
+/// technical grade; a substance's `grades` list the stricter ones it is also sold at. The
+/// purities are the game's round figures for the usual standards (food codices,
+/// pharmacopoeias, semiconductor specifications), whose real limits differ substance by substance.
+#[derive(Debug, Deserialize, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum Grade {
+    Technical,
+    Food,
+    Pharmaceutical,
+    Electronic,
+}
+
+impl Grade {
+    /// The lowest purity (mass fraction) that still sells at this grade.
+    pub fn min_purity(self) -> f32 {
+        match self {
+            Grade::Technical => 0.95,
+            Grade::Food => 0.99,
+            Grade::Pharmaceutical => 0.995,
+            Grade::Electronic => 0.99999,
+        }
+    }
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Grade::Technical => "Technical",
+            Grade::Food => "Food",
+            Grade::Pharmaceutical => "Pharmaceutical",
+            Grade::Electronic => "Electronic",
+        }
+    }
+}
+
+/// The name of a UN dangerous-goods transport class ("3" is "Flammable liquid").
+pub fn un_class_name(class: &str) -> Option<&'static str> {
+    Some(match class {
+        "1" => "Explosive",
+        "2.1" => "Flammable gas",
+        "2.2" => "Compressed gas",
+        "2.3" => "Toxic gas",
+        "3" => "Flammable liquid",
+        "4.1" => "Flammable solid",
+        "4.2" => "Spontaneously combustible",
+        "4.3" => "Dangerous when wet",
+        "5.1" => "Oxidiser",
+        "5.2" => "Organic peroxide",
+        "6.1" => "Toxic",
+        "7" => "Radioactive",
+        "8" => "Corrosive",
+        "9" => "Miscellaneous (environmental hazard)",
+        _ => return None,
+    })
+}
+
+/// How a plant stores and moves a substance, from its state and transport class.
+pub fn handling(state: MatterState, class: Option<&str>) -> &'static str {
+    match class {
+        Some("1") => "Licensed magazines, small lots, no sparks or friction",
+        Some("2.3") => "Cylinders in closed, gas-detected rooms; breathing sets on hand",
+        Some("2.1") => "Pressure cylinders or tanks, away from flames, earthed",
+        Some("2.2") => "Pressure cylinders, chained upright",
+        Some("3") => "Earthed drums or tanks, away from sparks and heat",
+        Some("4.1") => "Dry and cool, away from flames",
+        Some("4.2") => "Under nitrogen or oil, away from air",
+        Some("4.3") => "Bone dry, sealed, under nitrogen",
+        Some("5.1") => "Apart from fuels and organics",
+        Some("5.2") => "Refrigerated, apart from fuels, in vented packs",
+        Some("6.1") => "Sealed containers, gloves, ventilated rooms",
+        Some("7") => "Shielded, licensed containers",
+        Some("8") => "Lined or plastic containers, face shield and gloves",
+        Some("9") => "Bunded, kept out of drains and water",
+        _ => match state {
+            MatterState::Gas => "Pressure cylinders",
+            MatterState::Liquid | MatterState::Aqueous => "Drums, totes or tankers",
+            _ => "Bags, drums or bulk",
+        },
+    }
 }
 
 /// A *runtime* calculated state of matter.

@@ -258,7 +258,7 @@ pub fn header_stats_system(
     let n_eras = db.epochs.len().saturating_sub(1).max(1); // the Laboratory is not an era
     let mut done = vec![(0usize, 0usize); n_eras];
     for r in &db.authored {
-        let e = r.epoch.unwrap_or(0) as usize;
+        let e = r.epoch as usize;
         if e >= n_eras {
             continue;
         }

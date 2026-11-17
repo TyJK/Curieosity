@@ -19,6 +19,7 @@ use crate::ui::codex::{equation_text, keycode_to_char, open_url, CodexState};
 use crate::ui::inventory::{element_tile_color, is_element_formula};
 use crate::ui::process_toolbar::{vessel_art_path, vessel_name};
 use crate::ui::theme::{self, Kind, Skin, Weight};
+use crate::ui::virtual_list::VirtualList;
 use crate::GameData;
 
 #[derive(Resource, Default)]
@@ -52,6 +53,19 @@ pub struct ReactionLibSubstanceLink(pub u32);
 pub struct ReactionLibSearchText;
 #[derive(Component)]
 pub struct ReactionLibCountText;
+/// An era heading in the list.
+#[derive(Component)]
+pub struct ReactionLibHeading;
+/// "Nothing matches yet.", under the list (outside it: the list's children are its rows).
+#[derive(Component)]
+pub struct ReactionLibEmptyText;
+
+/// Every list entry is one fixed height, so the list can build only those in sight: a row
+/// (vessel picture, name, one line of equation) or an era heading in the same cell.
+const ROW_H: f32 = 48.0;
+const ROW_GAP: f32 = 4.0;
+/// List ids at and above this are era headings (the base plus the epoch); below, reaction ids.
+const HEADING_BASE: u32 = u32::MAX - 255;
 
 fn known(r: &Reaction, progress: &PlayerProgress) -> bool {
     r.products.iter().all(|sp| progress.discovered.contains(&sp.substance_id))
@@ -162,12 +176,13 @@ pub fn spawn_reaction_library(mut commands: Commands, fonts: Res<UiFonts>, asset
                 .with_children(|scroll| {
                     scroll.spawn((
                         ReactionLibListContent,
-                        Node {
-                            width: Val::Percent(100.0),
-                            flex_direction: FlexDirection::Column,
-                            row_gap: Val::Px(4.0),
-                            ..default()
-                        },
+                        VirtualList::new(Vec2::new(0.0, ROW_H), Vec2::new(0.0, ROW_GAP)),
+                        Node { width: Val::Percent(100.0), height: Val::Px(0.0), flex_shrink: 0.0, ..default() },
+                    ));
+                    scroll.spawn((
+                        ReactionLibEmptyText,
+                        theme::label(fonts, "Nothing matches yet.", theme::SM, Weight::Regular, theme::TEXT_3),
+                        Node { display: Display::None, ..default() },
                     ));
                 });
             });
@@ -254,18 +269,16 @@ pub fn reaction_lib_search_system(
 
 // --- list ---------------------------------------------------------------------------------
 pub fn populate_reaction_list_system(
-    mut commands: Commands,
     state: Res<ReactionLibState>,
     game_data: Res<GameData>,
     substances_assets: Res<Assets<Substances>>,
     recipe_db: Option<Res<RecipeDatabase>>,
     progress: Res<PlayerProgress>,
-    list_q: Query<Entity, With<ReactionLibListContent>>,
+    mut list_q: Query<&mut VirtualList, With<ReactionLibListContent>>,
+    mut empty_q: Query<&mut Node, With<ReactionLibEmptyText>>,
     mut rows: Query<(&ReactionLibEntry, &mut Skin)>,
     mut count_q: Query<&mut Text, With<ReactionLibCountText>>,
     mut list_scroll: Query<(&ReactionLibScrollable, &mut ScrollPosition)>,
-    fonts: Res<UiFonts>,
-    assets: Res<AssetServer>,
     mut prev: Local<(bool, String)>,
 ) {
     let just_opened = state.open && !prev.0;
@@ -286,7 +299,7 @@ pub fn populate_reaction_list_system(
     let (Some(db), Some(subs)) = (recipe_db.as_ref(), substances_assets.get(&game_data.substances)) else {
         return;
     };
-    let Ok(list) = list_q.single() else {
+    let Ok(mut list) = list_q.single_mut() else {
         return;
     };
     if just_opened || search_changed {
@@ -308,75 +321,143 @@ pub fn populate_reaction_list_system(
                     .is_some_and(|s| s.name.to_lowercase().contains(&q) || s.formula.to_lowercase().contains(&q))
             })
     };
-    // authored reactions by era (db.authored is already in (epoch, id) order) ...
-    let authored: Vec<&Reaction> = db.authored.iter().filter(|r| known(r, &progress) && matches(r)).collect();
-    // ... then any scraped reaction the player has effectively met, alphabetically.
-    let mut other: Vec<&Reaction> =
-        db.map.values().filter(|r| !r.is_authored() && known(r, &progress) && matches(r)).collect();
-    other.sort_by_key(|r| r.name.to_lowercase());
+    // known reactions by era (db.authored is already in (epoch, id) order), each era headed
+    let mut ids = Vec::new();
+    let mut last_epoch: Option<u8> = None;
+    for r in db.authored.iter().filter(|r| known(r, &progress) && matches(r)) {
+        if Some(r.epoch) != last_epoch {
+            last_epoch = Some(r.epoch);
+            ids.push(HEADING_BASE + r.epoch as u32);
+        }
+        ids.push(r.id);
+    }
     let total_known = db.authored.iter().filter(|r| known(r, &progress)).count();
     if let Ok(mut t) = count_q.single_mut() {
         t.0 = format!("{} of {} reactions known", total_known, db.authored.len());
     }
-
-    commands.entity(list).despawn_children();
-    commands.entity(list).with_children(|parent| {
-        let mut last_epoch: Option<u8> = None;
-        for r in &authored {
-            if r.epoch != last_epoch {
-                last_epoch = r.epoch;
-                let e = r.epoch.unwrap_or(0);
-                era_heading(
-                    parent,
-                    &fonts,
-                    db.epoch_name(e),
-                    db.epochs.get(e as usize).map(|d| d.era.as_str()).unwrap_or(""),
-                );
-            }
-            list_row(parent, &fonts, &assets, r, subs, state.selected == Some(r.id));
+    if let Ok(mut node) = empty_q.single_mut() {
+        let d = if ids.is_empty() { Display::Flex } else { Display::None };
+        if node.display != d {
+            node.display = d;
         }
-        if !other.is_empty() {
-            era_heading(parent, &fonts, "Other reactions", "");
-            for r in &other {
-                list_row(parent, &fonts, &assets, r, subs, state.selected == Some(r.id));
-            }
-        }
-        if authored.is_empty() && other.is_empty() {
-            parent.spawn(theme::label(&fonts, "Nothing matches yet.", theme::SM, Weight::Regular, theme::TEXT_3));
-        }
-    });
+    }
+    list.set(ids, []);
 }
 
-fn era_heading(parent: &mut ChildSpawnerCommands, fonts: &UiFonts, name: &str, era: &str) {
-    parent
-        .spawn(Node {
-            align_items: AlignItems::Baseline,
-            column_gap: Val::Px(8.0),
-            margin: UiRect::new(Val::Px(4.0), Val::Px(0.0), Val::Px(10.0), Val::Px(2.0)),
-            ..default()
-        })
+/// Builds the list entries in sight (and a screen either side) and drops the rest; a closed
+/// library builds none. Cheap when nothing moved.
+#[allow(clippy::too_many_arguments, clippy::type_complexity)]
+pub fn reaction_lib_window_system(
+    mut commands: Commands,
+    state: Res<ReactionLibState>,
+    game_data: Res<GameData>,
+    substances_assets: Res<Assets<Substances>>,
+    recipe_db: Option<Res<RecipeDatabase>>,
+    focus: Option<Res<crate::ui::focus::KeyFocus>>,
+    mut content_q: Query<(Entity, &mut VirtualList, &mut Node, &ComputedNode), With<ReactionLibListContent>>,
+    scroll_q: Query<(&ReactionLibScrollable, &ComputedNode, &ScrollPosition)>,
+    mut cells: Query<
+        &mut Node,
+        (Or<(With<ReactionLibEntry>, With<ReactionLibHeading>)>, Without<ReactionLibListContent>),
+    >,
+    pressed: Query<&Interaction, With<ReactionLibEntry>>,
+    fonts: Res<UiFonts>,
+    assets: Res<AssetServer>,
+) {
+    let Ok((content, mut list, mut node, cn)) = content_q.single_mut() else {
+        return;
+    };
+    let Some((_, view, scroll)) = scroll_q.iter().find(|(m, _, _)| m.is_left) else {
+        return;
+    };
+    let (Some(db), Some(subs)) = (recipe_db.as_ref(), substances_assets.get(&game_data.substances)) else {
+        return;
+    };
+    let focused = focus.and_then(|f| f.entity);
+    let keep = |e: Entity| Some(e) == focused || pressed.get(e).is_ok_and(|i| *i == Interaction::Pressed);
+    let (width, view_h) = if state.open {
+        (cn.size.x * cn.inverse_scale_factor(), view.size.y * view.inverse_scale_factor())
+    } else {
+        (0.0, 0.0)
+    };
+    let Some(pass) = list.plan(width, view_h, scroll.0.y, keep) else {
+        return;
+    };
+    if state.open && node.height != Val::Px(pass.height) {
+        node.height = Val::Px(pass.height);
+    }
+    for e in &pass.drop {
+        commands.entity(*e).despawn();
+    }
+    for (e, at) in &pass.moves {
+        if let Ok(mut n) = cells.get_mut(*e) {
+            n.top = Val::Px(at.y);
+        }
+    }
+    for (id, at, _) in &pass.build {
+        let e = if *id >= HEADING_BASE {
+            let epoch = (*id - HEADING_BASE) as u8;
+            let era = db.epochs.get(epoch as usize).map(|d| d.era.as_str()).unwrap_or("");
+            spawn_era_heading(&mut commands, &fonts, db.epoch_name(epoch), era, at.y)
+        } else {
+            let Some(r) = db.authored.iter().find(|r| r.id == *id) else { continue };
+            spawn_list_row(&mut commands, &fonts, &assets, r, subs, state.selected == Some(r.id), at.y)
+        };
+        list.record(*id, e, *at);
+    }
+    if !pass.build.is_empty() || !pass.drop.is_empty() {
+        commands.entity(content).replace_children(&list.order());
+    }
+}
+
+/// An era heading in a list cell, `top` pixels down the list.
+fn spawn_era_heading(commands: &mut Commands, fonts: &UiFonts, name: &str, era: &str, top: f32) -> Entity {
+    commands
+        .spawn((
+            ReactionLibHeading,
+            Node {
+                position_type: PositionType::Absolute,
+                left: Val::Px(4.0),
+                right: Val::Px(0.0),
+                top: Val::Px(top),
+                height: Val::Px(ROW_H),
+                align_items: AlignItems::FlexEnd,
+                column_gap: Val::Px(8.0),
+                padding: UiRect::bottom(Val::Px(6.0)),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
         .with_children(|h| {
             h.spawn(theme::label(fonts, name.to_uppercase(), theme::XS, Weight::Bold, theme::GOLD));
             if !era.is_empty() {
                 h.spawn(theme::label(fonts, era, theme::XS, Weight::Regular, theme::TEXT_3));
             }
-        });
+        })
+        .id()
 }
 
-fn list_row(
-    parent: &mut ChildSpawnerCommands,
+/// One reaction in a list cell, `top` pixels down the list: vessel, name, equation (one line
+/// each, so every row is the same height; the page shows the whole equation).
+fn spawn_list_row(
+    commands: &mut Commands,
     fonts: &UiFonts,
     assets: &AssetServer,
     r: &Reaction,
     subs: &Substances,
     selected: bool,
-) {
+    top: f32,
+) -> Entity {
     let accent = theme::process_color(&r.process);
-    let mut row = parent.spawn((
+    let mut row = commands.spawn((
         theme::button(
             Kind::Row,
             Node {
-                width: Val::Percent(100.0),
+                position_type: PositionType::Absolute,
+                left: Val::Px(0.0),
+                right: Val::Px(0.0),
+                top: Val::Px(top),
+                height: Val::Px(ROW_H),
                 align_items: AlignItems::Center,
                 column_gap: Val::Px(10.0),
                 padding: UiRect::axes(Val::Px(8.0), Val::Px(6.0)),
@@ -409,21 +490,32 @@ fn list_row(
                 Pickable::IGNORE,
             ));
         });
-        row.spawn((Node { flex_direction: FlexDirection::Column, flex_shrink: 1.0, ..default() }, Pickable::IGNORE))
-            .with_children(|c| {
-                c.spawn((
-                    theme::label(fonts, r.name.clone(), theme::SM, Weight::Semibold, theme::TEXT),
-                    Pickable::IGNORE,
-                ));
-                c.spawn((
-                    Text::new(equation_text(r, subs)),
-                    TextFont { font: fonts.symbols.clone(), font_size: 11.0, ..default() },
-                    TextColor(theme::mix(accent, theme::TEXT, 0.55)),
-                    Node { max_width: Val::Px(LIST_W - 90.0), ..default() },
-                    Pickable::IGNORE,
-                ));
-            });
+        row.spawn((
+            Node {
+                flex_direction: FlexDirection::Column,
+                flex_shrink: 1.0,
+                min_width: Val::Px(0.0),
+                overflow: Overflow::clip(),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .with_children(|c| {
+            c.spawn((
+                theme::label(fonts, r.name.clone(), theme::SM, Weight::Semibold, theme::TEXT),
+                TextLayout::new_with_no_wrap(),
+                Pickable::IGNORE,
+            ));
+            c.spawn((
+                Text::new(equation_text(r, subs)),
+                TextFont { font: fonts.symbols.clone(), font_size: 11.0, ..default() },
+                TextColor(theme::mix(accent, theme::TEXT, 0.55)),
+                TextLayout::new_with_no_wrap(),
+                Pickable::IGNORE,
+            ));
+        });
     });
+    row.id()
 }
 
 pub fn reaction_lib_entry_click_system(
@@ -548,15 +640,14 @@ pub fn update_reaction_detail_system(
                     ..default()
                 })
                 .with_children(|info| {
-                    if let Some(e) = r.epoch {
-                        let era = db.epochs.get(e as usize).map(|d| d.era.clone()).unwrap_or_default();
-                        let t = if era.is_empty() {
-                            db.epoch_name(e).to_uppercase()
-                        } else {
-                            format!("{}  ·  {}", db.epoch_name(e).to_uppercase(), era)
-                        };
-                        info.spawn(theme::label(fonts, t, theme::XS, Weight::Bold, theme::GOLD));
-                    }
+                    let e = r.epoch;
+                    let era = db.epochs.get(e as usize).map(|d| d.era.clone()).unwrap_or_default();
+                    let t = if era.is_empty() {
+                        db.epoch_name(e).to_uppercase()
+                    } else {
+                        format!("{}  ·  {}", db.epoch_name(e).to_uppercase(), era)
+                    };
+                    info.spawn(theme::label(fonts, t, theme::XS, Weight::Bold, theme::GOLD));
                     info.spawn(theme::label(fonts, r.name.clone(), theme::XXL, Weight::Bold, theme::TEXT));
                     info.spawn(Node {
                         flex_wrap: FlexWrap::Wrap,
@@ -583,7 +674,7 @@ pub fn update_reaction_detail_system(
                             theme::spawn_chip(chips, fonts, &t, c);
                         }
                     });
-                    if let Some((_, url)) = r.references.iter().find(|(l, _)| l.to_lowercase().contains("wiki")) {
+                    if let Some((label, url)) = crate::data::common::primary_reference(&r.references) {
                         info.spawn(Node { margin: UiRect::top(Val::Px(6.0)), ..default() }).with_children(|b| {
                             theme::spawn_button(
                                 b,
@@ -591,7 +682,7 @@ pub fn update_reaction_detail_system(
                                 assets,
                                 Kind::Primary,
                                 Some("external"),
-                                "Read on Wikipedia",
+                                &format!("Read on {label}"),
                                 ReactionLibRefLink(url.clone()),
                             );
                         });
@@ -662,7 +753,7 @@ pub fn update_reaction_detail_system(
         ));
 
         let others: Vec<&(String, String)> =
-            r.references.iter().filter(|(l, _)| !l.to_lowercase().contains("wiki")).collect();
+            r.references.iter().filter(|x| Some(*x) != crate::data::common::primary_reference(&r.references)).collect();
         if !others.is_empty() {
             theme::spawn_section_title(p, fonts, "References");
             p.spawn(Node { flex_wrap: FlexWrap::Wrap, column_gap: Val::Px(8.0), row_gap: Val::Px(8.0), ..default() })

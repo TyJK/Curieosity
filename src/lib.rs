@@ -24,9 +24,8 @@ pub enum AppState {
 #[derive(Resource)]
 pub struct GameData {
     pub substances: Handle<Substances>,
-    pub reactions: Handle<Reactions>,
-    /// Hand-authored tech-tree reactions (real names + stoichiometry), merged into the
-    /// RecipeDatabase alongside the scraped `reactions`.
+    /// The game's reactions: every one is authored (real names + stoichiometry), with the
+    /// eras, start kit and milestones they progress through.
     pub authored_reactions: Handle<Reactions>,
     /// The authored substance layer (canon names, formulas, narrative, links), applied
     /// over `substances` when the RecipeDatabase is built.

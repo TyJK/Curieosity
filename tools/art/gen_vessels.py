@@ -2,7 +2,7 @@
 """
 Curieosity vessel and UI art
 ============================
-Draws the twenty-five vessels and the interface icons as SVG line art, programmatically: every
+Draws the twenty-seven vessels and the interface icons as SVG line art, programmatically: every
 shape below is plain geometry, so the set stays consistent (one stroke weight, one corner
 style, one light direction) and anything can be tweaked by editing numbers.
 
@@ -566,6 +566,47 @@ def cvd_chamber():
     return dict(outline=outline, fill=fill, accent=accent)
 
 
+def centrifuge():
+    outline = [
+        # bench centrifuge: housing, hinged dome lid, rotor tubes seen through it
+        path("M24 66 L24 104 C24 110 28 114 34 114 L94 114 C100 114 104 110 104 104 L104 66"),
+        rect(20, 60, 88, 8, 3),
+        path("M28 60 C30 42 46 34 64 34 C82 34 98 42 100 60"),
+        line(64, 60, 64, 52), circle(64, 50, 3),
+        path("M58 48 L40 58"), path("M70 48 L88 58"),
+        rect(32, 82, 26, 12, 2.5), circle(84, 88, 6), line(84, 88, 87, 84, THIN),
+        line(16, 118, 112, 118),
+        sheen("M34 50 C38 44 44 40 50 38"),
+    ]
+    fill = [path("M44 54.5 L39.5 57 L41 59.5 L45.5 57 Z", SOLID), path("M84 54.5 L88.5 57 L87 59.5 L82.5 57 Z", SOLID),
+            rect(35, 85, 12, 6, 1.5, SOLID)]
+    accent = [path("M26 28 C36 18 50 14 64 14", THIN), path("M64 14 L58 10 M64 14 L58 18", THIN),
+              path("M102 28 C92 18 78 14 64 14", THIN, 'opacity="0.6"'),
+              path("M18 40 C20 36 22 33 25 30", THIN, 'opacity="0.5"'), path("M110 40 C108 36 106 33 103 30", THIN, 'opacity="0.5"')]
+    return dict(outline=outline, fill=fill, accent=accent)
+
+
+def ultracentrifuge():
+    holes = [circle(64 + 11 * math.cos(a), 74 + 11 * math.sin(a), 2.4, THIN)
+             for a in (i * math.pi / 3 for i in range(6))]
+    outline = [
+        # armoured floor cabinet: vacuum chamber, rotor, control strip, vacuum line
+        rect(24, 40, 80, 74, 5),
+        rect(20, 30, 88, 10, 3), path("M40 30 L40 24 L88 24 L88 30"),
+        circle(64, 74, 24), circle(64, 74, 16), circle(64, 74, 3),
+        rect(34, 102, 60, 8, 2),
+        path("M104 56 L114 56 L114 96 L104 96"), circle(114, 76, 4, THIN),
+        line(16, 118, 112, 118),
+        sheen("M30 46 L30 62"),
+    ] + holes
+    fill = [circle(64 + 11 * math.cos(a), 74 + 11 * math.sin(a), 1.6, SOLID) for a in (i * math.pi / 3 for i in range(6))] + \
+        [rect(38, 104, 18, 4, 1, SOLID)]
+    accent = [path("M34 74 C34 58 46 46 62 44", THIN), path("M62 44 L56 40 M62 44 L57 49", THIN),
+              path("M94 74 C94 90 82 102 66 104", THIN, 'opacity="0.6"'),
+              path("M44 12 C54 6 74 6 84 12", THIN, 'opacity="0.5"')]
+    return dict(outline=outline, fill=fill, accent=accent)
+
+
 VESSELS = {
     "mortar": mortar, "fire": fire, "ice_bath": ice_bath, "bloomery": bloomery,
     "still": still, "voltaic_cell": voltaic, "irradiator": irradiator,
@@ -575,6 +616,7 @@ VESSELS = {
     "nuclear_reactor": nuclear_reactor, "cyclotron": cyclotron, "cracker": cracker,
     "high_pressure": high_pressure, "diamond_press": diamond_press, "fermenter": fermenter,
     "bioreactor": bioreactor, "crystal_puller": crystal_puller, "cvd_chamber": cvd_chamber,
+    "centrifuge": centrifuge, "ultracentrifuge": ultracentrifuge,
 }
 
 
@@ -729,6 +771,8 @@ PROCESS = {  # vessel -> (title, process colour, accent colour, sample contents 
     "bioreactor": ("Bioreactor", (0.55, 1.00, 0.70), (0.75, 1.00, 0.55), (0.85, 0.75, 0.35)),
     "crystal_puller": ("Crystal Puller", (0.70, 0.80, 1.00), (1.00, 0.70, 0.30), (0.75, 0.78, 0.85)),
     "cvd_chamber": ("CVD Chamber", (1.00, 0.55, 0.95), (1.00, 0.60, 1.00), (0.25, 0.25, 0.28)),
+    "centrifuge": ("Centrifuge", (0.95, 0.82, 0.45), (1.00, 0.92, 0.65), (0.98, 0.95, 0.85)),
+    "ultracentrifuge": ("Ultracentrifuge", (1.00, 0.70, 0.40), (1.00, 0.85, 0.60), (0.85, 0.30, 0.30)),
 }
 
 
