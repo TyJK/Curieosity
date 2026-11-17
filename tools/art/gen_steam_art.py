@@ -1,10 +1,13 @@
 """
-Draws the Steam art in the game's line-art style, into steam/:
+Draws the Steam art in the game's line-art style, into steam/, and the Android app icon:
 
     steam/achievements/<API_NAME>_ACHIEVED.png   one 256x256 icon per achievement
     steam/store/*.png                            the store and library capsules, the
                                                  library hero and logo, the page background,
                                                  the community icon and the client icon
+    android/app/src/main/res/drawable-nodpi/ic_launcher_foreground.png
+                                                 the logo layer of the Android icon (its
+                                                 background is a colour, in values/colors.xml)
 
 The achievements come from steam/achievements.csv (which `cargo test` keeps in step with
 the game's milestones and eras). An icon shows the vessel its milestone unlocks, else the
@@ -287,6 +290,19 @@ def store_art():
     return out
 
 
+def android_icon():
+    """The front layer of Android's adaptive icon: 108 dp square, of which launchers show
+    the middle 72 dp (cut to a circle or a rounded square). The logo keeps inside 60 dp."""
+    px = 432  # 108 dp at the densest screens
+    layer = Image.new("RGBA", (px, px), (0, 0, 0, 0))
+    glow = Image.new("RGBA", (px, px), (0, 0, 0, 0))
+    ImageDraw.Draw(glow).ellipse((96, 96, px - 96, px - 96), fill=VIOLET + (90,))
+    layer.alpha_composite(glow.filter(ImageFilter.GaussianBlur(40)))
+    size = 240
+    layer.alpha_composite(logo(size), ((px - size) // 2, (px - size) // 2))
+    return layer
+
+
 def main():
     rows = list(csv.DictReader((OUT / "achievements.csv").open(encoding="utf-8")))
     (OUT / "achievements").mkdir(parents=True, exist_ok=True)
@@ -303,6 +319,10 @@ def main():
         else:
             img.save(p)
         print(f"  steam/store/{name}  {img.size[0]}x{img.size[1]}")
+    icon = ROOT / "android" / "app" / "src" / "main" / "res" / "drawable-nodpi" / "ic_launcher_foreground.png"
+    icon.parent.mkdir(parents=True, exist_ok=True)
+    android_icon().save(icon)
+    print(f"  {icon.relative_to(ROOT).as_posix()}  432x432")
 
 
 if __name__ == "__main__":
