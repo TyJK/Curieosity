@@ -1,6 +1,6 @@
 // src/data/substances.rs
 
-use super::common::{MatterState, Property};
+use super::common::{Grade, MatterState, Property};
 use bevy::{asset::Asset, reflect::TypePath};
 use serde::Deserialize;
 use std::collections::HashMap;
@@ -120,6 +120,28 @@ pub struct Substance {
     /// Present for elements; carries atomic number, electronegativity, discovery, etc.
     #[serde(default)]
     pub element_info: Option<ElementInfo>,
+
+    /// The later stage of the game this substance belongs to ("Pharmaceuticals"). While it is
+    /// set the substance is a locked preview: it has a page in the Substance Library, under
+    /// "Coming later", but no reaction makes it yet.
+    #[serde(default)]
+    pub stage: Option<String>,
+
+    // --- Industry: foundations for the factory stages ---
+    /// Tonnes made a year: the US production and imports reported to regulators (often the
+    /// low end of a reporting band).
+    #[serde(default)]
+    pub production_t_year: Option<f32>,
+    /// Tonnes made a year worldwide, for the big commodities the national records miss: a rough
+    /// figure entered by hand (two significant figures), too big a total to track precisely.
+    #[serde(default)]
+    pub world_t_year: Option<f32>,
+    /// UN dangerous-goods transport class ("3", "6.1"); None: not regulated, or not known.
+    #[serde(default)]
+    pub transport_class: Option<String>,
+    /// The stricter grades it is also sold at (everything sells at technical grade).
+    #[serde(default)]
+    pub grades: Vec<Grade>,
 }
 
 impl Substance {
@@ -156,12 +178,25 @@ impl Substance {
             synonyms: Vec::new(),
             references: Vec::new(),
             element_info: None,
+            stage: None,
+            production_t_year: None,
+            world_t_year: None,
+            transport_class: None,
+            grades: Vec::new(),
         }
     }
 
-    /// The first Wikipedia link in `references`, if any.
-    pub fn wikipedia(&self) -> Option<&str> {
-        self.references.iter().find(|(_, url)| url.contains("wikipedia.org")).map(|(_, url)| url.as_str())
+    /// Its UN transport class: radioactive substances travel as class 7 whatever else they are.
+    pub fn transport_class(&self) -> Option<&str> {
+        if self.properties.contains(&Property::IsRadioactive) {
+            return Some("7");
+        }
+        self.transport_class.as_deref()
+    }
+
+    /// The reference the page leads with (see `common::primary_reference`).
+    pub fn primary_reference(&self) -> Option<&(String, String)> {
+        super::common::primary_reference(&self.references)
     }
 }
 
@@ -194,6 +229,11 @@ pub struct SubstancePatch {
     pub appearance: Option<String>,
     pub synonyms: Option<Vec<String>>,
     pub references: Option<Vec<(String, String)>>,
+    pub stage: Option<String>,
+    pub production_t_year: Option<f32>,
+    pub world_t_year: Option<f32>,
+    pub transport_class: Option<String>,
+    pub grades: Option<Vec<Grade>>,
 }
 
 impl SubstancePatches {
@@ -262,6 +302,21 @@ impl SubstancePatches {
                     }
                 }
                 entry.references = refs;
+            }
+            if let Some(v) = &p.stage {
+                entry.stage = Some(v.clone());
+            }
+            if let Some(v) = p.production_t_year {
+                entry.production_t_year = Some(v);
+            }
+            if let Some(v) = p.world_t_year {
+                entry.world_t_year = Some(v);
+            }
+            if let Some(v) = &p.transport_class {
+                entry.transport_class = Some(v.clone());
+            }
+            if let Some(v) = &p.grades {
+                entry.grades = v.clone();
             }
         }
         (patched, created)

@@ -10,8 +10,8 @@ as plain Python data. This script validates it and writes the two files the game
   assets/data/authored_reactions.ron    epochs, start set, milestones, reactions
   assets/data/authored_substances.ron   patches over the scraped library + new substances
 
-and then packs the game's content (pack_library.py): from the full scraped library in
-library/ it keeps the substances, reactions and pictures a player can reach, in assets/.
+and then packs the game's substances (pack_library.py): from the full scraped library in
+library/ it keeps the substances in play and their pictures, in assets/.
 
 Every substance is referred to by a short KEY ("H2O", "Limestone", "ZnCl2"). A key is
 either BOUND to an existing library entry (lib=True: the scraped entry keeps its
@@ -24,7 +24,8 @@ Validation (any failure stops the build):
   * every key resolves and every equation balances atom-for-atom (unless exact=False,
     used only for mixtures such as glass, black powder, crude oil)
   * no two reactions share the same (vessel, reactant set) -- the game matches on that
-  * every new substance has a description and a Wikipedia link
+  * every new substance has a description and a reference link: its Wikipedia article, or
+    its PubChem page (gen_authored.pubchem) when it has no article of its own
   * every reaction can actually be performed from the starting kit, through the
     milestones, in the order the game's own planner takes (the review run follows it)
   * a recipe that needs a catalyst lives in a vessel with a catalyst slot, and the tiers
@@ -72,6 +73,7 @@ FLASK, BLAST, ARC, AIRLIQ, COLUMN = "Flask", "BlastFurnace", "ArcFurnace", "AirL
 ECELL, REACTOR, CYCLO, CRACKER, HIGHP = ("ElectrolyticCell", "NuclearReactor", "Cyclotron",
                                          "Cracker", "HighPressure")
 DPRESS, FERM, BIOR, PULLER, CVD = "DiamondPress", "Fermenter", "Bioreactor", "CrystalPuller", "CvdChamber"
+CENT, ULTRA = "Centrifuge", "Ultracentrifuge"
 
 # process -> (vessel name, family, tier, catalyst slot). Mirrors VESSEL_SPECS in
 # src/data/common.rs: a vessel runs its family's recipes at its tier or below, and a
@@ -92,16 +94,21 @@ VESSELS = {
     POLY: ("Polymer Reactor", "Polymer", 1, False),
     FERM: ("Fermenter", "Biology", 1, False),    BIOR: ("Bioreactor", "Biology", 2, True),
     PULLER: ("Crystal Puller", "Fabrication", 1, False), CVD: ("CVD Chamber", "Fabrication", 2, True),
+    CENT: ("Centrifuge", "Separation", 1, False), ULTRA: ("Ultracentrifuge", "Separation", 2, False),
 }
 PROCESSES = set(VESSELS)
 START_PROCESSES = {MIX, HEAT}
+
+# Authored reaction ids start here (clear of the ids the scraped library's reactions used,
+# up to about 205,000); mirrored by tests/content.rs.
+AUTHORED_REACTION_BASE = 1_000_000
 
 # Pacing limits, also enforced by tests/content.rs on the generated RON.
 MAX_GRANT = 12          # materials handed over by one milestone
 MAX_MILESTONE_GAP = 90  # planner steps (era reactions) between two milestones
 
 STATES = {"Solid", "Liquid", "Gas", "Aqueous"}
-PROPS = {"IsAcid", "IsBase", "IsMetal", "IsRadioactive", "IsMonomer", "IsPolymer",
+PROPS = {"IsAcid", "IsBase", "IsMetal", "IsRadioactive", "IsMonomer", "IsPolymer", "IsMedicine", "IsClass",
          "IsElectrolyte", "IsPhotochromic"}
 
 # --------------------------------------------------------------------------------------
@@ -122,6 +129,7 @@ class Sub:
     smiles: str = None      # new molecular substances: drawn into structures/{id}.png
     balance: str = None     # formula used for atom balance when `formula` is a polymer/alloy
     rename: bool = False    # for lib entries: also patch the display name
+    stage: str = None       # a later stage: a locked preview with a page but no reaction yet
 
 
 @dataclass
@@ -243,6 +251,28 @@ def wiki_url(w):
     return "https://en.wikipedia.org/wiki/" + w.replace(" ", "_")
 
 
+def pubchem(cid):
+    """The PubChem page of a compound, for one with no Wikipedia article of its own: by CID,
+    or by name where no CAS-sourced CID is to hand (PubChem resolves names to the record)."""
+    if isinstance(cid, str):
+        import urllib.parse
+        return "https://pubchem.ncbi.nlm.nih.gov/compound/" + urllib.parse.quote(cid)
+    return f"https://pubchem.ncbi.nlm.nih.gov/compound/{cid}"
+
+
+def ref_entry(w):
+    """A `references` entry for a substance's or reaction's link: labelled Wikipedia for an
+    article title or URL, PubChem for a PubChem page, else by the site's name."""
+    url = wiki_url(w)
+    if "wikipedia.org" in url:
+        label = "Wikipedia"
+    elif "pubchem.ncbi.nlm.nih.gov" in url:
+        label = "PubChem"
+    else:
+        label = url.split("//", 1)[-1].split("/", 1)[0].removeprefix("www.")
+    return f"[({q(label)}, {q(url)})]"
+
+
 # --------------------------------------------------------------------------------------
 # Validation
 # --------------------------------------------------------------------------------------
@@ -280,7 +310,8 @@ def parse_equation(rx, subs):
 # Id resolution
 # --------------------------------------------------------------------------------------
 IDMAP_PATH = HERE / "authored_ids.json"
-FREE_POOLS = [(14, 99), (120, 199), (217, 299), (388, 999)]
+# ids the substance library leaves unused; 1001-1118 are the elements, so the last pool starts after them
+FREE_POOLS = [(14, 99), (120, 199), (217, 299), (388, 999), (1119, 1999)]
 
 
 def library_index(path):
@@ -310,6 +341,13 @@ def library_index(path):
             elif line.startswith("            references: ") and "wikipedia.org" in line:
                 cur["wiki"] = True
     return idx
+
+
+def atoms_or_none(formula):
+    try:
+        return atoms(formula)
+    except Exception:
+        return None
 
 
 def _hill(formula):
@@ -495,7 +533,11 @@ def validate(content, strict=True):
         used_keys |= {k for _, k in lhs + rhs}
         if r.cat:
             used_keys.add(r.cat)
-    unused = sorted(k for k in subs if k not in used_keys)
+    for k in sorted(used_keys):
+        if subs[k].stage:
+            errors.append(f"{k} ({subs[k].name}) is a locked preview of the {subs[k].stage} stage but a reaction, "
+                          "milestone or the start kit uses it: give it no stage")
+    unused = sorted(k for k in subs if k not in used_keys and not subs[k].stage)
     if unused:
         warnings.append(f"{len(unused)} defined substances are never used: {unused[:20]}")
 
@@ -507,6 +549,7 @@ def validate(content, strict=True):
         "new_substances": sum(1 for k in used_keys if not subs[k].lib),
         "library_bound": sum(1 for k in used_keys if subs[k].lib),
         "inexact": sum(1 for r in rxns if not r.exact),
+        "previews": sum(1 for s in subs.values() if s.stage),
         "by_epoch": [(e.name, len(e.reactions)) for e in content.EPOCHS],
         "by_vessel": collections.Counter(r.process for r in rxns),
         "pacing": pacing,
@@ -631,16 +674,49 @@ def write_reactions(content, parsed, out_path):
                 f"            enthalpy_change_kj_mol: {num(r.dh)},",
                 f"            activation_energy_kj: {num(ea)},",
                 f"            description: Some({q(r.desc)}),",
-                f"            references: [(\"Wikipedia\", {q(wiki_url(r.wiki))})],",
-                f"            epoch: Some({ei}),",
+                f"            references: {ref_entry(r.wiki)},",
+                f"            epoch: {ei},",
                 "        ),",
             ]
     lines += ["    ],", ")", ""]
     out_path.write_text("\n".join(lines), encoding="utf-8")
 
 
+# properties that mark what a substance is for, rather than what it is chemically
+TAGS = {"IsMedicine", "IsClass"}
+
+
+def library_properties(path):
+    """(id -> the library entry's properties, ids whose entry has a density): to keep the
+    library's properties under an added tag, and its densities where it has them."""
+    out, dense, cur = {}, set(), None
+    for line in path.read_text(encoding="utf-8").splitlines():
+        m = re.match(r"^ {12}id: (\d+),", line)
+        if m:
+            cur = int(m.group(1))
+            continue
+        m = re.match(r"^ {12}properties: \[(.*)\],", line)
+        if m and cur is not None:
+            out[cur] = [p.strip() for p in m.group(1).split(",") if p.strip() and "(" not in p]
+        elif cur is not None and line.startswith("            density_g_cm3: Some("):
+            dense.add(cur)
+    return out, dense
+
+
+def factory_facts():
+    """authored_facts.py: production, transport class, density, grades and the rough world figures
+    for the big commodities (absent: none)."""
+    try:
+        import authored_facts as f
+    except ImportError:
+        return {}, set(), set(), {}
+    return f.FACTS, set(f.ELECTRONIC), set(f.FOOD), getattr(f, "WORLD", {})
+
+
 def write_substances(content, used_keys, out_path):
     subs = content.SUBSTANCES
+    lib_props, lib_dense = library_properties(LIBRARY / "substances.ron")
+    facts, electronic, food, world = factory_facts()
     lines = [
         "#![enable(implicit_some)]",
         "// assets/data/authored_substances.ron",
@@ -658,14 +734,34 @@ def write_substances(content, used_keys, out_path):
             mm = molar_mass(s.balance or s.formula)
             if mm:
                 f.append(f"molar_mass_g_mol: {num(mm)}")
-        if s.props:
-            f.append("properties: [" + ", ".join(s.props) + "]")
+        props = list(s.props)
+        if s.lib and props and all(p in TAGS for p in props):
+            # tags (Medicine, Class) add to the library's properties instead of replacing them
+            props = [p for p in lib_props.get(s.id, []) if p not in props] + props
+        if props:
+            f.append("properties: [" + ", ".join(props) + "]")
         if s.color:
             f.append(f"color_hex: {q(s.color)}")
         if s.desc:
             f.append(f"description: {q(s.desc)}")
         if s.wiki:
-            f.append(f"references: [(\"Wikipedia\", {q(wiki_url(s.wiki))})]")
+            f.append(f"references: {ref_entry(s.wiki)}")
+        if s.stage:
+            f.append(f"stage: {q(s.stage)}")
+        # foundations for the factory stages: how much is made, how it travels, what it is sold as
+        tons, un, dens = facts.get(s.key, (None, None, None))
+        if tons:
+            f.append(f"production_t_year: {num(tons)}")
+        if s.key in world:
+            f.append(f"world_t_year: {num(world[s.key])}")
+        if un:
+            f.append(f"transport_class: {q(un)}")
+        if dens and not (s.lib and s.id in lib_dense):
+            f.append(f"density_g_cm3: {num(dens)}")
+        grades = [g for g, on in (("Food", s.key in food), ("Pharmaceutical", "IsMedicine" in s.props),
+                                  ("Electronic", s.key in electronic)) if on]
+        if grades:
+            f.append("grades: [" + ", ".join(grades) + "]")
         lines.append(f"    {s.id}: (" + ", ".join(f) + "),")
     lines += ["})", ""]
     out_path.write_text("\n".join(lines), encoding="utf-8")
@@ -865,11 +961,61 @@ def check_links(content, used_keys):
     for t in sorted(missing):
         print(f"MISSING ARTICLE  {t}  <- {', '.join(titles.get(t, ['?'])[:3])}")
     print(f"links: {len(names)} articles checked, {len(missing)} missing")
+    check_pubchem(content, used_keys)
+
+
+def check_pubchem(content, used_keys):
+    """Ask PubChem for the title and formula of every compound page we link to, and list
+    the ones whose formula is not the substance's (a link to the wrong compound)."""
+    import json as _json
+    import urllib.request
+    cids = {}
+    for k in used_keys:
+        s = content.SUBSTANCES[k]
+        m = re.search(r"pubchem\.ncbi\.nlm\.nih\.gov/compound/(\d+)", s.wiki or "")
+        if m and not s.lib:
+            cids[int(m.group(1))] = s
+    if not cids:
+        return
+    wrong = []
+    ids = sorted(cids)
+    for i in range(0, len(ids), 100):
+        batch = ",".join(map(str, ids[i:i + 100]))
+        req = urllib.request.Request(
+            f"https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/{batch}/property/Title,MolecularFormula/JSON",
+            headers={"User-Agent": "Curieosity-content-check/1.0"})
+        try:
+            with urllib.request.urlopen(req, timeout=60) as f:
+                props = _json.load(f)["PropertyTable"]["Properties"]
+        except OSError as e:
+            print(f"pubchem: could not reach PubChem ({e}); nothing checked")
+            return
+        for pr in props:
+            s = cids[pr["CID"]]
+            # PubChem keeps many salts and mixed oxides as fragment sets ("[O].[Cr].[Cu]", or a
+            # metal beside one free acid), so compare the elements other than hydrogen and the
+            # carbon count, allowing whole multiples (one acid fragment against three ligands);
+            # a wrong compound rarely shares both
+            theirs = atoms_or_none(pr.get("MolecularFormula", ""))
+            ours = atoms_or_none(s.balance or s.formula)
+            if (theirs is None or ours is None or set(theirs) - {"H"} != set(ours) - {"H"}
+                    or not _carbon_match(theirs.get("C", 0), ours.get("C", 0))):
+                wrong.append(f"{s.key} ({s.name}, {s.formula}) -> CID {pr['CID']} is {pr.get('Title')} ({pr.get('MolecularFormula')})")
+    for w in wrong:
+        print("PUBCHEM MISMATCH  " + w)
+    print(f"pubchem: {len(ids)} compound pages checked, {len(wrong)} with another formula")
+
+
+def _carbon_match(a, b):
+    """Equal carbon counts, or one a whole multiple of the other (a salt's ligands counted once)."""
+    if a == b:
+        return True
+    return a > 0 and b > 0 and max(a, b) % min(a, b) == 0
 
 
 def _title(wiki):
     """'Zinc_chloride#Uses' or a full article URL -> 'Zinc chloride'; curid links -> None."""
-    if not wiki or "curid=" in wiki:
+    if not wiki or "curid=" in wiki or (wiki.startswith("http") and "wikipedia.org" not in wiki):
         return None
     t = wiki.split("/wiki/", 1)[-1] if wiki.startswith("http") else wiki
     t = urllib_unquote(t.split("#", 1)[0]).replace("_", " ").strip()
@@ -902,20 +1048,20 @@ def main():
         raise SystemExit(f"{library} is missing: the full scraped library lives in library/ (see pack_library.py)")
     resolve_ids(content, library, rebind=args.rebind)
 
-    # reaction ids: numbered in order from 100 (the scraped reactions start at 2000)
-    n = sum(len(e.reactions) for e in content.EPOCHS)
-    if n > 1900:
-        raise SystemExit(f"{n} authored reactions; ids would collide with the scraped set")
-    i = 100
+    # reaction ids: numbered in order from AUTHORED_REACTION_BASE.
+    # Saves hold substance ids, never reaction ids, so renumbering is harmless.
+    i = AUTHORED_REACTION_BASE
     for ei, e in enumerate(content.EPOCHS):
         for r in e.reactions:
             r.epoch, r.id = ei, i
             i += 1
 
     errors, warnings, report, parsed, used = validate(content)
+    # what gets a page: the substances in play, and the locked previews of later stages
+    paged = set(used) | {k for k, s in content.SUBSTANCES.items() if s.stage}
     if not errors:
         errors += [f"{p}: no description (its library text was removed by the licence audit); "
-                   "write one in authored_pages.py" for p in pages_needed(content, used, library)]
+                   "write one in authored_pages.py" for p in pages_needed(content, paged, library)]
     for w in warnings:
         print("warning:", w)
     if errors:
@@ -930,6 +1076,7 @@ def main():
     print(f"substances in play   {report['substances_in_play']}  "
           f"({report['library_bound']} from the library, {report['new_substances']} authored here)")
     print(f"mixture reactions    {report['inexact']} (not atom-balanced by design)")
+    print(f"locked previews      {report['previews']} (pages for substances of later stages)")
     pacing = report["pacing"]
     print(f"pacing               {len(content.MILESTONES)} milestones over {pacing['era_steps']} era steps; "
           f"largest grant {max(len(m.grant) for m in content.MILESTONES)} (limit {MAX_GRANT}), "
@@ -940,19 +1087,19 @@ def main():
             print(f"  step {step:5d}  era step {at:5d}  {m.on:<18} grant {len(m.grant):2d}"
                   + (f"  unlocks {what}" if what else ""))
     if args.check_links:
-        check_links(content, used)
+        check_links(content, paged)
     if args.check:
         return
 
     data = args.assets / "data"
     write_reactions(content, parsed, data / "authored_reactions.ron")
-    write_substances(content, used, data / "authored_substances.ron")
+    write_substances(content, paged, data / "authored_substances.ron")
     print(f"wrote {data / 'authored_reactions.ron'}")
     print(f"wrote {data / 'authored_substances.ron'}")
     if args.render:
-        render_structures(content, used, args.assets, force=args.force)
+        render_structures(content, paged, args.assets, force=args.force)
         if args.fallback:
-            render_fallbacks(content, used, args.assets, args.fallback)
+            render_fallbacks(content, paged, args.assets, args.fallback)
     # what the game ships follows from what the authored layer now uses
     import pack_library
     pack_library.pack()

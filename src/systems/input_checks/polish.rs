@@ -280,7 +280,9 @@ fn touch_checks() -> Vec<Check> {
             Op::Wait(2),
         ]
         .into_iter()
-        .chain(finger_slide(marked::<ShelfTile>("the first shelf tile"), Slide::By(Vec2::new(0.0, -120.0)), 0.0))
+        // Hydrogen sits at the top left of a shelf scrolled to the top; any built tile could be a
+        // row below the view (the shelf builds a screen either side), at its very edge
+        .chain(finger_slide(tile("Hydrogen"), Slide::By(Vec2::new(0.0, -120.0)), 0.0))
         .chain([
             Op::Until(
                 verify(|w| if shelf_scroll(w) > 20.0 { Ok(()) } else { Err("the shelf did not scroll".into()) }),

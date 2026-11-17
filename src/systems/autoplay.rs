@@ -41,8 +41,8 @@ use crate::resources::recipe_database::{RecipeDatabase, MAX_GRANT, MAX_MILESTONE
 use crate::resources::ui_fonts::UiFonts;
 use crate::systems::input_checks::{InputChecks, InputChecksPlugin};
 use crate::systems::reaction_check::{spawn_vessel_card, CheckVesselReaction, VESSEL_W};
-use crate::ui::codex::CodexState;
-use crate::ui::inventory::{spawn_vessel_chip, ChipRole};
+use crate::ui::codex::{CodexFilter, CodexState};
+use crate::ui::inventory::{spawn_vessel_chip, ChipRole, InvCategory};
 use crate::ui::onboarding::{Coach, CoachStep};
 use crate::ui::process_toolbar::{vessel_name, ProcessUnlocks, VESSELS};
 use crate::ui::reaction_library::ReactionLibState;
@@ -91,6 +91,9 @@ pub struct AutoplayConfig {
     /// true when `--window` was given: the interface size then follows the screen, as it
     /// does on a phone's first run
     pub fit_screen: bool,
+    /// `--scale 1.0`: play at this interface size instead (how a phone looks after the
+    /// player changes the size)
+    pub scale: Option<f32>,
 }
 
 impl AutoplayConfig {
@@ -113,7 +116,8 @@ impl AutoplayConfig {
             every: value("--every").and_then(|s| s.parse().ok()).unwrap_or(75).max(1),
             out_dir,
             window: window.unwrap_or((1280, 720)),
-            fit_screen: window.is_some(),
+            scale: value("--scale").and_then(|v| v.parse().ok()),
+            fit_screen: window.is_some() && value("--scale").is_none(),
         })
     }
 }
@@ -191,16 +195,18 @@ enum TourView {
     TreeList,
     SubstanceCompound,
     SubstanceElement,
+    SubstanceComing,
     Reactions,
     Settings,
 }
 
-const TOUR: [TourView; 7] = [
+const TOUR: [TourView; 8] = [
     TourView::Lab,
     TourView::TreeGraph,
     TourView::TreeList,
     TourView::SubstanceCompound,
     TourView::SubstanceElement,
+    TourView::SubstanceComing,
     TourView::Reactions,
     TourView::Settings,
 ];
@@ -298,6 +304,7 @@ pub struct Game<'w, 's> {
 #[derive(SystemParam)]
 pub struct Views<'w> {
     codex: ResMut<'w, CodexState>,
+    codex_filter: ResMut<'w, CodexFilter>,
     rlib: ResMut<'w, ReactionLibState>,
     tree: ResMut<'w, TechTreeState>,
     settings_ui: ResMut<'w, SettingsUi>,
@@ -307,6 +314,9 @@ pub struct Views<'w> {
 impl Views<'_> {
     fn close_all(&mut self) {
         self.codex.open = false;
+        if self.codex_filter.category != InvCategory::All {
+            self.codex_filter.category = InvCategory::All;
+        }
         self.rlib.open = false;
         self.tree.open = false;
         self.settings_ui.open = false;
@@ -498,7 +508,7 @@ fn autoplay_drive_system(
             ap.frames_in_step = 0;
             if !game.unlocks.0.contains(&r.process) {
                 let note = format!("{} is still locked", vessel_name(&r.process));
-                fail(&mut ap, rid, &r.name, r.epoch.unwrap_or(0), &note);
+                fail(&mut ap, rid, &r.name, r.epoch, &note);
                 return;
             }
             // reuse this process's vessel, or put one on the bench (at most four, so the
@@ -542,13 +552,13 @@ fn autoplay_drive_system(
             let Some(r) = db.authored.iter().find(|r| r.id == rid).cloned() else { return };
             let Some(subs) = game.game_data.as_ref().and_then(|g| game.substances.get(&g.substances)) else { return };
             let Ok(children) = game.cards.get(vessel) else {
-                fail(&mut ap, rid, &r.name, r.epoch.unwrap_or(0), "vessel card missing");
+                fail(&mut ap, rid, &r.name, r.epoch, "vessel card missing");
                 return;
             };
             let zone = children.iter().find(|c| game.ingredient_zones.contains(*c));
             let cat_zone = children.iter().find(|c| game.catalyst_zones.contains(*c));
             let Some(zone) = zone else {
-                fail(&mut ap, rid, &r.name, r.epoch.unwrap_or(0), "vessel has no ingredient zone");
+                fail(&mut ap, rid, &r.name, r.epoch, "vessel has no ingredient zone");
                 return;
             };
             // empty the vessel (last step's products stay in it otherwise)
@@ -565,7 +575,7 @@ fn autoplay_drive_system(
                 .collect();
             if !missing.is_empty() {
                 let note = format!("not yet discovered: {}", missing.join(", "));
-                fail(&mut ap, rid, &r.name, r.epoch.unwrap_or(0), &note);
+                fail(&mut ap, rid, &r.name, r.epoch, &note);
                 return;
             }
             let fonts = game.fonts.as_ref().unwrap();
@@ -594,13 +604,7 @@ fn autoplay_drive_system(
                         });
                     }
                     _ => {
-                        fail(
-                            &mut ap,
-                            rid,
-                            &r.name,
-                            r.epoch.unwrap_or(0),
-                            "needs a catalyst but the vessel has no catalyst slot",
-                        );
+                        fail(&mut ap, rid, &r.name, r.epoch, "needs a catalyst but the vessel has no catalyst slot");
                         return;
                     }
                 }
@@ -620,7 +624,7 @@ fn autoplay_drive_system(
             ap.frames_in_step += 1;
             let rid = ap.steps[ap.idx];
             let r = game.db.as_ref().unwrap().authored.iter().find(|r| r.id == rid).cloned().unwrap();
-            let epoch = r.epoch.unwrap_or(0);
+            let epoch = r.epoch;
             if let Some(reason) = ap.fizzle.take() {
                 fail(&mut ap, rid, &r.name, epoch, &format!("fizzled: {reason}"));
                 return;
@@ -740,6 +744,14 @@ fn autoplay_drive_system(
                     };
                     views.codex.selected = pick;
                 }
+                TourView::SubstanceComing => {
+                    // the locked previews of later stages, with the first one's page open
+                    views.codex.open = true;
+                    views.codex_filter.category = InvCategory::Coming;
+                    views.codex.selected = subs.and_then(|s| {
+                        s.0.values().filter(|x| x.stage.is_some()).min_by_key(|x| x.name.to_lowercase()).map(|x| x.id)
+                    });
+                }
                 TourView::Reactions => {
                     views.rlib.open = true;
                     views.rlib.selected = ap.results.iter().rev().find(|x| x.ok).map(|x| x.reaction);
@@ -754,6 +766,7 @@ fn autoplay_drive_system(
                 TourView::TreeList => "tech_tree_list",
                 TourView::SubstanceCompound => "substances_compound",
                 TourView::SubstanceElement => "substances_element",
+                TourView::SubstanceComing => "substances_coming_later",
                 TourView::Reactions => "reactions",
                 TourView::Settings => "settings",
             };

@@ -26,7 +26,8 @@ use crate::ui::reaction_library::{
 };
 use crate::ui::tech_tree::{
     populate_tech_views_system, spawn_tech_tree, tech_button_system, tech_mode_system, tech_node_click_system,
-    tech_pan_system, update_tech_detail_system, TechTreeState,
+    tech_pan_system, tech_reveal_system, tech_selection_links_system, update_tech_detail_system, TechLinks,
+    TechTreeState,
 };
 use crate::{
     assets::RonAssetLoader,
@@ -115,10 +116,14 @@ pub fn run() -> AppExit {
         .init_resource::<CodexFilter>()
         .init_resource::<ReactionLibState>()
         .init_resource::<TechTreeState>()
+        .init_resource::<TechLinks>()
         .init_resource::<settings::SettingsUi>()
         .insert_resource(settings::FitInterface(autoplay.as_ref().is_some_and(|c| c.fit_screen)))
+        .insert_resource(settings::ScaleOverride(autoplay.as_ref().and_then(|c| c.scale)))
         .init_resource::<process_toolbar::ProcessUnlocks>()
         .init_resource::<toasts::Toasts>()
+        .init_resource::<toasts::ToastRoom>()
+        .init_resource::<crate::ui::inventory::Dock>()
         .add_message::<CheckVesselReaction>()
         .add_message::<GameEvent>()
         .add_message::<shell::TouchScroll>()
@@ -158,7 +163,8 @@ pub fn run() -> AppExit {
         .add_systems(
             Update,
             (
-                populate_inventory_system,
+                (populate_inventory_system, crate::ui::inventory::shelf_window_system).chain(),
+                crate::ui::inventory::fit_dock_system,
                 category_tab_system,
                 shelf_hover_system,
                 discovery_system,
@@ -186,7 +192,7 @@ pub fn run() -> AppExit {
             Update,
             (
                 codex_button_system,
-                populate_codex_list_system,
+                (populate_codex_list_system, crate::ui::codex::codex_window_system).chain(),
                 update_codex_detail_system,
                 codex_entry_click_system,
                 codex_link_click_system,
@@ -194,7 +200,7 @@ pub fn run() -> AppExit {
                 codex_search_input_system,
                 reaction_lib_button_system,
                 reaction_lib_search_system,
-                populate_reaction_list_system,
+                (populate_reaction_list_system, crate::ui::reaction_library::reaction_lib_window_system).chain(),
                 update_reaction_detail_system,
                 reaction_lib_entry_click_system,
                 reaction_lib_link_click_system,
@@ -207,9 +213,12 @@ pub fn run() -> AppExit {
                 tech_mode_system,
                 populate_tech_views_system,
                 tech_node_click_system,
+                tech_reveal_system,
+                tech_selection_links_system,
                 update_tech_detail_system,
                 tech_pan_system,
-            ),
+            )
+                .chain(),
         )
         .add_systems(
             Update,
@@ -284,7 +293,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut config_stor
 
     commands.insert_resource(GameData {
         substances: asset_server.load("data/substances.ron"),
-        reactions: asset_server.load("data/reactions.ron"),
         authored_reactions: asset_server.load("data/authored_reactions.ron"),
         authored_substances: asset_server.load("data/authored_substances.ron"),
     });

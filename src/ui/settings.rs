@@ -69,6 +69,10 @@ pub fn settings_path() -> std::path::PathBuf {
 #[derive(Resource, Default)]
 pub struct FitInterface(pub bool);
 
+/// A review run's `--scale`: the interface size it plays at, whatever is saved.
+#[derive(Resource, Default)]
+pub struct ScaleOverride(pub Option<f32>);
+
 /// The smallest screen, in interface pixels, the layout is made for.
 const FIT_W: f32 = 1100.0;
 const FIT_H: f32 = 500.0;
@@ -200,7 +204,12 @@ impl Settings {
 
 /// Startup: read settings.ron (or keep the defaults). With nothing saved yet, a phone
 /// fits the interface to its screen.
-pub fn load_settings(mut commands: Commands, persistence: Res<Persistence>, mut fit: ResMut<FitInterface>) {
+pub fn load_settings(
+    mut commands: Commands,
+    persistence: Res<Persistence>,
+    mut fit: ResMut<FitInterface>,
+    scale: Res<ScaleOverride>,
+) {
     let saved = persistence
         .0
         .then(|| std::fs::read_to_string(settings_path()).ok())
@@ -209,7 +218,11 @@ pub fn load_settings(mut commands: Commands, persistence: Res<Persistence>, mut 
     if saved.is_none() && persistence.0 && cfg!(target_os = "android") {
         fit.0 = true;
     }
-    commands.insert_resource(saved.unwrap_or_default());
+    let mut settings = saved.unwrap_or_default();
+    if let Some(s) = scale.0 {
+        settings.ui_scale = s;
+    }
+    commands.insert_resource(settings);
 }
 
 /// Apply settings to the window and UI whenever they change, and save them.
@@ -293,6 +306,8 @@ pub fn spawn_settings(mut commands: Commands, fonts: Res<UiFonts>, assets: Res<A
                 },
                 BackgroundColor(Color::srgba(0.0, 0.0, 0.02, 0.62)),
             ));
+            // The dialog never grows past the screen: on a short one (a phone sideways) the
+            // title and close button stay put and the rest scrolls.
             root.spawn((
                 Node {
                     width: Val::Px(880.0),
@@ -302,23 +317,23 @@ pub fn spawn_settings(mut commands: Commands, fonts: Res<UiFonts>, assets: Res<A
                     padding: UiRect::all(Val::Px(22.0)),
                     row_gap: Val::Px(10.0),
                     border: UiRect::all(Val::Px(1.0)),
-                    overflow: Overflow::scroll_y(),
+                    overflow: Overflow::clip(),
                     ..default()
                 },
                 BorderRadius::all(Val::Px(theme::R_LG)),
                 BackgroundColor(theme::SURFACE),
                 BorderColor::all(theme::LINE_STRONG),
                 theme::shadow(40.0, 14.0, 0.6),
-                ScrollPosition::default(),
                 Pickable::default(),
                 // clicks inside the dialog stay in it (the backdrop behind closes it)
                 bevy::ui::FocusPolicy::Block,
             ))
-            .with_children(|panel| {
-                panel
+            .with_children(|dialog| {
+                dialog
                     .spawn(Node {
                         justify_content: JustifyContent::SpaceBetween,
                         align_items: AlignItems::Center,
+                        flex_shrink: 0.0,
                         ..default()
                     })
                     .with_children(|h| {
@@ -329,6 +344,20 @@ pub fn spawn_settings(mut commands: Commands, fonts: Res<UiFonts>, assets: Res<A
                             });
                         theme::spawn_icon_button(h, assets, "close", 32.0, theme::TEXT_2, SettingsClose);
                     });
+                dialog
+                    .spawn((
+                        Node {
+                            flex_direction: FlexDirection::Column,
+                            row_gap: Val::Px(10.0),
+                            flex_shrink: 1.0,
+                            min_height: Val::Px(0.0),
+                            overflow: Overflow::scroll_y(),
+                            ..default()
+                        },
+                        ScrollPosition::default(),
+                        Pickable::default(),
+                    ))
+                    .with_children(|panel| {
 
                 // two columns: Display and Help on the left; Play and Progress on the right
                 panel
@@ -392,6 +421,7 @@ pub fn spawn_settings(mut commands: Commands, fonts: Res<UiFonts>, assets: Res<A
                                 ));
                             });
                         crate::ui::credits::spawn_credits_button(row, fonts, assets);
+                    });
                     });
             });
         });

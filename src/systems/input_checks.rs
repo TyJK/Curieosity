@@ -46,26 +46,32 @@ use crate::resources::ui_fonts::UiFonts;
 use crate::systems::drag_drop::{DragGhostNode, LinkDragState};
 use crate::systems::reaction_check::{spawn_vessel_card, EquationText, VesselArtFill, VESSEL_W};
 use crate::ui::codex::{
-    CodexCategoryTab, CodexDetail, CodexEntry, CodexFilter, CodexReactionLink, CodexRefLink, CodexState, URL_SINK,
+    CodexCategoryTab, CodexDetail, CodexEntry, CodexFilter, CodexIndustryCard, CodexListContent, CodexReactionLink,
+    CodexRefLink, CodexScrollable, CodexState, URL_SINK,
 };
 use crate::ui::credits::CreditsUi;
 use crate::ui::detail_panel::{SelectedSubstance, SelectionClearButton, SelectionOpenButton};
 use crate::ui::focus::KeyFocus;
-use crate::ui::inventory::{is_element_formula, CategoryTab, InvCategory, InventoryScroll, ShelfTile};
+use crate::ui::inventory::{
+    is_element_formula, CategoryTab, InvCategory, InventoryContent, InventoryScroll, ShelfTile,
+};
 use crate::ui::onboarding::{
     next_step, Coach, CoachBubble, CoachNext, CoachSkip, CoachStep, EraBanner, NextStepCard, NextStepShow, TooltipNode,
     TooltipTitle, TourAgainButton,
 };
 use crate::ui::process_toolbar::{vessel_name, NewGameButton, ProcessButton, ProcessUnlocks, VesselSidebar, VESSELS};
-use crate::ui::reaction_library::{ReactionLibEntry, ReactionLibState, ReactionLibSubstanceLink};
+use crate::ui::reaction_library::{
+    ReactionLibEntry, ReactionLibListContent, ReactionLibScrollable, ReactionLibState, ReactionLibSubstanceLink,
+};
 use crate::ui::settings::{Field, SettingStep, SettingToggle, Settings, SettingsAbout, SettingsUi};
 use crate::ui::shell::scroll_max;
 use crate::ui::shell::{BenchGrid, NavTab, SettingsButton, View};
 use crate::ui::tech_tree::{
-    TechCloseButton, TechGraphView, TechListView, TechMode, TechModeButton, TechNodeButton, TechOpenInLibrary,
-    TechScrollable, TechTreeState,
+    SelectionLink, TechCloseButton, TechGraphView, TechLinks, TechListView, TechMode, TechModeButton, TechNeedBadge,
+    TechNeedButton, TechNodeButton, TechOpenInLibrary, TechScrollable, TechTreeState,
 };
 use crate::ui::toasts::{ToastKind, Toasts};
+use crate::ui::virtual_list::VirtualList;
 use crate::GameData;
 
 // Sound, keyboard and controller, hover states, saves, credits and achievements.
@@ -568,7 +574,15 @@ fn tile(name: &'static str) -> Target {
             .map(|(e, _)| e)
             .collect();
         tiles.sort();
-        point_in(w, *tiles.first()?, 0.5, 0.5)
+        match tiles.first() {
+            Some(e) => point_in(w, *e, 0.5, 0.5),
+            // the shelf builds only what is near the view: scroll there and look again
+            None => {
+                let id = sub_id(w, name)?;
+                crate::ui::inventory::reveal_on_shelf(w, id);
+                None
+            }
+        }
     })
 }
 
@@ -589,12 +603,14 @@ enum CardPart {
 /// A shelf tile by substance id (scrolled into view if the shelf is long).
 fn tile_id(id: u32, label: String) -> Target {
     target(format!("the {label} tile on the shelf"), move |w| {
-        let e = w
-            .query_filtered::<(Entity, &Ingredient), With<ShelfTile>>()
-            .iter(w)
-            .find(|(_, i)| i.id == id)
-            .map(|(e, _)| e)?;
-        point_in(w, e, 0.5, 0.5)
+        let e = w.query_filtered::<(Entity, &Ingredient), With<ShelfTile>>().iter(w).find(|(_, i)| i.id == id);
+        match e {
+            Some((e, _)) => point_in(w, e, 0.5, 0.5),
+            None => {
+                crate::ui::inventory::reveal_on_shelf(w, id);
+                None
+            }
+        }
     })
 }
 
@@ -667,6 +683,52 @@ fn marked<C: Component>(name: &str) -> Target {
         point_in(w, e, 0.5, 0.5)
     })
 }
+
+/// How many steps the tech tree's needs check looks at.
+const TECH_SAMPLES: usize = 8;
+
+/// A step the tech tree checks pick to select: the six with the most needs, then the first
+/// and the last step of the tree.
+fn sampled_step(w: &mut World, i: usize) -> Option<u32> {
+    let mut by_needs: Vec<(usize, u32)> = w.resource::<TechLinks>().needs.iter().map(|(&k, v)| (v.len(), k)).collect();
+    by_needs.sort_by(|a, b| b.cmp(a));
+    let db = w.resource::<RecipeDatabase>();
+    let mut picks: Vec<u32> = by_needs.iter().take(TECH_SAMPLES - 2).map(|&(_, k)| k).collect();
+    picks.extend(db.authored.first().map(|r| r.id));
+    picks.extend(db.authored.last().map(|r| r.id));
+    picks.get(i).copied()
+}
+
+/// The selected step shows everything it needs: a selection line for each of its links, a
+/// chip for each need in the detail bar, and a badge counting the needs with no overview line.
+fn needs_shown(w: &mut World, i: usize) -> Result<(), String> {
+    let Some(step) = sampled_step(w, i) else { return Ok(()) };
+    let links = w.resource::<TechLinks>();
+    let touching = links.all.iter().filter(|(a, b)| *a == step || *b == step).count();
+    let needs = links.needs.get(&step).cloned().unwrap_or_default();
+    let undrawn = needs.iter().filter(|n| !n.drawn).count();
+    let segments = w.query_filtered::<(), With<SelectionLink>>().iter(w).count();
+    let chips = w.query::<&TechNeedButton>().iter(w).count();
+    let badge = w.query::<&TechNeedBadge>().iter(w).find(|b| b.step == step).map(|b| b.count);
+    let mut wrong = Vec::new();
+    if segments != touching * 3 {
+        wrong.push(format!("{segments} line segments for {touching} links"));
+    }
+    if chips != needs.len() {
+        wrong.push(format!("{chips} need chips for {} needs", needs.len()));
+    }
+    if badge.unwrap_or(0) != undrawn {
+        wrong.push(format!("badge {badge:?} for {undrawn} needs without a line"));
+    }
+    match wrong.is_empty() {
+        true => Ok(()),
+        false => Err(format!("step {step}: {}", wrong.join("; "))),
+    }
+}
+
+/// The step a tapped need should lead to.
+#[derive(Resource)]
+struct ExpectedStep(Option<u32>);
 
 fn sidebar_button(p: ProcessType) -> Target {
     target(format!("the {} button in the vessel list", vessel_name(&p)), move |w| {
@@ -949,7 +1011,9 @@ fn overscroll_check<M: Component>(area: &'static str, name: &'static str, list: 
         Some((sp.0.y, scroll_max(cn).y))
     };
     let mut ops = prep;
-    ops.push(Op::Wheel(marked::<M>(list), -400.0));
+    // far past the end whatever the list's length: 4,000 lines is about 190,000 px, ten times
+    // the full shelf
+    ops.push(Op::Wheel(marked::<M>(list), -4000.0));
     ops.push(Op::Until(
         verify(move |w| {
             let (y, max) = read(w).ok_or("no list")?;
@@ -1177,6 +1241,67 @@ pub fn all_checks(world: &mut World) -> Vec<Check> {
                     }
                 }),
                 30,
+            ),
+            setup(new_game),
+            Op::Wait(10),
+        ],
+    ));
+    v.push(check(
+        "Lab: shelf",
+        "With everything found, only the tiles near the view are built",
+        vec![
+            setup(discover_everything),
+            Op::Wait(20),
+            Op::Until(
+                verify(|w| {
+                    let total = w.resource::<PlayerProgress>().discovered.len();
+                    let built = w.query_filtered::<(), With<ShelfTile>>().iter(w).count();
+                    if total < 400 {
+                        Err(format!("only {total} substances: too few to tell"))
+                    } else if built == 0 {
+                        Err("no tiles built".into())
+                    } else if built * 4 > total {
+                        Err(format!("{built} of {total} tiles built"))
+                    } else {
+                        Ok(())
+                    }
+                }),
+                60,
+            ),
+            setup(new_game),
+            Op::Wait(10),
+        ],
+    ));
+    v.push(check(
+        "Lab: shelf",
+        "Scrolled to the end, the shelf builds the last tiles and lets go of the first",
+        vec![
+            setup(discover_everything),
+            Op::Wait(20),
+            setup(|w| {
+                for mut sp in w.query_filtered::<&mut ScrollPosition, With<InventoryScroll>>().iter_mut(w) {
+                    sp.0.y = 1.0e7;
+                }
+            }),
+            Op::Until(
+                verify(|w| {
+                    let ends = w
+                        .query_filtered::<&VirtualList, With<InventoryContent>>()
+                        .iter(w)
+                        .next()
+                        .and_then(|l| Some((*l.ids().first()?, *l.ids().last()?)));
+                    let (first, last) = ends.ok_or("the shelf is empty")?;
+                    let built: Vec<u32> =
+                        w.query_filtered::<&Ingredient, With<ShelfTile>>().iter(w).map(|i| i.id).collect();
+                    if !built.contains(&last) {
+                        Err("the last tile is not built".into())
+                    } else if built.contains(&first) {
+                        Err("the first tile is still built".into())
+                    } else {
+                        Ok(())
+                    }
+                }),
+                60,
             ),
             setup(new_game),
             Op::Wait(10),
@@ -1929,6 +2054,122 @@ pub fn all_checks(world: &mut World) -> Vec<Check> {
     ));
     v.push(check(
         "Substance Library",
+        "With everything found, the list builds only the rows near the view, and the last ones at the end",
+        vec![
+            setup(discover_everything),
+            open_codex(None),
+            Op::Wait(20),
+            Op::Until(
+                verify(|w| {
+                    let total = w.resource::<PlayerProgress>().discovered.len();
+                    let rows = w.query::<&CodexEntry>().iter(w).count();
+                    if total < 400 {
+                        Err(format!("only {total} substances: too few to tell"))
+                    } else if rows == 0 || rows * 4 > total {
+                        Err(format!("{rows} of {total} rows built"))
+                    } else {
+                        Ok(())
+                    }
+                }),
+                60,
+            ),
+            setup(|w| {
+                for (m, mut sp) in w.query::<(&CodexScrollable, &mut ScrollPosition)>().iter_mut(w) {
+                    if m.is_left {
+                        sp.0.y = 1.0e7;
+                    }
+                }
+            }),
+            Op::Until(
+                verify(|w| {
+                    let last = w
+                        .query_filtered::<&VirtualList, With<CodexListContent>>()
+                        .iter(w)
+                        .next()
+                        .and_then(|l| l.ids().last().copied())
+                        .ok_or("the list is empty")?;
+                    if w.query::<&CodexEntry>().iter(w).any(|e| e.0 == last) {
+                        Ok(())
+                    } else {
+                        Err("the last row is not built".into())
+                    }
+                }),
+                60,
+            ),
+            setup(new_game),
+            Op::Wait(10),
+        ],
+    ));
+    v.push(check(
+        "Substance Library",
+        "The Coming later pill lists the locked previews of later stages, each with a page",
+        vec![
+            open_codex(None),
+            Op::Wait(5),
+            Op::Click(target("the library's Coming later pill", |w| {
+                let e = first::<CodexCategoryTab>(w, |t| t.0 == InvCategory::Coming)?;
+                point_in(w, e, 0.5, 0.5)
+            })),
+            Op::Until(
+                verify(|w| {
+                    if w.resource::<CodexFilter>().category != InvCategory::Coming {
+                        return Err("the filter did not change".into());
+                    }
+                    let ids: Vec<u32> = w.query::<&CodexEntry>().iter(w).map(|e| e.0).collect();
+                    let gd = w.resource::<GameData>().substances.clone();
+                    let subs = w.resource::<Assets<Substances>>().get(&gd).ok_or("no substances")?;
+                    let bad: Vec<String> = ids
+                        .iter()
+                        .filter_map(|id| subs.0.get(id))
+                        .filter(|s| s.stage.is_none())
+                        .map(|s| s.name.clone())
+                        .collect();
+                    if ids.is_empty() {
+                        Err("the list is empty".into())
+                    } else if bad.is_empty() {
+                        Ok(())
+                    } else {
+                        Err(format!("not locked previews: {bad:?}"))
+                    }
+                }),
+                60,
+            ),
+            Op::Click(marked::<CodexEntry>("the first locked preview")),
+            Op::Until(
+                verify(|w| {
+                    let sel = w.resource::<CodexState>().selected.ok_or("nothing selected")?;
+                    let gd = w.resource::<GameData>().substances.clone();
+                    let subs = w.resource::<Assets<Substances>>().get(&gd).ok_or("no substances")?;
+                    match subs.0.get(&sel) {
+                        Some(s) if s.stage.is_some() => Ok(()),
+                        _ => Err("the selection is not a locked preview".into()),
+                    }
+                }),
+                30,
+            ),
+            setup(|w| w.resource_mut::<CodexFilter>().category = InvCategory::All),
+        ],
+    ));
+    v.push(check(
+        "Substance Library",
+        "A page says what industry does with it: tonnage, transport class, handling",
+        vec![
+            open_codex(Some("Ethanol")),
+            Op::Until(
+                verify(|w| {
+                    let cards = w.query::<&CodexIndustryCard>().iter(w).count();
+                    if cards >= 3 {
+                        Ok(())
+                    } else {
+                        Err(format!("{cards} industry cards on Ethanol's page"))
+                    }
+                }),
+                60,
+            ),
+        ],
+    ));
+    v.push(check(
+        "Substance Library",
         "Typing searches the list; Backspace undoes it",
         vec![
             open_codex(None),
@@ -2039,6 +2280,59 @@ pub fn all_checks(world: &mut World) -> Vec<Check> {
     };
     v.push(check(
         "Reaction Library",
+        "With everything found, the list builds only the rows near the view, and the last ones at the end",
+        vec![
+            setup(discover_everything),
+            setup(|w| w.resource_mut::<ReactionLibState>().open = true),
+            Op::Wait(20),
+            Op::Until(
+                verify(|w| {
+                    let total = w
+                        .query_filtered::<&VirtualList, With<ReactionLibListContent>>()
+                        .iter(w)
+                        .next()
+                        .map(|l| l.ids().len())
+                        .unwrap_or(0);
+                    let rows = w.query::<&ReactionLibEntry>().iter(w).count();
+                    if total < 400 {
+                        Err(format!("only {total} entries: too few to tell"))
+                    } else if rows == 0 || rows * 4 > total {
+                        Err(format!("{rows} of {total} rows built"))
+                    } else {
+                        Ok(())
+                    }
+                }),
+                60,
+            ),
+            setup(|w| {
+                for (m, mut sp) in w.query::<(&ReactionLibScrollable, &mut ScrollPosition)>().iter_mut(w) {
+                    if m.is_left {
+                        sp.0.y = 1.0e7;
+                    }
+                }
+            }),
+            Op::Until(
+                verify(|w| {
+                    let last = w
+                        .query_filtered::<&VirtualList, With<ReactionLibListContent>>()
+                        .iter(w)
+                        .next()
+                        .and_then(|l| l.ids().last().copied())
+                        .ok_or("the list is empty")?;
+                    if w.query::<&ReactionLibEntry>().iter(w).any(|e| e.0 == last) {
+                        Ok(())
+                    } else {
+                        Err("the last row is not built".into())
+                    }
+                }),
+                60,
+            ),
+            setup(new_game),
+            Op::Wait(10),
+        ],
+    ));
+    v.push(check(
+        "Reaction Library",
         "Typing searches the list",
         vec![
             setup(new_game),
@@ -2140,6 +2434,61 @@ pub fn all_checks(world: &mut World) -> Vec<Check> {
             Op::Wait(10),
             Op::Click(marked::<TechNodeButton>("a step in the graph")),
             Op::Until(state("a step selected", |w| w.resource::<TechTreeState>().selected.is_some()), 30),
+        ],
+    ));
+    // Every prerequisite is expressed: checked on the steps that need the most (and the
+    // first and last), whatever the content holds.
+    let mut ops = vec![
+        setup(new_game),
+        setup(|w| w.resource_mut::<TechTreeState>().open = true),
+        Op::Until(state("the tree's links worked out", |w| !w.resource::<TechLinks>().needs.is_empty()), 60),
+    ];
+    for i in 0..TECH_SAMPLES {
+        ops.push(setup(move |w| {
+            let id = sampled_step(w, i);
+            w.resource_mut::<TechTreeState>().selected = id;
+        }));
+        ops.push(Op::Wait(3));
+        ops.push(Op::Until(verify(move |w| needs_shown(w, i)), 30));
+    }
+    ops.push(Op::Shot("a selected step: its links, badge and needs"));
+    v.push(check("Tech Tree", "Every step shows all it needs: links when selected, a badge, a chip each", ops));
+    v.push(check(
+        "Tech Tree",
+        "Tapping a need goes to the step that makes it",
+        vec![
+            setup(new_game),
+            setup(|w| {
+                w.resource_mut::<TechTreeState>().open = true;
+            }),
+            Op::Until(state("the tree's links worked out", |w| !w.resource::<TechLinks>().needs.is_empty()), 60),
+            setup(|w| {
+                let id = sampled_step(w, 0);
+                w.resource_mut::<TechTreeState>().selected = id;
+            }),
+            Op::Wait(4),
+            setup(|w| {
+                let maker = first::<TechNeedButton>(w, |b| b.0.is_some())
+                    .and_then(|e| w.get::<TechNeedButton>(e))
+                    .and_then(|b| b.0);
+                w.insert_resource(ExpectedStep(maker));
+            }),
+            Op::Click(target("the first need with a maker".to_string(), |w| {
+                let e = first::<TechNeedButton>(w, |b| b.0.is_some())?;
+                point_in(w, e, 0.5, 0.5)
+            })),
+            Op::Until(
+                verify(|w| {
+                    let want = w.get_resource::<ExpectedStep>().and_then(|x| x.0);
+                    let got = w.resource::<TechTreeState>().selected;
+                    if want.is_some() && got == want {
+                        Ok(())
+                    } else {
+                        Err(format!("selected {got:?}, wanted the maker {want:?}"))
+                    }
+                }),
+                30,
+            ),
         ],
     ));
     v.push(check(
@@ -2797,7 +3146,7 @@ fn era_checks(world: &mut World) -> Vec<Check> {
     let epochs: Vec<String> = db.epochs.iter().map(|e| e.name.clone()).collect();
     let mut picked: Vec<Reaction> = Vec::new();
     for e in 0..epochs.len() {
-        let era: Vec<&Reaction> = authored.iter().filter(|r| r.epoch == Some(e as u8)).collect();
+        let era: Vec<&Reaction> = authored.iter().filter(|r| r.epoch == e as u8).collect();
         if era.is_empty() {
             continue;
         }
@@ -2818,7 +3167,7 @@ fn era_checks(world: &mut World) -> Vec<Check> {
     }
     let mut out = Vec::new();
     for r in picked {
-        let era = r.epoch.and_then(|e| epochs.get(e as usize)).cloned().unwrap_or_default();
+        let era = epochs.get(r.epoch as usize).cloned().unwrap_or_default();
         let area: &'static str = Box::leak(format!("Tech tree: {era}").into_boxed_str());
         let name: &'static str = Box::leak(format!("{} in the {}", r.name, vessel_name(&r.process)).into_boxed_str());
         let p = r.process.clone();

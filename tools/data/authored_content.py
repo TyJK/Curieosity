@@ -31,11 +31,11 @@ LIBNAME = {}
 
 
 def X(key, name, formula, state, desc=None, wiki=None, *, id, lib=False, props=(),
-      color=None, smiles=None, balance=None, rename=False):
+      color=None, smiles=None, balance=None, rename=False, stage=None):
     if key in SUBSTANCES:
         raise SystemExit(f"duplicate substance key {key}")
     SUBSTANCES[key] = Sub(key, name, formula, state, id, lib, desc, wiki, tuple(props),
-                          color, smiles, balance, rename)
+                          color, smiles, balance, rename, stage)
 
 
 # --------------------------------------------------------------------------------------
@@ -858,7 +858,7 @@ E3.reactions += [
     R("Distilling Wood", "Wood -> Methanol + AcOH + Acetone + Charcoal + H2O", DISTIL,
       "Heating wood in a closed retort drives off pyroligneous acid: wood spirit (methanol), wood vinegar and acetone, with charcoal left behind. Robert Boyle first collected wood spirit in 1661.",
       wiki="Destructive_distillation", T=400, exact=False, dh=100),
-    R("Distilling Coal Tar", "CoalTar -> Benzene + Toluene + Phenol + Naphthalene + Anthracene", DISTIL,
+    R("Distilling Coal Tar", "CoalTar -> Benzene + Toluene + Phenol + Naphthalene + Anthracene + Dibenzofuran", DISTIL,
       "Fractional distillation of the black, stinking tar left by gasworks: Faraday found benzene in 1825, Runge found phenol in 1834. Every synthetic dye and drug of the next century came out of these fractions.",
       wiki="Coal_tar", T=350, exact=False, dh=50),
     R("Davy's Phosgene", "CO + Cl2 -> COCl2", LIGHT,
@@ -3451,7 +3451,7 @@ E3.reactions += [
 E4.reactions += [
     R("Walton's Linoleum", "Linoxyn + Cork + Rosin -> Linoleum", HEAT,
       "Oxidised linseed oil, ground cork and rosin pressed onto jute canvas.", wiki="Linoleum#History", exact=False),
-    R("Caustic Fusion of Castor Oil", "RicinoleicAcid + NaOH -> SebacicAcid", HEAT,
+    R("Caustic Fusion of Castor Oil", "RicinoleicAcid + NaOH -> SebacicAcid + Octanol2", HEAT,
       "Ricinoleic acid fused with caustic soda at 250 C splits into sebacic acid and 2-octanol.", wiki="Sebacic_acid#Production", T=250, exact=False),
     R("Krafft Pyrolysis", "RicinoleicAcid -> UndecylenicAcid + Heptanal", HEAT,
       "Friedrich Krafft (1877) cracked ricinoleic acid in a vacuum into undecylenic acid and heptanal.", wiki="Undecylenic_acid", T=500, dh=50),
@@ -3583,3 +3583,7 @@ for _k, _sm in SMILES.items():
 import authored_tiers  # noqa: E402,F401  (extends the epochs above and sets MILESTONES)
 # Pages for in-play substances whose library text the licence audit removed.
 import authored_pages  # noqa: E402,F401
+# Industrial chemistry from the canon production list, largest first.
+import authored_canon  # noqa: E402,F401
+# Locked previews of later stages (medicines without a route yet); always last, after every route.
+import authored_placeholders  # noqa: E402,F401

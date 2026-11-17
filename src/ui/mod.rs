@@ -14,3 +14,4 @@ pub mod shell;
 pub mod tech_tree;
 pub mod theme;
 pub mod toasts;
+pub mod virtual_list;

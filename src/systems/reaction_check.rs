@@ -83,6 +83,8 @@ pub fn process_color(p: &ProcessType) -> Color {
         ProcessType::Bioreactor => Color::srgb(0.55, 1.00, 0.70),
         ProcessType::CrystalPuller => Color::srgb(0.70, 0.80, 1.00),
         ProcessType::CvdChamber => Color::srgb(1.00, 0.55, 0.95),
+        ProcessType::Centrifuge => Color::srgb(0.95, 0.82, 0.45),
+        ProcessType::Ultracentrifuge => Color::srgb(1.00, 0.70, 0.40),
     }
 }
 

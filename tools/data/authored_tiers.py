@@ -15,7 +15,7 @@ import authored_content as C
 from authored_content import X, L, R, RAW, SUBSTANCES, E0, E1, E2, E3, E4, E5, E6, E7
 from gen_authored import (Milestone, MIX, HEAT, COOL, SMELT, DISTIL, ELEC, LIGHT, CAT, PRESS,
                           POLY, FLASK, BLAST, ARC, AIRLIQ, COLUMN, ECELL, REACTOR, CYCLO,
-                          CRACKER, HIGHP, DPRESS, FERM, BIOR, PULLER, CVD)
+                          CRACKER, HIGHP, DPRESS, FERM, BIOR, PULLER, CVD, CENT, ULTRA)
 
 
 def N(key, name, formula, state, desc, wiki, color=None, smiles=None, props=(), balance=None):
@@ -264,7 +264,7 @@ N("Alundum", "Fused Alumina", "Al2O3", "Solid", "Alumina melted in the arc furna
 N("NaClO4", "Sodium Perchlorate", "NaClO4", "Solid", "Made by electrolysing sodium chlorate further; the starting point of every other perchlorate.", "Sodium_perchlorate")
 N("H2S2O8", "Peroxydisulfuric Acid", "H2S2O8", "Solid", "Marshall's acid (1891), made at a platinum anode from cold sulfuric acid. It was the industrial source of hydrogen peroxide from 1908.", "Peroxydisulfuric_acid")
 N("KMnO4", "Potassium Permanganate", "KMnO4", "Solid", "Deep purple crystals, a strong oxidiser. Henry Condy sold it as a disinfectant ('Condy's crystals', 1857); it treats water and was the flash in early photography.", "Potassium_permanganate", color="#7a1a8a")
-N("PhN2Cl", "Benzenediazonium Chloride", "C6H5N2Cl", "Aqueous", "Peter Griess's diazonium salt (1858): stable only near 0 C, it couples with phenols and amines into the whole family of azo dyes.", "Benzenediazonium_chloride", smiles="[Cl-].[N+]#Nc1ccccc1")
+N("PhN2Cl", "Benzenediazonium Chloride", "C6H5N2Cl", "Aqueous", "Peter Griess's diazonium salt (1858): stable only near 0 C, it couples with phenols and amines into the whole family of azo dyes.", "Benzenediazonium_chloride", smiles="[Cl-].N#[N+]c1ccccc1")
 N("HydroxyAzo", "4-Hydroxyazobenzene", "C12H10N2O", "Solid", "Orange-yellow dye from diazonium and phenol: the simplest azo coupling, the chemistry behind most synthetic dyes and food colours.", "Azo_coupling", color="#f09020", smiles="Oc1ccc(cc1)N=Nc1ccccc1")
 L("Dimethylaniline", "N,N-Dimethylaniline", "C8H11N", "Liquid", smiles="CN(C)c1ccccc1")
 N("MethylOrange", "Methyl Orange", "C14H14N3NaO3S", "Solid", "The indicator that is red below pH 3.1 and yellow above 4.4; made by coupling diazotised sulfanilic acid onto dimethylaniline.", "Methyl_orange", color="#f07020", smiles="CN(C)c1ccc(cc1)N=Nc1ccc(cc1)S(=O)(=O)[O-].[Na+]")
@@ -1372,14 +1372,14 @@ C.MILESTONES = [
               message="Glass vessels: you can now chill and crystallise in an ice bath."),
     Milestone("Ethanol", grant=("Lavender", "Peppermint", "Rose", "PineResin", "Cinnamon", "Anise", "Thyme"),
               message="Spirit of wine. The perfumers turn the still on the herb garden."),
-    Milestone("AcOH", grant=("OakGalls", "Argol", "Lemons", "Apples", "Amber", "Butter", "Soybeans"),
+    Milestone("AcOH", grant=("OakGalls", "Argol", "Lemons", "Apples", "Amber", "Butter", "Soybeans", "Olives"),
               message="Vinegar keeps the harvest: the pantry and the apothecary's jars fill up."),
     Milestone("H2SO4", grant=("MicrocosmicSalt", "Orpiment", "Bismuthinite", "NH4Cl", "Sucrose", "Ants",
                              "GumBenzoin", "Spearmint", "OrangePeel", "Jasmine", "Turmeric"),
               message="Oil of vitriol. The alchemists' cabinet fills with strange salts."),
     Milestone("HNO3", unlock=(FLASK,),
               message="Aqua fortis eats metal and stone; only glass can hold it. The Glass Flask is unlocked."),
-    Milestone("P4", grant=("Coal", "Air", "BaCO3", "MgCO3", "SrCO3", "Borax", "NaI", "NaBr", "CaF2", "Rubber"),
+    Milestone("P4", grant=("Coal", "Air", "BaCO3", "MgCO3", "SrCO3", "Borax", "NaI", "NaBr", "CaF2", "Rubber", "Latex"),
               message="Brand's phosphorus ends the age of alchemy. Coal, air and the mineral cabinets of the new chemists."),
     Milestone("AgCl", unlock=(LIGHT,),
               message="Horn silver darkens in the sun: light itself can drive chemistry."),
@@ -1412,7 +1412,8 @@ C.MILESTONES = [
               message="Quinine from cinchona bark: chemists race to extract every plant's secret."),
     Milestone("Dynamo", unlock=(ECELL,), grant=("CrudeOil", "Bauxite", "Chalcopyrite"),
               message="Siemens' dynamo makes electricity by the ton: the Electrolytic Cell is unlocked, and oil, bauxite and copper ore are worth digging."),
-    Milestone("NaHCO3", grant=("Kieselguhr", "Sphalerite", "Samarskite", "Lepidolite", "MineralWater", "Argyrodite"),
+    Milestone("NaHCO3", grant=("Kieselguhr", "Sphalerite", "Samarskite", "Lepidolite", "MineralWater", "Argyrodite",
+                               "Sugarcane"),
               message="Solvay's ammonia soda (1861) founds the heavy chemical industry."),
     Milestone("F2", unlock=(ARC,),
               message="Henri Moissan isolated fluorine (1886); his electric arc furnace (1892) reaches 3,500 C. The Arc Furnace is unlocked."),
@@ -1432,7 +1433,8 @@ C.MILESTONES = [
     Milestone("PE", grant=("Bran", "RiceBran", "EggYolk", "Spinach"),
               message="ICI's polythene (1933), found by accident at 1,400 atmospheres. Meanwhile biochemists hunt the vitamins in bran, egg and spinach."),
     Milestone("Nylon66", message="Carothers' nylon (1935): 'as strong as steel, as fine as a spider's web'. Stockings sold out in a day in 1940."),
-    Milestone("Sulfanilamide", unlock=(BIOR,), grant=("Penicillium", "CornSteep", "Aspergillus", "Streptomyces", "Ecoli"),
+    Milestone("Sulfanilamide", unlock=(BIOR,), grant=("Penicillium", "CornSteep", "Aspergillus", "Streptomyces", "Ecoli",
+                                                    "Blood"),
               message="The sulfa drugs work, and Florey and Chain need penicillin by the vat: the Bioreactor is unlocked."),
     Milestone("VitaminC", grant=("CodLiverOil", "Lanolin", "SharkLiverOil", "Corynebacterium"),
               message="Szent-Gyorgyi and Reichstein's vitamin C (1933): the hunt for every vitamin is on."),
@@ -1452,4 +1454,90 @@ C.MILESTONES = [
     Milestone("BlueLED", message="The blue LED (Akasaki, Amano, Nakamura, 1993; Nobel 2014). White light from a diode at last."),
     Milestone("Insulin", message="Human insulin from bacteria (1978): biology becomes a factory."),
     Milestone("Og", message="Oganesson (Dubna, 2002; named 2016): the seventh row of the periodic table is complete."),
+]
+
+
+# ======================================================================================
+# 6. SEPARATION: the Centrifuge and the Ultracentrifuge
+# ======================================================================================
+# Spinning sorts a mixture by density: cream from milk, crystals from syrup, cells from
+# plasma, and at the top grade proteins, plasmids and the isotopes of uranium.
+RAW("Sugarcane", "Sugarcane", "Saccharum stalks, up to six metres tall, their pith full of sweet juice. The plantation crop that fed the Atlantic sugar trade.", "Sugarcane", "#8ab048")
+RAW("Blood", "Blood", "Whole blood: red and white cells and platelets carried in plasma. Slaughterhouses sold it to chemists; donors fill today's blood banks.", "Blood", "#8a1020", state="Liquid")
+N("CaneJuice", "Sugarcane Juice", "mixture", "Liquid", "The juice pressed from sugarcane: water and about a sixth sucrose, with a little glucose, fructose and minerals.", "Sugarcane_juice", color="#c8c070", balance="C")
+N("Bagasse", "Bagasse", "mixture", "Solid", "The crushed fibre left once the juice is pressed out. Sugar mills burn it for their own steam; it also makes paper and board.", "Bagasse", color="#c8b080", balance="C")
+N("Molasses", "Molasses", "mixture", "Liquid", "The dark syrup spun off the sugar crystals: cattle feed, rum, and the feedstock of much of the world's fermentation industry.", "Molasses", color="#3a2010", balance="C")
+N("Cream", "Cream", "mixture", "Liquid", "The fat-rich layer of milk, a third to a half butterfat, which rises on standing and gathers at once in a separator.", "Cream", color="#f8f0d8", balance="C")
+N("SkimMilk", "Skimmed Milk", "mixture", "Liquid", "Milk with its fat spun out: the protein and lactose stay, for drinking, cheese and milk powder.", "Skimmed_milk", color="#e8eef4", balance="C")
+N("Buttermilk", "Buttermilk", "mixture", "Liquid", "The thin liquid left when cream is churned into butter, sharp with lactic acid; it raises soda bread.", "Buttermilk", color="#f0eedc", balance="C")
+N("BloodPlasma", "Blood Plasma", "mixture", "Liquid", "The straw-coloured liquid that carries the blood cells: water, salts and some hundreds of proteins. Dried, it kept the wounded alive in the Second World War.", "Blood_plasma", color="#e8c868", balance="C")
+N("RedBloodCells", "Red Blood Cells", "mixture", "Liquid", "Erythrocytes, packed with haemoglobin: the oxygen carriers, which give blood its colour.", "Red_blood_cell", color="#a01828", balance="C")
+N("SerumAlbumin", "Serum Albumin", "mixture", "Solid", "The commonest protein in blood plasma, which holds water in the blood vessels. Given by drip for shock and burns.", "Human_serum_albumin", color="#f4ecd0", balance="C")
+N("Immunoglobulin", "Immunoglobulin", "mixture", "Solid", "Antibodies gathered from the plasma of many donors, given to people who cannot make enough of their own.", "Immunoglobulin_therapy", color="#e8e0f0", balance="C")
+N("LDL", "Low-Density Lipoprotein", "mixture", "Liquid", "The particles that carry cholesterol out to the body's cells; high levels clog arteries ('bad cholesterol').", "Low-density_lipoprotein", color="#e0b850", balance="C")
+N("HDL", "High-Density Lipoprotein", "mixture", "Liquid", "The denser particles that carry cholesterol back to the liver ('good cholesterol').", "High-density_lipoprotein", color="#f0d890", balance="C")
+RAW("Latex", "Latex", "Hevea latex: a milky emulsion of rubber particles in a watery serum, tapped from cuts in the bark of the rubber tree.", "Latex", "#f4f0e0", state="Liquid")
+RAW("Olives", "Olives", "The fruit of Olea europaea, a fifth to a third oil by weight.", "Olive", "#6a7a30")
+N("LatexConcentrate", "Latex Concentrate", "mixture", "Liquid", "Latex spun up to about 60% rubber. Moulds dipped in it come out as gloves, balloons and condoms.", "Latex", color="#f8f4e4", balance="C")
+N("Pomace", "Olive Pomace", "mixture", "Solid", "What is left when the oil is out: skins, pulp and stones, burned for fuel or extracted again for pomace oil.", "Pomace", color="#5a4a28", balance="C")
+N("Haemoglobin", "Haemoglobin", "mixture", "Solid", "The iron-carrying protein that fills red cells and carries oxygen; one of the first proteins weighed in Svedberg's ultracentrifuge.", "Hemoglobin", color="#901020", balance="C")
+N("SemiconductingCNT", "Semiconducting Carbon Nanotubes", "C", "Solid", "Carbon nanotubes sorted to the kind that behave as semiconductors: candidates for transistors smaller than silicon allows.", "Carbon_nanotube")
+N("PlasmidDNA", "Plasmid DNA", "mixture", "Solid", "Small rings of DNA that bacteria swap between themselves. Cut and pasted, they carry the genes of genetic engineering.", "Plasmid", color="#d0e8f8", balance="C")
+
+E4.reactions += [
+    R("Pressing Sugarcane", "Sugarcane -> CaneJuice + Bagasse", MIX,
+      "Cane crushed between iron rollers; the juice runs off and the fibre is left.", wiki="Sugarcane_juice", exact=False),
+    R("Centrifugal Sugar", "CaneJuice -> Sucrose + Molasses", CENT,
+      "Cane juice boiled down to a syrup thick with crystals, then spun in a perforated basket: the molasses flies off and the sugar stays.",
+      wiki="Molasses", exact=False),
+    R("Rum", "Molasses -> Ethanol + CO2", FERM,
+      "Molasses diluted and fermented by yeast, as the sugar islands made rum; today it feeds much of the world's industrial ethanol.",
+      wiki="Rum#Manufacturing_process", exact=False),
+    R("de Laval's Cream Separator", "Milk -> Cream + SkimMilk", CENT,
+      "Spun fast, milk's fat globules crowd to the centre and the cream runs off: Gustaf de Laval's separator replaced skimming by hand.",
+      wiki="Separator_(milk)", exact=False),
+    R("Coagulating Latex", "Latex + AcOH -> Rubber", MIX,
+      "Fresh latex curdled with a little acid into slabs of raw rubber, as the plantations of Malaya and Ceylon did it.",
+      wiki="Natural_rubber", exact=False),
+    R("Churning Butter", "Cream -> Butter + Buttermilk", MIX,
+      "Cream beaten until its fat globules break and clump into butter, leaving the buttermilk.", wiki="Butter#Production",
+      exact=False),
+]
+E5.reactions += [
+    R("Separating Blood", "Blood -> BloodPlasma + RedBloodCells", CENT,
+      "Whole blood spun down: the red cells pack at the bottom and the plasma floats above. The blood banks of the 1930s kept both.",
+      wiki="Blood_plasma", exact=False),
+    R("Cohn Fractionation", "BloodPlasma + Ethanol -> SerumAlbumin + Immunoglobulin", CENT,
+      "Edwin Cohn's wartime process: cold ethanol at rising strength drops the plasma proteins out one by one, each spun or filtered off.",
+      wiki="Cohn_process", exact=False, T=-5),
+    R("Concentrating Latex", "Latex -> LatexConcentrate + H2O", CENT,
+      "Latex spun to throw off most of its watery serum, so it ships as a cream of rubber instead of a mostly-water milk.",
+      wiki="Latex", exact=False),
+    R("Svedberg's Haemoglobin", "RedBloodCells + H2O -> Haemoglobin", ULTRA,
+      "Red cells burst in water and spun clear of their membranes; in Svedberg's rotor haemoglobin settled as one molecule of definite weight.",
+      wiki="Hemoglobin", exact=False),
+    R("Lipoproteins", "BloodPlasma -> LDL + HDL", ULTRA,
+      "Spun at hundreds of thousands of g, plasma's fat-carrying particles float apart by density into the low- and high-density lipoproteins.",
+      wiki="Lipoprotein", exact=False),
+    R("Zippe's Gas Centrifuge", "UF6 -> EnrichedUF6", ULTRA,
+      "Uranium hexafluoride spun in tall thin rotors: the heavier uranium-238 crowds to the wall, the lighter 235 is drawn off near the axis. Cascades of them replaced gaseous diffusion.",
+      wiki="Gas_centrifuge", exact=False),
+]
+E6.reactions += [
+    R("Olive Oil Decanter", "Olives -> Triolein + Pomace", CENT,
+      "Olives milled to a paste and spun in a horizontal decanter, which replaced the press from the 1970s: oil, water and solids leave by separate ports.",
+      wiki="Olive_oil", exact=False),
+    R("Sorting Nanotubes", "CNT -> SemiconductingCNT", ULTRA,
+      "Nanotubes coated in surfactant and spun through a density gradient settle by diameter and by whether they conduct like a metal or a semiconductor.",
+      wiki="Carbon_nanotube", exact=False),
+    R("Plasmid Prep", "Ecoli + CsCl -> PlasmidDNA", ULTRA,
+      "Bacteria broken open and their DNA spun for days in a caesium chloride density gradient: the small circular plasmids settle in a band of their own.",
+      wiki="Plasmid#Plasmid_DNA_extraction", exact=False),
+]
+
+C.MILESTONES += [
+    Milestone("CaneJuice", unlock=(CENT,),
+              message="Steam sugar mills spin their syrup in perforated baskets to throw off the molasses, and Gustaf de Laval does the same to milk: the Centrifuge is unlocked."),
+    Milestone("BloodPlasma", unlock=(ULTRA,),
+              message="Theodor Svedberg's ultracentrifuge (1924; Nobel Prize 1926) spins hard enough to weigh a protein molecule: the Ultracentrifuge is unlocked."),
 ]

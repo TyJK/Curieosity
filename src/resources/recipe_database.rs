@@ -109,11 +109,11 @@ impl RecipeDatabase {
         self.epochs.get(epoch as usize).map(|e| e.name.as_str()).unwrap_or("Unsorted")
     }
 
-    /// Build the database from the scraped and authored reaction sets. Authored reactions
-    /// are inserted last, so they win on any (process, reactant-set) collision.
-    pub fn from_parts(scraped: &Reactions, authored: &Reactions) -> Self {
+    /// Build the database from the authored reactions and their progression.
+    /// gen_authored.py guarantees no two reactions share a (process, reactant set).
+    pub fn from_authored(authored: &Reactions) -> Self {
         let mut map = HashMap::new();
-        for reaction in scraped.reactions.iter().chain(authored.reactions.iter()) {
+        for reaction in &authored.reactions {
             let reactant_ids: Vec<u32> = reaction.reactants.iter().map(|sp| sp.substance_id).collect();
             map.insert(RecipeKey::new(reaction.process.clone(), reactant_ids), reaction.clone());
         }
@@ -123,7 +123,7 @@ impl RecipeDatabase {
             by_reactants.entry(key.reactants.clone()).or_default().push(key.process.clone());
         }
 
-        let mut authored_list: Vec<Reaction> = authored.reactions.iter().filter(|r| r.is_authored()).cloned().collect();
+        let mut authored_list: Vec<Reaction> = authored.reactions.clone();
         authored_list.sort_by_key(|r| (r.epoch, r.id));
 
         let mut canon: HashSet<u32> = authored.start.iter().copied().collect();
@@ -194,7 +194,7 @@ impl RecipeDatabase {
             done[i] = true;
             known.extend(r.products.iter().map(|s| s.substance_id));
             steps.push(r.id);
-            if r.epoch != side {
+            if Some(r.epoch) != side {
                 era_steps += 1;
             }
         }
@@ -247,7 +247,7 @@ pub const MAX_MILESTONE_GAP: usize = 90;
 
 /// A one-time system that runs when assets are loaded.
 /// It applies the authored substance layer onto the substance library, then builds the
-/// fast-lookup RecipeDatabase from all reactions (scraped + authored).
+/// fast-lookup RecipeDatabase from the authored reactions.
 pub fn build_recipe_database(
     mut commands: Commands,
     game_data: Option<Res<GameData>>,
@@ -264,11 +264,9 @@ pub fn build_recipe_database(
     let Some(game_data) = game_data else { return };
 
     // Wait until every content asset is loaded.
-    let (Some(scraped), Some(authored), Some(patches)) = (
-        reactions_assets.get(&game_data.reactions),
-        reactions_assets.get(&game_data.authored_reactions),
-        patches_assets.get(&game_data.authored_substances),
-    ) else {
+    let (Some(authored), Some(patches)) =
+        (reactions_assets.get(&game_data.authored_reactions), patches_assets.get(&game_data.authored_substances))
+    else {
         return;
     };
     let Some(substances) = substances_assets.get_mut(&game_data.substances) else {
@@ -278,7 +276,7 @@ pub fn build_recipe_database(
     let (patched, created) = patches.apply_to(substances);
     info!("Authored substance layer applied: {} entries ({} new).", patched, created);
 
-    let db = RecipeDatabase::from_parts(scraped, authored);
+    let db = RecipeDatabase::from_authored(authored);
     info!(
         "Recipe database built: {} entries ({} authored, {} milestones, {} epochs, {} substances in play).",
         db.map.len(),

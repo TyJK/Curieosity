@@ -494,9 +494,9 @@ mod tests {
 
     #[test]
     fn unknown_vessels_and_substances_are_kept_not_lost() {
-        let save = SaveData::parse("(discovered:[1,5,424242],unlocked:[Mix,Centrifuge])").unwrap();
+        let save = SaveData::parse("(discovered:[1,5,424242],unlocked:[Mix,Replicator])").unwrap();
         assert_eq!(save.unlocked, vec![ProcessType::Mix]);
-        assert_eq!(save.dormant_vessels, vec!["Centrifuge".to_string()]);
+        assert_eq!(save.dormant_vessels, vec!["Replicator".to_string()]);
         let settled = save.settle(|id| id != 424242);
         assert_eq!(settled.discovered, vec![1, 5]);
         assert_eq!(settled.dormant, vec![424242]);
@@ -504,7 +504,7 @@ mod tests {
         let later = SaveData::parse(&settled.to_text()).unwrap().settle(|_| true);
         assert_eq!(later.discovered, vec![1, 5, 424242]);
         assert!(later.dormant.is_empty());
-        assert_eq!(later.dormant_vessels, vec!["Centrifuge".to_string()]);
+        assert_eq!(later.dormant_vessels, vec!["Replicator".to_string()]);
     }
 
     #[test]
