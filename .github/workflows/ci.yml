@@ -52,8 +52,10 @@ jobs:
       - name: Rust
         shell: bash
         run: rustup show active-toolchain || rustup toolchain install
+      # the game's window loads the X11 libraries (the keyboard's among them) when it starts,
+      # so the runtime ones are needed as well as those it builds against
       - name: Libraries, a virtual display and a software Vulkan renderer
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libasound2-dev libudev-dev libwayland-dev libxkbcommon-dev xvfb mesa-vulkan-drivers libvulkan1
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libasound2-dev libudev-dev libwayland-dev libxkbcommon-dev libxkbcommon-x11-0 libx11-xcb1 libxcursor1 libxrandr2 libxi6 xvfb mesa-vulkan-drivers libvulkan1
       - uses: Swatinem/rust-cache@v2
       - run: cargo build --release
       - name: Play
