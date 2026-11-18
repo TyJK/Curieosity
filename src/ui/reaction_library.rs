@@ -4,8 +4,9 @@
 // discovered), grouped by era, searchable. The page on the right shows the vessel, the
 // balanced equation, the conditions, the reactants and products (click one to open it in
 // the Substance Library), the history blurb and the references.
-use crate::ui::{Button, Interaction};
+use crate::ui::{Button, Clicked};
 use bevy::prelude::*;
+use bevy::ui::Pressed;
 use bevy::ui::ScrollPosition;
 
 use crate::components::format_formula;
@@ -103,7 +104,7 @@ pub fn spawn_reaction_library(mut commands: Commands, fonts: Res<UiFonts>, asset
     let fonts = &*fonts;
     let assets = &*assets;
     commands
-        .spawn((ReactionLibRoot, theme::view_root(610), Name::new("ReactionLibRoot")))
+        .spawn((ReactionLibRoot, crate::ui::shell::SplitRoot, theme::view_root(610), Name::new("ReactionLibRoot")))
         .insert(Node {
             position_type: PositionType::Absolute,
             left: Val::Px(0.0),
@@ -116,6 +117,7 @@ pub fn spawn_reaction_library(mut commands: Commands, fonts: Res<UiFonts>, asset
         })
         .with_children(|root| {
             root.spawn((
+                crate::ui::shell::SplitList(LIST_W),
                 Node {
                     width: Val::Px(LIST_W),
                     min_width: Val::Px(LIST_W),
@@ -195,6 +197,7 @@ pub fn spawn_reaction_library(mut commands: Commands, fonts: Res<UiFonts>, asset
                 });
             });
             root.spawn((
+                crate::ui::shell::SplitPane,
                 ReactionLibScrollable { is_left: false },
                 ScrollPosition::default(),
                 Node {
@@ -222,14 +225,12 @@ pub fn spawn_reaction_library(mut commands: Commands, fonts: Res<UiFonts>, asset
 
 /// Show/hide the library; the close button returns to the lab.
 pub fn reaction_lib_button_system(
-    closes: Query<&Interaction, (Changed<Interaction>, With<ReactionLibCloseButton>)>,
+    closes: Query<(), (With<Clicked>, With<ReactionLibCloseButton>)>,
     mut state: ResMut<ReactionLibState>,
     mut root_q: Query<&mut Node, With<ReactionLibRoot>>,
 ) {
-    for i in &closes {
-        if *i == Interaction::Pressed {
-            state.open = false;
-        }
+    if !closes.is_empty() {
+        state.open = false;
     }
     if let Ok(mut node) = root_q.single_mut() {
         let d = if state.open { Display::Flex } else { Display::None };
@@ -245,7 +246,7 @@ pub fn reaction_lib_search_system(
     keys: Res<ButtonInput<KeyCode>>,
     mut state: ResMut<ReactionLibState>,
     mut text_q: Query<(&mut Text, &mut TextColor), With<ReactionLibSearchText>>,
-    boxes: Query<&Interaction, (Changed<Interaction>, With<ReactionLibSearchBox>)>,
+    boxes: Query<(), (With<Clicked>, With<ReactionLibSearchBox>)>,
     mut typing: ResMut<crate::ui::inventory::TypingBox>,
 ) {
     use crate::ui::inventory::TypingBox;
@@ -257,11 +258,9 @@ pub fn reaction_lib_search_system(
         return;
     }
     let mut search = state.search.clone();
-    for i in &boxes {
-        if *i == Interaction::Pressed {
-            *typing = TypingBox::Reactions;
-            crate::platform::keyboard_show(&state.search);
-        }
+    if !boxes.is_empty() {
+        *typing = TypingBox::Reactions;
+        crate::platform::keyboard_show(&state.search);
     }
     if *typing == TypingBox::Reactions {
         if let Some(t) = crate::platform::keyboard_text() {
@@ -387,7 +386,7 @@ pub fn reaction_lib_window_system(
         &mut Node,
         (Or<(With<ReactionLibEntry>, With<ReactionLibHeading>)>, Without<ReactionLibListContent>),
     >,
-    pressed: Query<&Interaction, With<ReactionLibEntry>>,
+    pressed: Query<(), (With<ReactionLibEntry>, Or<(With<Pressed>, With<Clicked>)>)>,
     fonts: Res<UiFonts>,
     assets: Res<AssetServer>,
 ) {
@@ -401,7 +400,7 @@ pub fn reaction_lib_window_system(
         return;
     };
     let focused = focus.and_then(|f| f.entity);
-    let keep = |e: Entity| Some(e) == focused || pressed.get(e).is_ok_and(|i| *i == Interaction::Pressed);
+    let keep = |e: Entity| Some(e) == focused || pressed.contains(e);
     let (width, view_h) = if state.open {
         (cn.size.x * cn.inverse_scale_factor(), view.size.y * view.inverse_scale_factor())
     } else {
@@ -546,11 +545,11 @@ fn spawn_list_row(
 }
 
 pub fn reaction_lib_entry_click_system(
-    q: Query<(&Interaction, &ReactionLibEntry), (Changed<Interaction>, With<Button>)>,
+    q: Query<&ReactionLibEntry, (With<Clicked>, With<Button>)>,
     mut state: ResMut<ReactionLibState>,
 ) {
-    for (interaction, entry) in &q {
-        if *interaction == Interaction::Pressed && state.selected != Some(entry.0) {
+    for entry in &q {
+        if state.selected != Some(entry.0) {
             state.selected = Some(entry.0);
         }
     }
@@ -870,21 +869,17 @@ fn substance_card(
 
 /// Reference buttons open the browser; substance cards jump to the Substance Library.
 pub fn reaction_lib_link_click_system(
-    q: Query<(&Interaction, &ReactionLibRefLink), (Changed<Interaction>, With<Button>)>,
-    subs: Query<(&Interaction, &ReactionLibSubstanceLink), (Changed<Interaction>, With<Button>)>,
+    q: Query<&ReactionLibRefLink, (With<Clicked>, With<Button>)>,
+    subs: Query<&ReactionLibSubstanceLink, (With<Clicked>, With<Button>)>,
     mut state: ResMut<ReactionLibState>,
     mut codex: ResMut<CodexState>,
 ) {
-    for (interaction, link) in &q {
-        if *interaction == Interaction::Pressed {
-            open_url(&link.0);
-        }
+    for link in &q {
+        open_url(&link.0);
     }
-    for (interaction, link) in &subs {
-        if *interaction == Interaction::Pressed {
-            state.open = false;
-            codex.open = true;
-            codex.selected = Some(link.0);
-        }
+    for link in &subs {
+        state.open = false;
+        codex.open = true;
+        codex.selected = Some(link.0);
     }
 }

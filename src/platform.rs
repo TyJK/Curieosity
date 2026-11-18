@@ -101,6 +101,17 @@ pub const PHONE: bool = cfg!(any(target_os = "android", target_os = "ios"));
 /// True where typing comes from an on-screen keyboard (a phone) rather than key presses.
 pub const SOFT_KEYBOARD: bool = PHONE;
 
+/// Whether typing brings up an on-screen keyboard, so the shelf search clears the screen for
+/// it (SOFT_KEYBOARD; a resource so the review run can play a phone on a desktop).
+#[derive(Resource, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct SoftKeyboard(pub bool);
+
+impl Default for SoftKeyboard {
+    fn default() -> Self {
+        Self(SOFT_KEYBOARD)
+    }
+}
+
 /// Show the on-screen keyboard, starting from `text` (does nothing on a desktop).
 pub fn keyboard_show(text: &str) {
     #[cfg(target_os = "android")]

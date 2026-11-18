@@ -555,7 +555,7 @@ X("ChloralHydrate", "Chloral Hydrate", "C2H3Cl3O2", "Solid", "The first syntheti
 X("Cellulose", "Cotton", "(C6H10O5)n", "Solid", "Nearly pure cellulose, the most abundant organic polymer on Earth.", "Cellulose", id=0, balance="C6H10O5", props=["IsPolymer"], color="#f8f8f4")
 X("Guncotton", "Guncotton", "C6H7N3O11", "Solid", "Nitrocellulose, discovered by Schönbein in 1846 when he wiped spilled acid with his wife's cotton apron and it vanished in a flash.", "Nitrocellulose", id=0)
 X("Nitroglycerin", "Nitroglycerin", "C3H5N3O9", "Liquid", id=0)
-X("O3", "Ozone", "O3", "Gas", "Three-atom oxygen with a sharp electric smell, named by Schönbein in 1840 from the Greek for 'to smell'. High in the stratosphere it shields life from UV.", "Ozone", id=0)
+X("O3", "Ozone", "O3", "Gas", "Three-atom oxygen with a sharp electric smell, named by Schönbein in 1840 from the Greek for 'to smell'. High in the stratosphere it shields life from UV.", "Ozone", id=0, props=("IsTransient",))
 X("Fe3O4", "Magnetite", "Fe3O4", "Solid", "Lodestone, naturally magnetic iron oxide: the first compass. Also the black oxide on blued steel and the iron sludge of the Béchamp reduction.", "Magnetite", id=0, color="#202020")
 X("Coal", "Coal", "C", "Solid", "Fossilised plant matter, mostly carbon. The fuel of the Industrial Revolution and the source of coke, coal gas and coal tar.", "Coal", id=312, balance="C", color="#181818")
 X("Coke", "Coke", "C", "Solid", "Coal baked to drive off its volatiles: nearly pure, strong, porous carbon. Abraham Darby used it in place of charcoal at Coalbrookdale in 1709, unchaining iron from the forests.", "Coke_(fuel)", id=313, color="#3a3a3a")

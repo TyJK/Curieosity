@@ -48,6 +48,11 @@ impl Ingredient {
         Self { id, name: name.into(), formula: formula.into(), state, properties, amount: 1 }
     }
 
+    /// Made and used at once, never kept (Property::IsTransient).
+    pub fn is_transient(&self) -> bool {
+        self.properties.contains(&Property::IsTransient)
+    }
+
     /// Convenience label for UI like: "Hydrogen (H)".
     pub fn label(&self) -> String {
         let base = format_formula(&self.formula);

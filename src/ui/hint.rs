@@ -12,7 +12,7 @@
 // left out, even when already discovered, so the player makes them again on the way (by
 // carrying products from vessel to vessel, or linking the vessels), and a few unrelated
 // substances are mixed in to be ruled out. A setting (and the card) turns the kit off.
-use crate::ui::Interaction;
+use crate::ui::Clicked;
 use std::collections::{HashSet, VecDeque};
 
 use bevy::prelude::*;
@@ -140,18 +140,35 @@ pub fn plan_kit(
     if let Some(c) = fin.required_catalyst() {
         add_item(&mut items, c);
     }
-    let mut queue: VecDeque<(u32, usize)> = fin.reactants.iter().map(|s| (s.substance_id, 1)).collect();
+    // a transient's step is taken first, so the steps it can't do without are never crowded out
+    let transient_first = |q: &mut VecDeque<(u32, usize)>, r: &Reaction, depth: usize| {
+        for x in &r.reactants {
+            if db.transient.contains(&x.substance_id) {
+                q.push_front((x.substance_id, depth));
+            } else {
+                q.push_back((x.substance_id, depth));
+            }
+        }
+    };
+    let mut queue: VecDeque<(u32, usize)> = VecDeque::new();
+    transient_first(&mut queue, fin, 1);
     while let Some((s, depth)) = queue.pop_front() {
         if expanded.contains(&s) || items.contains(&s) {
             continue;
         }
-        let maker = if depth <= MAX_DEPTH && steps.len() < MAX_STEPS && !base.contains(&s) {
+        // a transient is never on the shelf: its step is always part of the route
+        let must_make = db.transient.contains(&s);
+        let maker = if must_make || (depth <= MAX_DEPTH && steps.len() < MAX_STEPS && !base.contains(&s)) {
             db.authored.iter().find(|r| {
                 r.products.iter().any(|p| p.substance_id == s)
                     && can_run(r, known, open)
                     && !steps.contains(&r.id)
                     // no loops: never back through the target or anything already being made
                     && r.reactants.iter().all(|x| !expanded.contains(&x.substance_id) && x.substance_id != s)
+                    // a step taking a transient brings the transient's own step: room for both
+                    && (must_make
+                        || steps.len() + 1 + r.reactants.iter().filter(|x| db.transient.contains(&x.substance_id)).count()
+                            <= MAX_STEPS)
             })
         } else {
             None
@@ -163,7 +180,7 @@ pub fn plan_kit(
                 if let Some(c) = r.required_catalyst() {
                     add_item(&mut items, c);
                 }
-                queue.extend(r.reactants.iter().map(|x| (x.substance_id, depth + 1)));
+                transient_first(&mut queue, r, depth + 1);
             }
             None => add_item(&mut items, s),
         }
@@ -300,6 +317,9 @@ pub struct HintShowTree(pub u32);
 /// A hint line on the card (the checks read them).
 #[derive(Component)]
 pub struct HintLine;
+/// The lesson under the hints: the kind of change the step is (systems::lessons).
+#[derive(Component)]
+pub struct HintLesson;
 
 pub fn spawn_hint_ui(
     mut commands: Commands,
@@ -375,9 +395,8 @@ pub fn spawn_hint_ui(
                 BackgroundColor(card_look().0),
                 BorderColor::all(card_look().1),
                 theme::shadow(18.0, 6.0, 0.5),
-                Pickable::default(),
                 // a tap on the card stays on the card
-                bevy::ui::FocusPolicy::Block,
+                Pickable::default(),
             ));
         });
 }
@@ -411,11 +430,17 @@ pub fn hint_lines(
         }
     }
     if level >= 2 {
-        let all: Vec<String> = r.reactants.iter().map(|s| name(s.substance_id)).collect();
+        // with the equation's amounts, for balanced play: "2 Hydrochloric acid + Zinc"
+        let all: Vec<String> = r
+            .reactants
+            .iter()
+            .map(|s| if s.moles > 1 { format!("{} {}", s.moles, name(s.substance_id)) } else { name(s.substance_id) })
+            .collect();
         out.push(format!("Ingredients: {}", all.join(" + ")));
         if let Some(c) = r.required_catalyst() {
             out.push(format!("Catalyst: {}", name(c)));
         }
+        out.extend(transient_lines(db, r, name));
     }
     if level >= LAST_LEVEL {
         out.push(format!("In the {}", vessel_name(&r.process)));
@@ -424,12 +449,43 @@ pub fn hint_lines(
             for (i, id) in k.steps.iter().enumerate() {
                 if let Some(s) = db.authored.iter().find(|x| x.id == *id) {
                     let ins: Vec<String> = s.reactants.iter().map(|x| name(x.substance_id)).collect();
-                    out.push(format!("{}. {}: {} in the {}", i + 1, s.name, ins.join(" + "), vessel_name(&s.process)));
+                    let mut line =
+                        format!("{}. {}: {} in the {}", i + 1, s.name, ins.join(" + "), vessel_name(&s.process));
+                    // a transient it makes goes straight on to the step that uses it
+                    let fed =
+                        k.steps[i + 1..].iter().filter_map(|n| db.authored.iter().find(|x| x.id == *n)).find(|x| {
+                            x.reactants.iter().any(|a| {
+                                db.transient.contains(&a.substance_id)
+                                    && s.products.iter().any(|p| p.substance_id == a.substance_id)
+                            })
+                        });
+                    if let Some(next) = fed {
+                        line.push_str(&format!(", linked into the {}", vessel_name(&next.process)));
+                    }
+                    out.push(line);
                 }
             }
         }
     }
     out
+}
+
+/// For each transient a step takes: it doesn't keep, so where it comes from and how.
+pub fn transient_lines(db: &RecipeDatabase, r: &Reaction, name: &dyn Fn(u32) -> String) -> Vec<String> {
+    r.reactants
+        .iter()
+        .filter(|s| db.transient.contains(&s.substance_id))
+        .filter_map(|s| {
+            let maker = db.maker_of(s.substance_id)?;
+            Some(format!(
+                "{} doesn't keep: make it by {} in the {}, linked into the {}.",
+                name(s.substance_id),
+                maker.name,
+                vessel_name(&maker.process),
+                vessel_name(&r.process)
+            ))
+        })
+        .collect()
 }
 
 /// Opens and closes the hint, picks targets, gives hints.
@@ -441,12 +497,9 @@ pub fn hint_input_system(
     unlocks: Res<ProcessUnlocks>,
     mut settings: ResMut<Settings>,
     mut tree: ResMut<TechTreeState>,
-    buttons: Query<
-        (&Interaction, AnyOf<(&HintButton, &HintMore, &HintChange, &HintClose, &HintKitToggle)>),
-        Changed<Interaction>,
-    >,
-    picks: Query<(&Interaction, &HintPick), Changed<Interaction>>,
-    show: Query<(&Interaction, &HintShowTree), Changed<Interaction>>,
+    buttons: Query<AnyOf<(&HintButton, &HintMore, &HintChange, &HintClose, &HintKitToggle)>, With<Clicked>>,
+    picks: Query<&HintPick, With<Clicked>>,
+    show: Query<&HintShowTree, With<Clicked>>,
 ) {
     let Some(db) = db else { return };
     // the decoy setting changed while chasing: the same target, its kit re-planned
@@ -455,14 +508,16 @@ pub fn hint_input_system(
         choose(&mut state, t, &db, &progress, &unlocks, settings.decoy_range());
         state.level = level;
     }
-    for (i, (open, more, change, close, kit)) in &buttons {
-        if *i != Interaction::Pressed {
-            continue;
-        }
+    for (open, more, change, close, kit) in &buttons {
         if open.is_some() || change.is_some() {
             let known = |id: u32| progress.discovered.contains(&id);
             let vessels = |p: &ProcessType| unlocks.0.contains(p);
             state.offered = targets(&db, &known, &vessels);
+            // the button's suggestion leads the list
+            if let Some(i) = state.suggested.and_then(|t| state.offered.iter().position(|o| *o == t)) {
+                let t = state.offered.remove(i);
+                state.offered.insert(0, t);
+            }
             state.list_open = true;
         } else if more.is_some() {
             state.level = (state.level + 1).min(LAST_LEVEL);
@@ -476,16 +531,12 @@ pub fn hint_input_system(
             settings.kit = !settings.kit;
         }
     }
-    for (i, pick) in &picks {
-        if *i == Interaction::Pressed {
-            choose(&mut state, pick.0, &db, &progress, &unlocks, settings.decoy_range());
-        }
+    for pick in &picks {
+        choose(&mut state, pick.0, &db, &progress, &unlocks, settings.decoy_range());
     }
-    for (i, s) in &show {
-        if *i == Interaction::Pressed {
-            tree.open = true;
-            tree.selected = Some(s.0);
-        }
+    for s in &show {
+        tree.open = true;
+        tree.selected = Some(s.0);
     }
 }
 
@@ -510,9 +561,13 @@ pub fn hint_progress_system(
     }
 }
 
-/// The button names the next thing to try, the first target the list would offer, so
-/// there is something to aim for without opening anything. Worked out again as things are
-/// found and vessels unlock.
+/// How long the button keeps one suggestion before offering another (real seconds).
+pub const SUGGEST_FOR: f64 = 75.0;
+
+/// The button names something to try next, so there is something to aim for without
+/// opening anything. It takes turns among the targets the list would offer, moving on with
+/// each discovery and every SUGGEST_FOR seconds, so one the player isn't drawn to doesn't
+/// sit there for the rest of the era.
 #[allow(clippy::too_many_arguments)]
 pub fn hint_suggest_system(
     mut state: ResMut<HintState>,
@@ -521,19 +576,27 @@ pub fn hint_suggest_system(
     unlocks: Res<ProcessUnlocks>,
     game_data: Option<Res<GameData>>,
     substances: Res<Assets<Substances>>,
+    time: Res<Time<Real>>,
     mut text: Query<&mut Text, With<HintButtonText>>,
     mut done_for: Local<Option<(usize, usize, bool, usize)>>,
+    mut turn: Local<(usize, f64)>,
 ) {
     let Some(db) = db else { return };
     let subs = game_data.as_ref().and_then(|g| substances.get(&g.substances));
     let key = (progress.discovered.len(), unlocks.0.len(), subs.is_some(), text.iter().count());
-    if *done_for == Some(key) && !progress.is_changed() && !unlocks.is_changed() {
+    let now = time.elapsed_secs_f64();
+    let due = now - turn.1 >= SUGGEST_FOR;
+    if *done_for == Some(key) && !progress.is_changed() && !unlocks.is_changed() && !due {
         return;
+    }
+    if due || done_for.is_some_and(|k| k.0 != key.0) {
+        *turn = (turn.0 + 1, now);
     }
     *done_for = Some(key);
     let known = |id: u32| progress.discovered.contains(&id);
     let open = |p: &ProcessType| unlocks.0.contains(p);
-    let next = targets(&db, &known, &open).first().copied();
+    let list = targets(&db, &known, &open);
+    let next = (!list.is_empty()).then(|| list[turn.0 % list.len()]);
     if state.suggested != next {
         state.suggested = next;
     }
@@ -746,6 +809,15 @@ pub fn hint_view_system(
         .with_children(|lines| {
             for line in hint_lines(&db, state.kit.as_ref(), t, state.level, &name) {
                 lines.spawn((HintLine, theme::para(&fonts, line, theme::XS, theme::TEXT_2, Val::Px(CARD_W - 26.0)), Pickable::IGNORE));
+            }
+            // from the first hint on, the idea behind the step
+            let step = db.authored.iter().find(|r| r.id == t.reaction);
+            if let (true, Some(r), Some(subs)) = (state.level >= 1, step, subs) {
+                lines.spawn((
+                    HintLesson,
+                    theme::para(&fonts, crate::systems::lessons::lesson(r, subs), theme::XS, theme::mix(theme::GOLD, theme::TEXT, 0.35), Val::Px(CARD_W - 26.0)),
+                    Pickable::IGNORE,
+                ));
             }
         });
         p.spawn(Node {

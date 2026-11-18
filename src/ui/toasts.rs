@@ -8,7 +8,7 @@
 // The discoveries and milestones also go into the journal (kept in the save), which the
 // bell in the header opens: every past notification, newest first. Hints about the reaction
 // in hand are left out of it.
-use crate::ui::{Button, Interaction};
+use crate::ui::{Button, Clicked};
 use bevy::prelude::*;
 
 use crate::resources::ui_fonts::UiFonts;
@@ -101,6 +101,8 @@ pub struct ToastStack;
 pub struct Toast {
     age: f32,
     lifetime: f32,
+    /// what it says: the same words again keep this one up instead of stacking a copy
+    text: String,
 }
 
 const MAX_VISIBLE: usize = 4;
@@ -147,6 +149,7 @@ pub fn spawn_toasts_system(
     stack_q: Query<(Entity, Option<&Children>), With<ToastStack>>,
     room: Res<ToastRoom>,
     mut journal: ResMut<Journal>,
+    mut showing: Query<&mut Toast>,
 ) {
     let cap = room.0.clamp(1, MAX_VISIBLE);
     // the room shrank (a smaller screen, a bigger interface): the oldest go first
@@ -168,6 +171,25 @@ pub fn spawn_toasts_system(
         toasts.0.clear();
         return;
     }
+    // discovery cards announce discoveries themselves (ui::discovery_card)
+    if settings.as_ref().is_none_or(|s| s.discovery_cards) {
+        toasts.0.retain(|(kind, _)| *kind != ToastKind::Discovery);
+        if toasts.0.is_empty() {
+            return;
+        }
+    }
+    // the same words as a pop-up still up (a port tapped twice): it starts its time over,
+    // still sliding in if it hasn't yet, and no copy stacks under it
+    toasts.0.retain(|(_, text)| {
+        let Some(mut t) = showing.iter_mut().find(|t| t.text == *text && t.age < t.lifetime - 1.0) else {
+            return true;
+        };
+        t.age = t.age.min(0.3);
+        false
+    });
+    if toasts.0.is_empty() {
+        return;
+    }
     let (Some(fonts), Ok((stack, children))) = (fonts, stack_q.single()) else { return };
 
     // Drop the oldest visible toasts if the queue would overflow the stack.
@@ -176,7 +198,7 @@ pub fn spawn_toasts_system(
     let excess = (visible + incoming).saturating_sub(cap);
     if let Some(children) = children {
         for child in children.iter().take(excess) {
-            commands.entity(child).despawn();
+            commands.entity(child).try_despawn();
         }
     }
 
@@ -187,7 +209,7 @@ pub fn spawn_toasts_system(
             let accent = kind.accent();
             parent
                 .spawn((
-                    Toast { age: 0.0, lifetime: kind.lifetime() },
+                    Toast { age: 0.0, lifetime: kind.lifetime(), text: text.clone() },
                     Pickable::IGNORE,
                     Node {
                         border_radius: BorderRadius::all(Val::Px(theme::R_MD)),
@@ -234,7 +256,7 @@ pub fn fade_toasts_system(
     for (entity, mut toast, mut bg, mut border, mut tf, children) in &mut toasts {
         toast.age += time.delta_secs();
         if toast.age >= toast.lifetime {
-            commands.entity(entity).despawn();
+            commands.entity(entity).try_despawn();
             continue;
         }
         let slide = (toast.age / 0.18).min(1.0);
@@ -330,7 +352,6 @@ pub fn spawn_journal(mut commands: Commands, fonts: Res<UiFonts>, assets: Res<As
                 BorderColor::all(theme::LINE_STRONG),
                 theme::shadow(40.0, 14.0, 0.6),
                 Pickable::default(),
-                bevy::ui::FocusPolicy::Block,
             ))
             .with_children(|dialog| {
                 dialog
@@ -380,12 +401,10 @@ pub fn spawn_journal(mut commands: Commands, fonts: Res<UiFonts>, assets: Res<As
 
 pub fn journal_input_system(
     mut ui: ResMut<JournalUi>,
-    closers: Query<&Interaction, (Changed<Interaction>, Or<(With<JournalClose>, With<JournalBackdrop>)>)>,
+    closers: Query<(), (With<Clicked>, Or<(With<JournalClose>, With<JournalBackdrop>)>)>,
 ) {
-    for i in &closers {
-        if *i == Interaction::Pressed {
-            ui.open = false;
-        }
+    if !closers.is_empty() {
+        ui.open = false;
     }
 }
 

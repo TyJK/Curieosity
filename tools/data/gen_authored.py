@@ -109,7 +109,7 @@ MAX_MILESTONE_GAP = 90  # planner steps (era reactions) between two milestones
 
 STATES = {"Solid", "Liquid", "Gas", "Aqueous"}
 PROPS = {"IsAcid", "IsBase", "IsMetal", "IsRadioactive", "IsMonomer", "IsPolymer", "IsMedicine", "IsClass",
-         "IsElectrolyte", "IsPhotochromic"}
+         "IsElectrolyte", "IsPhotochromic", "IsTransient"}
 
 # --------------------------------------------------------------------------------------
 # Content records
@@ -489,6 +489,28 @@ def validate(content, strict=True):
     if any(id(r) not in parsed for r in rxns):
         return errors, warnings, {}, parsed, set()
 
+    # Transients (IsTransient): made and used at once, never kept. The game lets one decay
+    # unless a link carries it straight from the vessel that makes it into the one that uses
+    # it, so each must have a maker, never be handed out or sit in a catalyst slot, and a
+    # step can take only one (one link in) and a maker can't need one (one link deep).
+    transient = {k for k, s in subs.items() if "IsTransient" in s.props}
+    granted = set(content.START) | {x for m in content.MILESTONES for x in m.grant}
+    for k in sorted(transient & granted):
+        errors.append(f"{k}: a transient can't be handed out (it doesn't keep)")
+    makers = {k: [r for r in rxns if any(kk == k for _, kk in parsed[id(r)][1])] for k in transient}
+    for k in sorted(transient):
+        if not makers[k]:
+            errors.append(f"{k}: a transient needs a step that makes it")
+        for m in makers[k]:
+            if any(kk in transient for _, kk in parsed[id(m)][0]):
+                errors.append(f"[{m.name}] makes the transient {k} from another transient")
+    for r in rxns:
+        ins = [k for _, k in parsed[id(r)][0] if k in transient]
+        if len(ins) > 1:
+            errors.append(f"[{r.name}] takes two transients ({', '.join(ins)}): one link can carry only one in")
+        if r.cat in transient:
+            errors.append(f"[{r.name}] has the transient {r.cat} as its catalyst")
+
     # --- the vessel table itself: a catalyst recipe must run in every vessel above it ---
     for p, (vname, fam, tier, slot) in VESSELS.items():
         for q2, (v2, f2, t2, s2) in VESSELS.items():
@@ -683,7 +705,7 @@ def write_reactions(content, parsed, out_path):
 
 
 # properties that mark what a substance is for, rather than what it is chemically
-TAGS = {"IsMedicine", "IsClass"}
+TAGS = {"IsMedicine", "IsClass", "IsTransient"}
 
 
 def library_properties(path):

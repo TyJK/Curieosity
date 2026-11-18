@@ -3,6 +3,7 @@ pub mod autoplay;
 pub mod discovery;
 pub mod drag_drop;
 pub mod input_checks;
+pub mod lessons;
 pub mod link_renderer;
 pub mod navigation;
 pub mod reaction_check;

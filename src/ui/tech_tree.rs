@@ -18,8 +18,10 @@
 //     (from the earliest step that makes each one), and the detail bar lists each need with
 //     the step it comes from, one tap away.
 //   * The graph pans with the wheel (Shift for sideways) or by dragging the background.
-use crate::ui::{Button, Interaction};
+use crate::ui::{Button, Clicked, Look};
+use bevy::picking::hover::Hovered;
 use bevy::prelude::*;
+use bevy::ui::Pressed;
 use bevy::ui::ScrollPosition;
 use std::collections::HashMap;
 
@@ -72,6 +74,14 @@ pub struct TechListContent;
 pub struct TechDetailBar;
 #[derive(Component)]
 pub struct TechSummaryText;
+/// The toolbar, its title and counts, and its legend with Graph / List: one row, or held
+/// upright two (tech_toolbar_fit_system).
+#[derive(Component)]
+pub struct TechToolbar;
+#[derive(Component)]
+pub struct TechToolbarTitle;
+#[derive(Component)]
+pub struct TechToolbarTools;
 #[derive(Component)]
 pub struct TechOpenInLibrary(pub u32);
 /// A graph node; remembers its state so the selection/hover look can be recomputed.
@@ -228,12 +238,13 @@ pub fn spawn_tech_tree(mut commands: Commands, fonts: Res<UiFonts>, assets: Res<
         .with_children(|root| {
             // --- toolbar: title + summary, legend, Graph/List, close ---
             root.spawn((
+                TechToolbar,
                 Node {
                     width: Val::Percent(100.0),
                     height: Val::Px(TOOLBAR_H),
                     flex_shrink: 0.0,
                     align_items: AlignItems::Center,
-                    justify_content: JustifyContent::SpaceBetween,
+                    column_gap: Val::Px(18.0),
                     padding: UiRect::horizontal(Val::Px(18.0)),
                     border: UiRect::bottom(Val::Px(1.0)),
                     ..default()
@@ -242,71 +253,77 @@ pub fn spawn_tech_tree(mut commands: Commands, fonts: Res<UiFonts>, assets: Res<
                 BorderColor::all(theme::LINE),
             ))
             .with_children(|bar| {
-                bar.spawn(Node { align_items: AlignItems::Baseline, column_gap: Val::Px(14.0), ..default() })
-                    .with_children(|t| {
-                        t.spawn(theme::label(fonts, "Tech Tree", theme::XL, Weight::Semibold, theme::TEXT));
-                        t.spawn((TechSummaryText, theme::label(fonts, "", theme::SM, Weight::Regular, theme::TEXT_2)));
-                    });
-                bar.spawn(Node { align_items: AlignItems::Center, column_gap: Val::Px(18.0), ..default() })
-                    .with_children(|r| {
-                        // legend
-                        r.spawn(Node { align_items: AlignItems::Center, column_gap: Val::Px(14.0), ..default() })
-                            .with_children(|lg| {
-                                for s in [NodeState::Completed, NodeState::Available, NodeState::Locked] {
-                                    lg.spawn(Node {
-                                        align_items: AlignItems::Center,
-                                        column_gap: Val::Px(6.0),
-                                        ..default()
-                                    })
-                                    .with_children(|i| {
-                                        i.spawn(theme::icon(assets, state_icon(s), 14.0, state_accent(s)));
-                                        i.spawn(theme::label(
-                                            fonts,
-                                            state_label(s),
-                                            theme::XS,
-                                            Weight::Semibold,
-                                            theme::TEXT_2,
-                                        ));
-                                    });
-                                }
-                            });
-                        // segmented Graph / List
-                        r.spawn((
-                            Node {
-                                border_radius: BorderRadius::all(Val::Px(99.0)),
-                                padding: UiRect::all(Val::Px(3.0)),
-                                column_gap: Val::Px(2.0),
-                                border: UiRect::all(Val::Px(1.0)),
-                                ..default()
-                            },
-                            BackgroundColor(theme::BG),
-                            BorderColor::all(theme::LINE),
-                        ))
-                        .with_children(|seg| {
-                            for (label, mode) in [("Graph", TechMode::Graph), ("List", TechMode::List)] {
-                                seg.spawn((
-                                    theme::button(
-                                        Kind::Tab,
-                                        Node {
-                                            height: Val::Px(26.0),
-                                            padding: UiRect::horizontal(Val::Px(14.0)),
-                                            align_items: AlignItems::Center,
-                                            ..default()
-                                        },
-                                        99.0,
-                                    ),
-                                    TechModeButton(mode),
-                                ))
-                                .with_children(|b| {
-                                    b.spawn((
-                                        theme::label(fonts, label, theme::SM, Weight::Semibold, theme::TEXT),
-                                        Pickable::IGNORE,
+                bar.spawn((
+                    TechToolbarTitle,
+                    Node { flex_grow: 1.0, align_items: AlignItems::Baseline, column_gap: Val::Px(14.0), ..default() },
+                ))
+                .with_children(|t| {
+                    t.spawn(theme::label(fonts, "Tech Tree", theme::XL, Weight::Semibold, theme::TEXT));
+                    t.spawn((TechSummaryText, theme::label(fonts, "", theme::SM, Weight::Regular, theme::TEXT_2)));
+                });
+                bar.spawn((
+                    TechToolbarTools,
+                    Node { align_items: AlignItems::Center, column_gap: Val::Px(18.0), ..default() },
+                ))
+                .with_children(|r| {
+                    // legend
+                    r.spawn(Node { align_items: AlignItems::Center, column_gap: Val::Px(14.0), ..default() })
+                        .with_children(|lg| {
+                            for s in [NodeState::Completed, NodeState::Available, NodeState::Locked] {
+                                lg.spawn(Node {
+                                    align_items: AlignItems::Center,
+                                    column_gap: Val::Px(6.0),
+                                    ..default()
+                                })
+                                .with_children(|i| {
+                                    i.spawn(theme::icon(assets, state_icon(s), 14.0, state_accent(s)));
+                                    i.spawn(theme::label(
+                                        fonts,
+                                        state_label(s),
+                                        theme::XS,
+                                        Weight::Semibold,
+                                        theme::TEXT_2,
                                     ));
                                 });
                             }
                         });
-                        theme::spawn_icon_button(r, assets, "close", 32.0, theme::TEXT_2, TechCloseButton);
+                    // segmented Graph / List
+                    r.spawn((
+                        Node {
+                            border_radius: BorderRadius::all(Val::Px(99.0)),
+                            padding: UiRect::all(Val::Px(3.0)),
+                            column_gap: Val::Px(2.0),
+                            border: UiRect::all(Val::Px(1.0)),
+                            ..default()
+                        },
+                        BackgroundColor(theme::BG),
+                        BorderColor::all(theme::LINE),
+                    ))
+                    .with_children(|seg| {
+                        for (label, mode) in [("Graph", TechMode::Graph), ("List", TechMode::List)] {
+                            seg.spawn((
+                                theme::button(
+                                    Kind::Tab,
+                                    Node {
+                                        height: Val::Px(26.0),
+                                        padding: UiRect::horizontal(Val::Px(14.0)),
+                                        align_items: AlignItems::Center,
+                                        ..default()
+                                    },
+                                    99.0,
+                                ),
+                                TechModeButton(mode),
+                            ))
+                            .with_children(|b| {
+                                b.spawn((
+                                    theme::label(fonts, label, theme::SM, Weight::Semibold, theme::TEXT),
+                                    Pickable::IGNORE,
+                                ));
+                            });
+                        }
                     });
+                });
+                theme::spawn_icon_button(bar, assets, "close", 32.0, theme::TEXT_2, TechCloseButton);
             });
 
             // --- body: the two views stacked; only one shown at a time ---
@@ -399,29 +416,25 @@ pub fn spawn_tech_tree(mut commands: Commands, fonts: Res<UiFonts>, assets: Res<
 // Open / close / mode
 // ---------------------------------------------------------------------------------------
 pub fn tech_button_system(
-    closes: Query<&Interaction, (Changed<Interaction>, With<TechCloseButton>)>,
-    modes: Query<(&Interaction, &TechModeButton), Changed<Interaction>>,
-    opens: Query<(&Interaction, &TechOpenInLibrary), Changed<Interaction>>,
+    closes: Query<(), (With<Clicked>, With<TechCloseButton>)>,
+    modes: Query<&TechModeButton, With<Clicked>>,
+    opens: Query<&TechOpenInLibrary, With<Clicked>>,
     mut state: ResMut<TechTreeState>,
     mut rlib: ResMut<ReactionLibState>,
     mut root_q: Query<&mut Node, With<TechRoot>>,
 ) {
-    for i in &closes {
-        if *i == Interaction::Pressed {
-            state.open = false;
-        }
+    if !closes.is_empty() {
+        state.open = false;
     }
-    for (i, m) in &modes {
-        if *i == Interaction::Pressed && state.mode != m.0 {
+    for m in &modes {
+        if state.mode != m.0 {
             state.mode = m.0;
         }
     }
-    for (i, o) in &opens {
-        if *i == Interaction::Pressed {
-            state.open = false;
-            rlib.open = true;
-            rlib.selected = Some(o.0);
-        }
+    for o in &opens {
+        state.open = false;
+        rlib.open = true;
+        rlib.selected = Some(o.0);
     }
     if let Ok(mut node) = root_q.single_mut() {
         let d = if state.open { Display::Flex } else { Display::None };
@@ -938,7 +951,7 @@ pub fn tech_graph_window_system(
     focus: Option<Res<crate::ui::focus::KeyFocus>>,
     mut graph_q: Query<(Entity, &mut VirtualCanvas), With<TechGraphContent>>,
     view_q: Query<(&TechScrollable, &ComputedNode, &ScrollPosition)>,
-    pressed: Query<&Interaction, With<TechNodeButton>>,
+    pressed: Query<(), (With<TechNodeButton>, Or<(With<Pressed>, With<Clicked>)>)>,
     fonts: Res<UiFonts>,
     assets: Res<AssetServer>,
 ) {
@@ -955,7 +968,7 @@ pub fn tech_graph_window_system(
         Rect::default()
     };
     let focused = focus.and_then(|f| f.entity);
-    let keep = |e: Entity| Some(e) == focused || pressed.get(e).is_ok_and(|i| *i == Interaction::Pressed);
+    let keep = |e: Entity| Some(e) == focused || pressed.contains(e);
     let Some(pass) = canvas.plan(view, keep) else {
         return;
     };
@@ -1210,7 +1223,7 @@ pub fn tech_list_window_system(
     mut content_q: Query<(Entity, &mut VirtualList, &mut Node, &ComputedNode), With<TechListContent>>,
     view_q: Query<(&TechScrollable, &ComputedNode, &ScrollPosition)>,
     mut cells: Query<&mut Node, (Or<(With<TechListEntry>, With<TechListHeading>)>, Without<TechListContent>)>,
-    pressed: Query<&Interaction, With<TechListEntry>>,
+    pressed: Query<(), (With<TechListEntry>, Or<(With<Pressed>, With<Clicked>)>)>,
     fonts: Res<UiFonts>,
     assets: Res<AssetServer>,
 ) {
@@ -1221,7 +1234,7 @@ pub fn tech_list_window_system(
         return;
     };
     let focused = focus.and_then(|f| f.entity);
-    let keep = |e: Entity| Some(e) == focused || pressed.get(e).is_ok_and(|i| *i == Interaction::Pressed);
+    let keep = |e: Entity| Some(e) == focused || pressed.contains(e);
     let (width, view_h) = if state.open && state.mode == TechMode::List {
         (cn.size.x * cn.inverse_scale_factor(), view.size.y * view.inverse_scale_factor())
     } else {
@@ -1450,28 +1463,25 @@ pub fn tech_selection_links_system(
 }
 
 pub fn tech_node_click_system(
-    nodes: Query<(&Interaction, &TechNodeButton), (Changed<Interaction>, With<Button>)>,
-    entries: Query<(&Interaction, &TechListEntry), (Changed<Interaction>, With<Button>)>,
-    needs: Query<(&Interaction, &TechNeedButton), (Changed<Interaction>, With<Button>)>,
+    nodes: Query<&TechNodeButton, (With<Clicked>, With<Button>)>,
+    entries: Query<&TechListEntry, (With<Clicked>, With<Button>)>,
+    needs: Query<&TechNeedButton, (With<Clicked>, With<Button>)>,
+    restyled: Query<(), (Changed<Hovered>, With<TechNodeButton>)>,
     mut links: ResMut<TechLinks>,
     mut state: ResMut<TechTreeState>,
-    mut looks: Query<(&TechNodeButton, &Interaction, &mut BackgroundColor, &mut BorderColor)>,
+    mut looks: Query<(&TechNodeButton, &Hovered, Has<Pressed>, &mut BackgroundColor, &mut BorderColor)>,
     mut rows: Query<(&TechListEntry, &mut Skin)>,
 ) {
     let mut sel = state.selected;
-    for (i, n) in &nodes {
-        if *i == Interaction::Pressed {
-            sel = Some(n.0);
-        }
+    for n in &nodes {
+        sel = Some(n.0);
     }
-    for (i, e) in &entries {
-        if *i == Interaction::Pressed {
-            sel = Some(e.0);
-        }
+    for e in &entries {
+        sel = Some(e.0);
     }
     // a need's chip: select the step that makes it, and bring it into view
-    for (i, n) in &needs {
-        if let (Interaction::Pressed, Some(p)) = (*i, n.0) {
+    for n in &needs {
+        if let Some(p) = n.0 {
             sel = Some(p);
             links.reveal = Some(p);
         }
@@ -1486,9 +1496,9 @@ pub fn tech_node_click_system(
             }
         }
     }
-    if changed || !nodes.is_empty() {
-        for (n, i, mut bg, mut border) in &mut looks {
-            let (b, c) = node_look(n.1, Some(n.0) == sel, *i == Interaction::Hovered);
+    if changed || !restyled.is_empty() {
+        for (n, h, pressed, mut bg, mut border) in &mut looks {
+            let (b, c) = node_look(n.1, Some(n.0) == sel, Look::of(h, pressed) == Look::Hover);
             bg.0 = b;
             *border = BorderColor::all(c);
         }
@@ -1641,7 +1651,14 @@ pub fn update_tech_detail_system(
                             None if n.granted => "a milestone".to_string(),
                             None => "no step yet".to_string(),
                         };
-                        let what = if n.catalyst { format!("{name} (catalyst)") } else { name };
+                        let what = if n.catalyst {
+                            format!("{name} (catalyst)")
+                        } else if db.transient.contains(&n.substance) {
+                            // it doesn't keep: a link brings it in from the step that makes it
+                            format!("{name} (linked in)")
+                        } else {
+                            name
+                        };
                         let have = progress.discovered.contains(&n.substance);
                         let accent = if have { theme::GREEN } else { warm };
                         row.spawn((
@@ -1689,14 +1706,56 @@ pub fn update_tech_detail_system(
 // ---------------------------------------------------------------------------------------
 // Scrolling and panning
 // ---------------------------------------------------------------------------------------
+/// Held upright the toolbar takes two rows: the title and its counts above (the close
+/// button stays in the corner), the legend and Graph / List below.
+#[allow(clippy::type_complexity)]
+pub fn tech_toolbar_fit_system(
+    portrait: Res<crate::ui::shell::Portrait>,
+    mut nodes: Query<
+        (&mut Node, Has<TechToolbar>, Has<TechToolbarTitle>, Has<TechToolbarTools>),
+        Or<(With<TechToolbar>, With<TechToolbarTitle>, With<TechToolbarTools>, With<TechCloseButton>)>,
+    >,
+) {
+    let up = portrait.0;
+    for (mut n, bar, title, tools) in &mut nodes {
+        let mut want = n.clone();
+        if bar {
+            want.height = if up { Val::Auto } else { Val::Px(TOOLBAR_H) };
+            want.flex_wrap = if up { FlexWrap::Wrap } else { FlexWrap::NoWrap };
+            want.row_gap = Val::Px(8.0);
+            want.padding = if up {
+                UiRect::new(Val::Px(16.0), Val::Px(16.0), Val::Px(10.0), Val::Px(10.0))
+            } else {
+                UiRect::horizontal(Val::Px(18.0))
+            };
+        } else if title {
+            // room on its right for the close button
+            want.width = if up { Val::Percent(100.0) } else { Val::Auto };
+            want.padding = UiRect::right(Val::Px(if up { 40.0 } else { 0.0 }));
+        } else if tools {
+            want.width = if up { Val::Percent(100.0) } else { Val::Auto };
+            want.justify_content = if up { JustifyContent::SpaceBetween } else { JustifyContent::Default };
+        } else {
+            // the close button: in the top corner upright, at the end of the row otherwise
+            want.position_type = if up { PositionType::Absolute } else { PositionType::Relative };
+            want.right = if up { Val::Px(10.0) } else { Val::Auto };
+            want.top = if up { Val::Px(6.0) } else { Val::Auto };
+        }
+        if *n != want {
+            *n = want;
+        }
+    }
+}
+
 /// Drag the graph background to pan (a press that starts on a node selects it instead).
 pub fn tech_pan_system(
     mouse: Res<ButtonInput<MouseButton>>,
     state: Res<TechTreeState>,
     windows: Query<&Window>,
     ui_scale: Res<UiScale>,
-    nodes: Query<&Interaction, With<TechNodeButton>>,
+    nodes: Query<(&Hovered, Has<Pressed>), With<TechNodeButton>>,
     mut scroll_q: Query<(&TechScrollable, &mut ScrollPosition)>,
+    graph: Query<(&ComputedNode, &UiGlobalTransform), With<TechGraphView>>,
     mut last: Local<Option<Vec2>>,
 ) {
     if !state.open || state.mode != TechMode::Graph {
@@ -1711,10 +1770,15 @@ pub fn tech_pan_system(
         return;
     };
     let s = ui_scale.0.max(0.01);
-    let top = (theme::HEADER_H + TOOLBAR_H) * s;
+    // where the graph starts, under the toolbar however many rows it takes
+    let top = graph
+        .iter()
+        .next()
+        .map(|(cn, gt)| (gt.translation.y - cn.size.y / 2.0) / win.scale_factor())
+        .unwrap_or((theme::HEADER_H + TOOLBAR_H) * s);
     let bottom = win.height() - DETAIL_H * s;
     if mouse.just_pressed(MouseButton::Left) {
-        let on_node = nodes.iter().any(|i| *i != Interaction::None);
+        let on_node = nodes.iter().any(|(h, pressed)| h.get() || pressed);
         *last = (!on_node && cursor.y > top && cursor.y < bottom).then_some(cursor);
         return;
     }

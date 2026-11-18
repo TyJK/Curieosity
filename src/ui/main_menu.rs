@@ -9,7 +9,7 @@
 // Behind every stage sits the lab's dot grid with a vessel from each family drifting over it,
 // its contents glowing and bubbling, and molecules turning among them; the menu adds a strip
 // of the eras, the player's own lit up to where they have reached.
-use crate::ui::Interaction;
+use crate::ui::Clicked;
 use bevy::prelude::*;
 
 use crate::data::common::ProcessType;
@@ -210,9 +210,8 @@ pub fn spawn_main_menu(mut commands: Commands) {
             ..default()
         },
         BackgroundColor(theme::BG),
-        Pickable::default(),
         // a tap here stays here
-        bevy::ui::FocusPolicy::Block,
+        Pickable::default(),
         Name::new("MainMenu"),
     ));
 }
@@ -639,10 +638,10 @@ fn spawn_notice(p: &mut ChildSpawnerCommands, fonts: &UiFonts) {
 #[allow(clippy::type_complexity)]
 pub fn main_menu_button_system(
     mut menu: ResMut<MainMenu>,
-    plays: Query<&Interaction, (Changed<Interaction>, With<MenuPlay>)>,
-    settings: Query<&Interaction, (Changed<Interaction>, With<MenuSettings>)>,
-    credits: Query<&Interaction, (Changed<Interaction>, With<MenuCredits>)>,
-    quits: Query<&Interaction, (Changed<Interaction>, With<MenuQuit>)>,
+    plays: Query<(), (With<Clicked>, With<MenuPlay>)>,
+    settings: Query<(), (With<Clicked>, With<MenuSettings>)>,
+    credits: Query<(), (With<Clicked>, With<MenuCredits>)>,
+    quits: Query<(), (With<Clicked>, With<MenuQuit>)>,
     mut started: MessageReader<NewGameStarted>,
     mut settings_ui: ResMut<SettingsUi>,
     mut credits_ui: ResMut<CreditsUi>,
@@ -652,17 +651,16 @@ pub fn main_menu_button_system(
     if menu.stage != MenuStage::Menu {
         return;
     }
-    let pressed = |mut it: Vec<&Interaction>| it.drain(..).any(|i| *i == Interaction::Pressed);
-    if pressed(plays.iter().collect()) || new_game {
+    if !plays.is_empty() || new_game {
         menu.hide();
     }
-    if pressed(settings.iter().collect()) {
+    if !settings.is_empty() {
         settings_ui.open = true;
     }
-    if pressed(credits.iter().collect()) {
+    if !credits.is_empty() {
         credits_ui.open = true;
     }
-    if pressed(quits.iter().collect()) {
+    if !quits.is_empty() {
         exit.write(AppExit::Success);
     }
 }

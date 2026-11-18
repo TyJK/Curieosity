@@ -1,6 +1,6 @@
-# Builds the iOS app: an .ipa to install by hand. CI builds it once its checks pass, and a
-# release (a v* tag) builds it for the release (ci.yml and release.yml call this workflow);
-# it can also be started from the Actions tab ("iOS", then "Run workflow"). The .ipa is the
+# Builds the iOS app: an .ipa to install by hand. CI builds it once its checks pass, and
+# each release (every merge to main) builds it for the release (ci.yml and release.yml call
+# this workflow); it can also be started from the Actions tab ("iOS", then "Run workflow"). The .ipa is the
 # run's artifact, kept for 30 days.
 #
 # Without signing secrets the .ipa is unsigned. Sideloadly or AltStore install it, signing it
@@ -52,7 +52,8 @@ jobs:
           cp -R assets "$APP/assets"
           VERSION=$(grep -m1 '^version' Cargo.toml | cut -d'"' -f2)
           /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" "$APP/Info.plist"
-          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion ${{ github.run_number }}" "$APP/Info.plist"
+          # minutes since 2025: counts up across CI and release builds alike
+          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $(( ($(date -u +%s) - 1735689600) / 60 ))" "$APP/Info.plist"
           ICONS=build/Assets.xcassets/AppIcon.appiconset
           mkdir -p "$ICONS"
           cp ios/AppIcon.png "$ICONS/AppIcon.png"

@@ -132,6 +132,12 @@ E0.reactions += [
     R("Making Cheese", "Milk -> Cheese + Whey", MIX,
       "Rennet from a calf's stomach clots milk into curds and whey; the oldest cheese, in Polish sieves, is 7,500 years old.",
       wiki="History_of_cheese", exact=False),
+    R("Skimming Cream", "Milk -> Cream + SkimMilk", COOL,
+      "Milk set out in shallow pans in a cool dairy overnight: the fat rises as cream and is skimmed off by hand, as farms did until the separator.",
+      wiki="Cream", exact=False),
+    R("Churning Butter", "Cream -> Butter + Buttermilk", MIX,
+      "Cream beaten until its fat globules break and clump into butter, leaving the buttermilk.", wiki="Butter#Production",
+      exact=False),
     R("Crystallising Honey", "Honey -> Glucose + Fructose", MIX,
       "Honey is a supersaturated sugar syrup. Left standing, its glucose crystallises out of the runnier fructose.",
       wiki="Honey#Crystallization", exact=False),
@@ -141,6 +147,9 @@ E0.reactions += [
 N("HanPurple", "Han Purple", "BaCuSi2O6", "Solid", "Barium copper silicate, made in China from about 800 BCE and painted on the Terracotta Army. It glows in near-infrared light.", "Han_purple_and_Han_blue", color="#6a4aa0")
 N("NaplesYellow", "Naples Yellow", "Pb2Sb2O7", "Solid", "Lead antimonate, an opaque yellow used in Egyptian and Babylonian glass and glazes long before it was a painter's colour.", "Naples_yellow", color="#f0c850")
 E1.reactions += [
+    R("Pressing Olives", "Olives -> Triolein + Pomace", MIX,
+      "Olives crushed under a millstone and the paste squeezed in a beam press; the oil floats off the watery juice. The Greeks and Romans pressed it by the shipload.",
+      wiki="Olive_oil#Extraction", exact=False),
     R("Han Purple", "BaCO3 + CuO + 2 Sand -> HanPurple + CO2", HEAT,
       "Barium carbonate, copper oxide and quartz fired near 1,000 C: a synthetic pigment invented in China to imitate jade and lapis.",
       wiki="Han_purple_and_Han_blue", T=1000, dh=60),
@@ -264,7 +273,7 @@ N("Alundum", "Fused Alumina", "Al2O3", "Solid", "Alumina melted in the arc furna
 N("NaClO4", "Sodium Perchlorate", "NaClO4", "Solid", "Made by electrolysing sodium chlorate further; the starting point of every other perchlorate.", "Sodium_perchlorate")
 N("H2S2O8", "Peroxydisulfuric Acid", "H2S2O8", "Solid", "Marshall's acid (1891), made at a platinum anode from cold sulfuric acid. It was the industrial source of hydrogen peroxide from 1908.", "Peroxydisulfuric_acid")
 N("KMnO4", "Potassium Permanganate", "KMnO4", "Solid", "Deep purple crystals, a strong oxidiser. Henry Condy sold it as a disinfectant ('Condy's crystals', 1857); it treats water and was the flash in early photography.", "Potassium_permanganate", color="#7a1a8a")
-N("PhN2Cl", "Benzenediazonium Chloride", "C6H5N2Cl", "Aqueous", "Peter Griess's diazonium salt (1858): stable only near 0 C, it couples with phenols and amines into the whole family of azo dyes.", "Benzenediazonium_chloride", smiles="[Cl-].N#[N+]c1ccccc1")
+N("PhN2Cl", "Benzenediazonium Chloride", "C6H5N2Cl", "Aqueous", "Peter Griess's diazonium salt (1858): stable only near 0 C, it couples with phenols and amines into the whole family of azo dyes.", "Benzenediazonium_chloride", smiles="[Cl-].N#[N+]c1ccccc1", props=("IsTransient",))
 N("HydroxyAzo", "4-Hydroxyazobenzene", "C12H10N2O", "Solid", "Orange-yellow dye from diazonium and phenol: the simplest azo coupling, the chemistry behind most synthetic dyes and food colours.", "Azo_coupling", color="#f09020", smiles="Oc1ccc(cc1)N=Nc1ccccc1")
 L("Dimethylaniline", "N,N-Dimethylaniline", "C8H11N", "Liquid", smiles="CN(C)c1ccccc1")
 N("MethylOrange", "Methyl Orange", "C14H14N3NaO3S", "Solid", "The indicator that is red below pH 3.1 and yellow above 4.4; made by coupling diazotised sulfanilic acid onto dimethylaniline.", "Methyl_orange", color="#f07020", smiles="CN(C)c1ccc(cc1)N=Nc1ccc(cc1)S(=O)(=O)[O-].[Na+]")
@@ -1372,14 +1381,14 @@ C.MILESTONES = [
               message="Glass vessels: you can now chill and crystallise in an ice bath."),
     Milestone("Ethanol", grant=("Lavender", "Peppermint", "Rose", "PineResin", "Cinnamon", "Anise", "Thyme"),
               message="Spirit of wine. The perfumers turn the still on the herb garden."),
-    Milestone("AcOH", grant=("OakGalls", "Argol", "Lemons", "Apples", "Amber", "Butter", "Soybeans", "Olives"),
+    Milestone("AcOH", grant=("OakGalls", "Argol", "Lemons", "Apples", "Amber", "Soybeans", "Olives"),
               message="Vinegar keeps the harvest: the pantry and the apothecary's jars fill up."),
     Milestone("H2SO4", grant=("MicrocosmicSalt", "Orpiment", "Bismuthinite", "NH4Cl", "Sucrose", "Ants",
                              "GumBenzoin", "Spearmint", "OrangePeel", "Jasmine", "Turmeric"),
               message="Oil of vitriol. The alchemists' cabinet fills with strange salts."),
     Milestone("HNO3", unlock=(FLASK,),
               message="Aqua fortis eats metal and stone; only glass can hold it. The Glass Flask is unlocked."),
-    Milestone("P4", grant=("Coal", "Air", "BaCO3", "MgCO3", "SrCO3", "Borax", "NaI", "NaBr", "CaF2", "Rubber", "Latex"),
+    Milestone("P4", grant=("Coal", "Air", "BaCO3", "MgCO3", "SrCO3", "Borax", "NaI", "NaBr", "CaF2", "Latex"),
               message="Brand's phosphorus ends the age of alchemy. Coal, air and the mineral cabinets of the new chemists."),
     Milestone("AgCl", unlock=(LIGHT,),
               message="Horn silver darkens in the sun: light itself can drive chemistry."),
@@ -1405,7 +1414,7 @@ C.MILESTONES = [
               message="Thilorier's dry ice at -78 C. The race to liquefy every gas has begun: the Air Liquefier is unlocked."),
     Milestone("Benzene", unlock=(COLUMN,),
               message="Charles Mansfield fractionates coal tar into pure benzene (1849): the Fractionating Column is unlocked."),
-    Milestone("Urea", grant=("Camphor", "Clove", "Triolein", "Asparagus", "Lupin", "Manna", "Carrots", "Eucalyptus", "Cumin"),
+    Milestone("Urea", grant=("Camphor", "Clove", "Asparagus", "Lupin", "Manna", "Carrots", "Eucalyptus", "Cumin"),
               message="Wohler's urea: organic chemistry is just chemistry. The apothecary's shelf opens."),
     Milestone("Quinine", grant=("Tarragon", "Buckwheat", "Lemongrass", "Yeast", "Comfrey", "Rowan", "Valerian",
                                "Nutmeg", "LinseedOil", "CastorBeans", "Cork"),
@@ -1442,7 +1451,7 @@ C.MILESTONES = [
               message="Cemented carbide anvils hold 50,000 atmospheres: the Diamond Press is unlocked."),
     Milestone("Polysilicon", unlock=(PULLER,),
               message="Silicon pure to one part in a billion. Teal's Crystal Puller grows it into one flawless crystal."),
-    Milestone("Transistor", unlock=(CVD,), grant=("CoffeeBeans", "Wormwood", "Monazite", "Lactose", "Y2O3"),
+    Milestone("Transistor", unlock=(CVD,), grant=("CoffeeBeans", "Wormwood", "Monazite", "Lactose"),
               message="The transistor (1947). The silicon age opens: the CVD Chamber is unlocked."),
     Milestone("U", unlock=(REACTOR,),
               message="Uranium metal for Fermi's pile (Chicago, 2 December 1942): the Nuclear Reactor is unlocked."),
@@ -1499,9 +1508,6 @@ E4.reactions += [
     R("Coagulating Latex", "Latex + AcOH -> Rubber", MIX,
       "Fresh latex curdled with a little acid into slabs of raw rubber, as the plantations of Malaya and Ceylon did it.",
       wiki="Natural_rubber", exact=False),
-    R("Churning Butter", "Cream -> Butter + Buttermilk", MIX,
-      "Cream beaten until its fat globules break and clump into butter, leaving the buttermilk.", wiki="Butter#Production",
-      exact=False),
 ]
 E5.reactions += [
     R("Separating Blood", "Blood -> BloodPlasma + RedBloodCells", CENT,

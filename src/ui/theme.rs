@@ -4,8 +4,10 @@
 // small building blocks (labels, icons, buttons, chips, panels) every screen is made of.
 // Buttons carry a `Skin`; `skin_system` recolours them on hover/press and when their
 // `active` flag changes, so no screen hand-rolls its own hover logic.
-use crate::ui::{Button, Interaction};
+use crate::ui::{Button, Look};
+use bevy::picking::hover::Hovered;
 use bevy::prelude::*;
+use bevy::ui::Pressed;
 use bevy::ui::{BoxShadow, ShadowStyle};
 
 use crate::resources::ui_fonts::UiFonts;
@@ -162,9 +164,9 @@ impl Skin {
     }
 
     /// (background, border) for an interaction state
-    pub fn colors(&self, i: Interaction) -> (Color, Color) {
-        let hov = i == Interaction::Hovered;
-        let prs = i == Interaction::Pressed;
+    pub fn colors(&self, look: Look) -> (Color, Color) {
+        let hov = look == Look::Hover;
+        let prs = look == Look::Press;
         match self.kind {
             Kind::Primary => {
                 let bg = if prs {
@@ -257,12 +259,12 @@ impl Skin {
 /// Recolours every skinned button when it is hovered, pressed, released or (de)selected.
 pub fn skin_system(
     mut q: Query<
-        (&Interaction, &Skin, &mut BackgroundColor, &mut BorderColor),
-        Or<(Changed<Interaction>, Changed<Skin>, Added<Skin>)>,
+        (&Hovered, Has<Pressed>, &Skin, &mut BackgroundColor, &mut BorderColor),
+        Or<(Changed<Hovered>, Changed<Skin>, Added<Skin>)>,
     >,
 ) {
-    for (i, skin, mut bg, mut border) in &mut q {
-        let (b, l) = skin.colors(*i);
+    for (h, pressed, skin, mut bg, mut border) in &mut q {
+        let (b, l) = skin.colors(Look::of(h, pressed));
         bg.0 = b;
         *border = BorderColor::all(l);
     }
@@ -271,7 +273,7 @@ pub fn skin_system(
 /// The node part of a button: rounded, bordered, with its skin's resting colours.
 pub fn button(kind: Kind, node: Node, radius: f32) -> impl Bundle {
     let skin = Skin::new(kind);
-    let (bg, border) = skin.colors(Interaction::None);
+    let (bg, border) = skin.colors(Look::Rest);
     (
         Button,
         skin,
@@ -393,9 +395,8 @@ pub fn spawn_section_title(parent: &mut ChildSpawnerCommands, fonts: &UiFonts, t
 pub fn view_root(z: i32) -> impl Bundle {
     (
         GlobalZIndex(z),
-        Pickable::default(),
         // a click on the view's background must not reach the lab buttons beneath it
-        bevy::ui::FocusPolicy::Block,
+        Pickable::default(),
         Node {
             position_type: PositionType::Absolute,
             left: Val::Px(0.0),

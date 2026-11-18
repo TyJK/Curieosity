@@ -13,7 +13,7 @@ use bevy::input::touch::{TouchInput, TouchPhase};
 use super::*;
 use crate::resources::player_progress::SaveClock;
 use crate::systems::achievements::Achievements;
-use crate::systems::drag_drop::{Swiping, LIFT_HOLD};
+use crate::systems::drag_drop::{LinkPick, Swiping, LIFT_HOLD};
 use crate::systems::sound::{Cue, Family, SoundLog};
 use crate::ui::codex::{CodexCloseButton, CodexScrollable, CodexTextCredit};
 use crate::ui::credits::{CreditLink, CreditsButton, CreditsRoot, SECTIONS};
@@ -22,7 +22,9 @@ use crate::ui::hint::{
     base_materials, choose, decoy_count, plan_kit, targets, HintButton, HintChange, HintKitToggle, HintLine, HintMore,
     HintPick, HintShowTree, HintState, Target as Goal,
 };
-use crate::ui::inventory::{ShelfSearch, ShelfSearchBox, ShelfSearchClear, ShelfTitle, VesselChipRemove};
+use crate::ui::inventory::{
+    ShelfSearch, ShelfSearchBox, ShelfSearchClear, ShelfSearchDone, ShelfTitle, VesselChipRemove,
+};
 use crate::ui::settings::SettingsRoot;
 use crate::ui::shell::JournalButton;
 use crate::ui::theme::Skin;
@@ -34,6 +36,7 @@ use crate::systems::reaction_check::VesselChainButton;
 use crate::ui::detail_panel::SelectionName;
 use crate::ui::hint::{HintButtonText, HintSuggestedTag};
 use crate::ui::main_menu::{MainMenu, MenuPlay, MenuRoot, MenuSettings, MenuStage};
+use crate::ui::process_toolbar::VesselSidebar;
 use crate::ui::shell::{BenchZoomIn, BenchZoomOut};
 
 // ---------------------------------------------------------------------------------------
@@ -916,6 +919,9 @@ pub(super) fn polish_checks() -> Vec<Check> {
     v.extend(touch_checks());
     v.extend(play_checks());
     v.extend(menu_and_bench_checks());
+    v.extend(tap_and_link_checks());
+    v.extend(teaching_checks());
+    v.extend(balanced_checks());
     v
 }
 
@@ -1591,7 +1597,12 @@ fn play_checks() -> Vec<Check> {
         "On a short screen a vessel card goes compact and fits the bench",
         vec![
             setup(new_game),
-            setup(|w| w.resource_mut::<Settings>().ui_scale = 1.6),
+            // a big interface makes any screen short (and holds even where a phone's size
+            // would otherwise be fitted)
+            setup(|w| {
+                w.resource_mut::<crate::ui::settings::FitInterface>().0 = false;
+                w.resource_mut::<Settings>().ui_scale = 1.6;
+            }),
             Op::Wait(10),
             setup(|w| place(w, Mix, 0)),
             Op::Wait(5),
@@ -1648,8 +1659,11 @@ fn bench_offset(w: &mut World) -> Option<Vec2> {
     left_top(w, pane)
 }
 
-fn bench_at(want: Vec2) -> Verify {
+/// The bench sits where drags adding up to `dragged` screen px left it: that many interface
+/// px over, at any interface size (a phone's is fitted to its screen).
+fn bench_at(dragged: Vec2) -> Verify {
     verify(move |w| {
+        let want = dragged / w.resource::<UiScale>().0;
         let p = bench_offset(w).ok_or("no bench pane")?;
         let root = w.query_filtered::<&ScrollPosition, With<ReactionCanvasRoot>>().iter(w).next().map(|s| s.0);
         if (p - want).abs().max_element() > 1.0 {
@@ -1972,5 +1986,840 @@ fn menu_and_bench_checks() -> Vec<Check> {
             Op::Wait(5),
         ],
     ));
+    v
+}
+
+// ---------------------------------------------------------------------------------------
+// Buttons fire on a tap, not a swipe; linking by tap and onto a whole card
+// ---------------------------------------------------------------------------------------
+/// How far the vessel list is scrolled along its length (down it, or across the strip it
+/// is upright).
+fn sidebar_scroll(w: &mut World) -> f32 {
+    w.query_filtered::<&ScrollPosition, With<VesselSidebar>>().iter(w).next().map_or(0.0, |s| s.0.x.max(s.0.y))
+}
+
+/// 100 px along the vessel list from its Mortar button: up the list, or across the strip.
+fn along_sidebar() -> Target {
+    target("100 px along the vessel list", |w| {
+        let e = first::<ProcessButton>(w, |b| b.process == ProcessType::Mix)?;
+        let from = point_in(w, e, 0.5, 0.5)?;
+        let across = w
+            .query_filtered::<&Node, With<VesselSidebar>>()
+            .iter(w)
+            .next()
+            .is_some_and(|n| n.overflow.x == OverflowAxis::Scroll && n.overflow.y != OverflowAxis::Scroll);
+        Some(from + if across { Vec2::new(-100.0, 0.0) } else { Vec2::new(0.0, -100.0) })
+    })
+}
+
+fn no_vessels() -> Verify {
+    verify(|w| match w.query::<&VesselCard>().iter(w).count() {
+        0 => Ok(()),
+        n => Err(format!("{n} vessel(s) on the bench")),
+    })
+}
+
+fn linked(from: ProcessType, to: ProcessType) -> Verify {
+    verify(move |w| {
+        let (a, b) = (card(w, from.clone()), card(w, to.clone()));
+        let ok = w.query::<&ReactionLink>().iter(w).any(|l| Some(l.from_vessel) == a && Some(l.to_vessel) == b);
+        if ok {
+            Ok(())
+        } else {
+            Err(format!("no {} -> {} link", vessel_name(&from), vessel_name(&to)))
+        }
+    })
+}
+
+fn picked(want: bool) -> Verify {
+    verify(move |w| match (w.resource::<LinkPick>().0.is_some(), want) {
+        (true, true) | (false, false) => Ok(()),
+        (true, false) => Err("a port is still picked to link from".into()),
+        (false, true) => Err("no port picked to link from".into()),
+    })
+}
+
+/// The shelf has the screen (a phone's keyboard is up): it reaches up to the header, the
+/// bench is hidden and Done shows; or it is back to normal.
+fn shelf_only(want: bool) -> Verify {
+    verify(move |w| {
+        let typing = w.resource::<ShelfSearch>().typing;
+        let bench = w
+            .query_filtered::<&InheritedVisibility, With<ReactionCanvasRoot>>()
+            .iter(w)
+            .next()
+            .is_some_and(|v| v.get());
+        let done = first::<ShelfSearchDone>(w, |_| true)
+            .and_then(|e| w.get::<ComputedNode>(e))
+            .is_some_and(|n| n.size.x > 0.0);
+        let dock_h = first::<crate::ui::inventory::ShelfDock>(w, |_| true)
+            .and_then(|e| w.get::<ComputedNode>(e).map(|n| n.size.y * n.inverse_scale_factor()))
+            .unwrap_or(0.0);
+        let screen = w
+            .query_filtered::<&Window, With<PrimaryWindow>>()
+            .iter(w)
+            .next()
+            .map_or(0.0, |win| win.height() / w.resource::<UiScale>().0);
+        let tall = dock_h > screen - crate::ui::theme::HEADER_H - 2.0;
+        let got = (typing, !bench, done, tall);
+        if got == (want, want, want, want) {
+            Ok(())
+        } else {
+            Err(format!("typing, bench hidden, Done showing, shelf full height: {got:?}"))
+        }
+    })
+}
+
+fn tap_and_link_checks() -> Vec<Check> {
+    use CardPart::*;
+    use ProcessType::{Heat, Mix};
+    let mut v = Vec::new();
+    v.push(check(
+        "Touch",
+        "A finger swiping the vessel list scrolls it and puts no vessel on the bench",
+        vec![
+            setup(new_game),
+            Op::Wait(5),
+            setup(|w| {
+                for mut sp in w.query_filtered::<&mut ScrollPosition, With<VesselSidebar>>().iter_mut(w) {
+                    sp.0 = Vec2::ZERO;
+                }
+            }),
+            Op::Wait(2),
+        ]
+        .into_iter()
+        .chain(finger_slide(sidebar_button(Mix), Slide::To(along_sidebar()), 0.0))
+        .chain([
+            Op::Until(
+                verify(|w| match sidebar_scroll(w) {
+                    y if y > 20.0 => Ok(()),
+                    y => Err(format!("the vessel list is at {y:.0}")),
+                }),
+                30,
+            ),
+            Op::Expect(no_vessels()),
+        ])
+        .collect(),
+    ));
+    v.push(check(
+        "Lab: vessels",
+        "Pressing a vessel button and sliding off it before letting go places nothing",
+        vec![
+            setup(new_game),
+            Op::Wait(5),
+            Op::Press(sidebar_button(Mix)),
+            Op::MoveTo(bench_spot()),
+            Op::Release,
+            Op::Wait(5),
+            Op::Expect(no_vessels()),
+            Op::Click(sidebar_button(Mix)),
+            Op::Until(verify(|w| card(w, Mix).map(|_| ()).ok_or_else(|| "a click placed nothing".to_string())), 30),
+        ],
+    ));
+    v.push(check(
+        "Lab: links",
+        "Tapping an output port and then another vessel links them",
+        vec![
+            setup(|w| place(w, Mix, 0)),
+            setup(|w| place(w, Heat, 1)),
+            Op::Wait(5),
+            Op::Click(card_part(Mix, OutPort)),
+            Op::Until(picked(true), 30),
+            Op::Shot("an output port picked to link from"),
+            Op::Click(card_part(Heat, Art)),
+            Op::Until(linked(Mix, Heat), 30),
+            Op::Expect(picked(false)),
+        ],
+    ));
+    v.push(check(
+        "Lab: links",
+        "A link dragged onto the middle of a vessel links them",
+        vec![
+            setup(|w| place(w, Mix, 0)),
+            setup(|w| place(w, Heat, 1)),
+            Op::Wait(5),
+            Op::Drag(card_part(Mix, OutPort), card_part(Heat, Zone)),
+            Op::Until(linked(Mix, Heat), 30),
+            Op::Shot("a link between two vessels"),
+        ],
+    ));
+    v.push(check(
+        "Touch",
+        "With a phone's keyboard up the shelf has the screen; a substance tapped, or Done, gives the bench back",
+        vec![
+            setup(new_game),
+            setup(|w| *w.resource_mut::<crate::platform::SoftKeyboard>() = crate::platform::SoftKeyboard(true)),
+            Op::Wait(3),
+            Op::Click(marked::<ShelfSearchBox>("the shelf's search box")),
+            Op::Until(shelf_only(true), 30),
+            Op::Key(KeyCode::KeyW),
+            Op::Key(KeyCode::KeyO),
+            Op::Wait(3),
+            Op::Shot("the shelf alone while a phone's keyboard is up"),
+            Op::Click(tile("Wood")),
+            Op::Until(shelf_only(false), 30),
+            Op::Expect(verify(|w| match (w.resource::<SelectedSubstance>().0, sub_id(w, "Wood")) {
+                (Some(a), Some(b)) if a == b => Ok(()),
+                (s, _) => Err(format!("selected {s:?} after tapping Wood")),
+            })),
+            Op::Click(marked::<ShelfSearchBox>("the shelf's search box")),
+            Op::Until(shelf_only(true), 30),
+            Op::Click(marked::<ShelfSearchDone>("Done")),
+            Op::Until(shelf_only(false), 30),
+        ],
+    ));
+    v.push(check(
+        "Hint",
+        "The button's suggestion moves on with a discovery, even one that isn't it",
+        vec![
+            setup(new_game),
+            Op::Wait(5),
+            Op::Until(
+                verify(|w| {
+                    let was = w.resource::<HintState>().suggested.ok_or("nothing suggested")?;
+                    w.resource_mut::<Scratch>().0.insert("was", was.product as f32);
+                    // discover something no target is: the suggestion should still move on
+                    let db = w.resource::<RecipeDatabase>();
+                    let progress = w.resource::<PlayerProgress>();
+                    let unlocks = w.resource::<ProcessUnlocks>();
+                    let known = |id: u32| progress.discovered.contains(&id);
+                    let open = |p: &ProcessType| unlocks.0.contains(p);
+                    let list = targets(db, &known, &open);
+                    if list.len() < 2 {
+                        return Err(format!("only {} target(s) to take turns between", list.len()));
+                    }
+                    let gd = w.resource::<GameData>();
+                    let subs = w.resource::<Assets<Substances>>().get(&gd.substances).ok_or("no substances")?;
+                    let other = subs
+                        .0
+                        .keys()
+                        .copied()
+                        .filter(|id| !known(*id) && !list.iter().any(|t| t.product == *id))
+                        .min()
+                        .ok_or("nothing else to discover")?;
+                    w.resource_mut::<PlayerProgress>().discovered.insert(other);
+                    Ok(())
+                }),
+                30,
+            ),
+            Op::Until(
+                verify(|w| {
+                    let was = w.resource::<Scratch>().0.get("was").copied().unwrap_or(-1.0) as u32;
+                    match w.resource::<HintState>().suggested {
+                        Some(t) if t.product != was => Ok(()),
+                        s => Err(format!("still suggesting {s:?}")),
+                    }
+                }),
+                30,
+            ),
+            setup(new_game),
+            Op::Wait(3),
+        ],
+    ));
+    v.push(check(
+        "Lab: links",
+        "A picked port is let go by a tap on the bench, by tapping it again, or by Esc",
+        vec![
+            setup(|w| place(w, Mix, 0)),
+            setup(|w| place(w, Heat, 1)),
+            Op::Wait(5),
+            Op::Click(card_part(Mix, OutPort)),
+            Op::Until(picked(true), 30),
+            Op::Click(bench_spot()),
+            Op::Until(picked(false), 30),
+            Op::Click(card_part(Mix, OutPort)),
+            Op::Until(picked(true), 30),
+            Op::Click(card_part(Mix, OutPort)),
+            Op::Until(picked(false), 30),
+            Op::Click(card_part(Mix, OutPort)),
+            Op::Until(picked(true), 30),
+            Op::Key(KeyCode::Escape),
+            Op::Until(picked(false), 30),
+            Op::Expect(verify(|w| match w.query::<&ReactionLink>().iter(w).count() {
+                0 => Ok(()),
+                n => Err(format!("{n} link(s) made")),
+            })),
+        ],
+    ));
+    v.push(check(
+        "Lab: links",
+        "Picking a port again shows its notice once, not a stack of copies",
+        vec![
+            setup(|w| place(w, Mix, 0)),
+            setup(|w| place(w, Heat, 1)),
+            Op::Wait(5),
+            Op::Click(card_part(Mix, OutPort)),
+            Op::Until(picked(true), 30),
+            Op::Click(card_part(Mix, OutPort)),
+            Op::Until(picked(false), 30),
+            Op::Click(card_part(Mix, OutPort)),
+            Op::Until(picked(true), 30),
+            Op::Wait(5),
+            Op::Expect(verify(|w| {
+                let notices = w
+                    .query::<(&Text, &ChildOf)>()
+                    .iter(w)
+                    .filter(|(t, parent)| {
+                        t.0.contains("Now tap the vessel")
+                            && w.get::<crate::ui::toasts::Toast>(parent.parent()).is_some()
+                    })
+                    .count();
+                if notices == 1 {
+                    Ok(())
+                } else {
+                    Err(format!("{notices} copies of the notice showing"))
+                }
+            })),
+        ],
+    ));
+    // the line is drawn by its own camera from the ports' screen positions: it has to stay
+    // on the dots whatever size the bench and the interface are drawn at
+    let zoom = |z: f32| setup(move |w| w.resource_mut::<BenchZoom>().0 = z);
+    let size = |s: f32| setup(move |w| w.resource_mut::<crate::ui::settings::Settings>().ui_scale = s);
+    let mut ops = vec![
+        setup(|w| place(w, Mix, 0)),
+        setup(|w| place(w, Heat, 1)),
+        Op::Wait(5),
+        Op::Click(card_part(Mix, OutPort)),
+        Op::Click(card_part(Heat, Art)),
+        Op::Until(linked(Mix, Heat), 30),
+        Op::Expect(links_on_dots()),
+    ];
+    for z in [0.8, 0.6, 0.45, 1.0] {
+        ops.extend([zoom(z), Op::Wait(4), Op::Expect(links_on_dots())]);
+    }
+    for s in [1.25, 0.8, 1.0] {
+        ops.extend([size(s), Op::Wait(6), Op::Expect(links_on_dots())]);
+    }
+    // and as a vessel is moved, and the bench panned
+    ops.extend([
+        Op::DragBy(card_part(Heat, Art), Vec2::new(140.0, 90.0)),
+        Op::Wait(4),
+        Op::Expect(links_on_dots()),
+        Op::DragBy(bench_spot(), Vec2::new(-120.0, -60.0)),
+        Op::Wait(4),
+        Op::Expect(links_on_dots()),
+    ]);
+    v.push(check("Lab: links", "A link's ends stay on its ports at every bench zoom and interface size", ops));
+    // zooming keeps the middle of the bench in place; where that runs into the bench's edge,
+    // coming back must not drift (vessels near the top-left used to leave the screen)
+    let at_screen = |w: &mut World| {
+        let c = card(w, Mix)?;
+        w.get::<UiGlobalTransform>(c).map(|g| g.translation)
+    };
+    let mut ops = vec![
+        setup(|w| place(w, Mix, 0)),
+        Op::Wait(5),
+        setup(move |w| {
+            if let Some(p) = at_screen(w) {
+                w.resource_mut::<Scratch>().0.extend([("x", p.x), ("y", p.y)]);
+            }
+        }),
+    ];
+    for z in [0.8, 0.6, 0.45, 0.6, 0.8, 1.0] {
+        ops.extend([zoom(z), Op::Wait(3)]);
+    }
+    ops.push(Op::Expect(verify(move |w| {
+        let s = &w.resource::<Scratch>().0;
+        let was = Vec2::new(s.get("x").copied().unwrap_or(f32::NAN), s.get("y").copied().unwrap_or(f32::NAN));
+        let now = at_screen(w).ok_or("no Mortar on the bench")?;
+        if was.distance(now) < 1.0 {
+            Ok(())
+        } else {
+            Err(format!("the Mortar was at {was:.0}, and after zooming out and back it is at {now:.0}"))
+        }
+    })));
+    v.push(check("Lab: moving", "Zooming out to the least and back in comes back to the same view", ops));
+    v
+}
+
+/// Every drawn link ends on its ports' dots: each end, projected back through the camera
+/// that draws the links, lands within 3 px of the middle of the dot it belongs to.
+fn links_on_dots() -> Verify {
+    verify(|w| {
+        let window = w.query_filtered::<&Window, With<PrimaryWindow>>().iter(w).next().cloned().ok_or("no window")?;
+        let (cam, at) = w
+            .query::<(&Camera, &GlobalTransform)>()
+            .iter(w)
+            .find(|(c, _)| c.order == 1)
+            .map(|(c, g)| (c.clone(), *g))
+            .ok_or("no camera for the links")?;
+        let scale = cam.target_scaling_factor().unwrap_or(1.0);
+        let ports: Vec<Entity> = w.query::<&ReactionLink>().iter(w).flat_map(|l| [l.from_port, l.to_port]).collect();
+        if ports.is_empty() {
+            return Err("no links on the bench".into());
+        }
+        let mut off = Vec::new();
+        for port in ports {
+            let gt = *w.get::<UiGlobalTransform>(port).ok_or("a link's port is gone")?;
+            let end = crate::systems::link_renderer::port_point(&gt, &window);
+            let seen =
+                cam.world_to_viewport(&at, end.extend(0.0)).map_err(|e| format!("a link end is off camera: {e:?}"))?;
+            let dot = w
+                .get::<Children>(port)
+                .and_then(|c| c.iter().find(|d| w.get::<BackgroundColor>(*d).is_some()))
+                .ok_or("a port has no dot")?;
+            let middle = w.get::<UiGlobalTransform>(dot).ok_or("a dot has no place")?.translation / scale;
+            let d = seen.distance(middle);
+            if d > 3.0 {
+                off.push(format!("{d:.1} px from its dot (end {seen:.0}, dot {middle:.0})"));
+            }
+        }
+        if off.is_empty() {
+            Ok(())
+        } else {
+            let z = w.resource::<BenchZoom>().0;
+            let s = w.resource::<UiScale>().0;
+            Err(format!("at zoom {z}, interface {s}: {}", off.join("; ")))
+        }
+    })
+}
+
+// ---------------------------------------------------------------------------------------
+// Transients: made and used at once
+// ---------------------------------------------------------------------------------------
+/// The vessel's status line says it.
+fn status_says(p: ProcessType, want: &'static str) -> Verify {
+    verify(move |w| {
+        let Some(c) = card(w, p.clone()) else { return Err(format!("no {} on the bench", vessel_name(&p))) };
+        let text: Vec<String> = w
+            .query_filtered::<(&Text, &ChildOf), With<crate::systems::reaction_check::EquationText>>()
+            .iter(w)
+            .filter(|(_, parent)| parent.parent() == c)
+            .map(|(t, _)| t.0.clone())
+            .collect();
+        if text.iter().any(|t| t.contains(want)) {
+            Ok(())
+        } else {
+            Err(format!("the {} says {text:?}", vessel_name(&p)))
+        }
+    })
+}
+
+/// For each transient: its maker linked by a tap into the first step that uses it (in
+/// another vessel), started from the maker. And once: a transient nothing takes breaks
+/// down where it was made, and is never on the shelf even when known.
+pub(super) fn transient_checks(world: &mut World) -> Vec<Check> {
+    use CardPart::*;
+    let Some(db) = world.get_resource::<RecipeDatabase>() else { return vec![] };
+    let mut transient: Vec<u32> = db.transient.iter().copied().collect();
+    transient.sort_unstable();
+    let pairs: Vec<(u32, Reaction, Reaction)> = transient
+        .iter()
+        .filter_map(|&t| {
+            let maker = db.maker_of(t)?.clone();
+            let user = db
+                .authored
+                .iter()
+                .find(|r| r.process != maker.process && r.reactants.iter().any(|s| s.substance_id == t))?
+                .clone();
+            Some((t, maker, user))
+        })
+        .collect();
+    let mut out = Vec::new();
+    for (t, maker, user) in &pairs {
+        let (mp, up) = (maker.process.clone(), user.process.clone());
+        let name: &'static str = Box::leak(
+            format!(
+                "{} from {} is tapped into {} and set off from the first vessel ({} -> {})",
+                sub_name(world, *t),
+                maker.name,
+                user.name,
+                vessel_name(&mp),
+                vessel_name(&up)
+            )
+            .into_boxed_str(),
+        );
+        let mut ops = stage_everything();
+        for p in [mp.clone(), up.clone()] {
+            ops.push(Op::Click(sidebar_button(p.clone())));
+            ops.push(Op::Until(
+                verify(move |w| {
+                    card(w, p.clone()).map(|_| ()).ok_or_else(|| format!("no {} on the bench", vessel_name(&p)))
+                }),
+                30,
+            ));
+        }
+        ops.extend(load(world, user, Some(*t)));
+        ops.push(Op::Click(card_part(mp.clone(), OutPort)));
+        ops.push(Op::Until(picked(true), 30));
+        ops.push(Op::Click(card_part(up.clone(), Art)));
+        ops.push(Op::Until(linked(mp.clone(), up.clone()), 30));
+        ops.extend(load(world, maker, None));
+        ops.push(Op::Click(card_part(mp.clone(), React)));
+        let products: Vec<u32> = user.products.iter().map(|s| s.substance_id).collect();
+        let what = names(world, &products);
+        ops.push(Op::Until(has_ids(up.clone(), products, what), WAIT * 2));
+        ops.push(Op::Expect(reacted(up.clone(), user.name.clone())));
+        out.push(check("Transients", name, ops));
+    }
+    if let Some((t, maker, _)) = pairs.first() {
+        let (t, mp) = (*t, maker.process.clone());
+        let label = sub_name(world, t);
+        let mut ops = stage_everything();
+        ops.push(Op::Expect(verify(move |w| {
+            let known = w.resource::<PlayerProgress>().discovered.contains(&t);
+            let shelved = w.query_filtered::<&Ingredient, With<ShelfTile>>().iter(w).any(|i| i.id == t);
+            match (known, shelved) {
+                (true, false) => Ok(()),
+                (false, _) => Err("not discovered".into()),
+                (true, true) => Err("on the shelf".into()),
+            }
+        })));
+        ops.push(Op::Click(sidebar_button(mp.clone())));
+        ops.push(Op::Until(
+            verify({
+                let mp = mp.clone();
+                move |w| card(w, mp.clone()).map(|_| ()).ok_or_else(|| "no vessel".to_string())
+            }),
+            30,
+        ));
+        ops.extend(load(world, maker, None));
+        ops.push(Op::Click(card_part(mp.clone(), React)));
+        ops.push(Op::Until(has_ids(mp.clone(), vec![t], label.clone()), WAIT));
+        ops.push(Op::Until(
+            verify({
+                let mp = mp.clone();
+                let label = label.clone();
+                move |w| {
+                    if chips(w, mp.clone()).contains(&label) {
+                        Err(format!("{label} is still in the vessel"))
+                    } else {
+                        Ok(())
+                    }
+                }
+            }),
+            WAIT,
+        ));
+        ops.push(Op::Expect(status_says(mp, "doesn't keep")));
+        out.push(check(
+            "Transients",
+            "A transient nothing takes breaks down where it was made, and is never on the shelf",
+            ops,
+        ));
+    }
+    out
+}
+
+// ---------------------------------------------------------------------------------------
+// Teaching: discovery cards, lessons, why nothing happened
+// ---------------------------------------------------------------------------------------
+fn cards_showing(want_open: Option<bool>) -> Verify {
+    verify(move |w| {
+        let cards = w.resource::<crate::ui::discovery_card::DiscoveryCards>();
+        let (n, open) = (cards.queue.len(), cards.open);
+        let sealed = first::<crate::ui::discovery_card::DiscoveryCardSealed>(w, |_| true).is_some();
+        let story = first::<crate::ui::discovery_card::DiscoveryCardStory>(w, |_| true)
+            .and_then(|e| w.get::<Text>(e).map(|t| t.0.clone()))
+            .unwrap_or_default();
+        match want_open {
+            None if n == 0 && !sealed && story.is_empty() => Ok(()),
+            Some(false) if n > 0 && !open && sealed => Ok(()),
+            Some(true) if open && !sealed && story.len() > 20 => Ok(()),
+            _ => Err(format!("{n} card(s), open={open}, sealed card shown={sealed}, story={story:?}")),
+        }
+    })
+}
+
+fn discover_event(name: &'static str) -> Op {
+    setup(move |w| {
+        if let Some(id) = sub_id(w, name) {
+            w.write_message(crate::systems::autoplay::GameEvent::Discovery { id });
+        }
+    })
+}
+
+pub(super) fn teaching_checks() -> Vec<Check> {
+    use CardPart::*;
+    let mut v = Vec::new();
+    v.push(check(
+        "Teaching",
+        "A discovery comes as a sealed card that stays until it is opened; open, it tells its story, and Got it puts it away",
+        vec![
+            setup(new_game),
+            setup(|w| w.resource_mut::<Settings>().discovery_cards = true),
+            Op::Wait(3),
+            discover_event("Quicklime"),
+            Op::Until(cards_showing(Some(false)), 30),
+            Op::Wait(30),
+            Op::Expect(cards_showing(Some(false))),
+            Op::Shot("a sealed discovery card"),
+            Op::Click(marked::<crate::ui::discovery_card::DiscoveryCardSealed>("the sealed card")),
+            Op::Until(cards_showing(Some(true)), 30),
+            Op::Shot("an open discovery card"),
+            Op::Click(marked::<crate::ui::discovery_card::DiscoveryCardGotIt>("Got it")),
+            Op::Until(cards_showing(None), 30),
+        ],
+    ));
+    v.push(check(
+        "Teaching",
+        "With cards set to close by themselves, an unread card goes after a while; with cards off, a discovery is a toast",
+        vec![
+            setup(new_game),
+            setup(|w| {
+                let mut s = w.resource_mut::<Settings>();
+                s.discovery_cards = true;
+                s.cards_close_themselves = true;
+            }),
+            Op::Wait(3),
+            discover_event("Quicklime"),
+            Op::Until(cards_showing(Some(false)), 30),
+            Op::Until(cards_showing(None), 2400),
+            setup(|w| w.resource_mut::<Settings>().discovery_cards = false),
+            Op::Wait(2),
+            discover_event("Slaked Lime"),
+            Op::Wait(10),
+            Op::Expect(cards_showing(None)),
+        ],
+    ));
+    v.push(check(
+        "Teaching",
+        "From the first More hint on, the Hint card says what kind of change the step is",
+        vec![
+            setup(new_game),
+            setup(|w| w.resource_mut::<Settings>().next_step = true),
+            setup(chase_a_multi_step_target),
+            Op::Wait(5),
+            Op::Expect(verify(|w| match first::<crate::ui::hint::HintLesson>(w, |_| true) {
+                None => Ok(()),
+                Some(_) => Err("a lesson before any hint".into()),
+            })),
+            Op::Click(marked::<HintMore>("More hint")),
+            Op::Until(
+                verify(|w| {
+                    let t = first::<crate::ui::hint::HintLesson>(w, |_| true)
+                        .and_then(|e| w.get::<Text>(e).map(|t| t.0.clone()))
+                        .unwrap_or_default();
+                    if t.len() > 30 {
+                        Ok(())
+                    } else {
+                        Err(format!("lesson: {t:?}"))
+                    }
+                }),
+                30,
+            ),
+        ],
+    ));
+    // one ingredient short of a two-ingredient recipe in the Mortar
+    v.push(check(
+        "Teaching",
+        "One ingredient short of a recipe, the vessel says it is close",
+        vec![
+            setup(new_game),
+            setup(discover_everything),
+            setup(|w| place(w, ProcessType::Mix, 0)),
+            Op::Wait(5),
+            setup(|w| {
+                let first = w
+                    .resource::<RecipeDatabase>()
+                    .authored
+                    .iter()
+                    .find(|r| r.process == ProcessType::Mix && r.reactants.len() == 2)
+                    .map(|r| r.reactants[0].substance_id);
+                if let (Some(id), Some(c)) = (first, card(w, ProcessType::Mix)) {
+                    put_in(w, c, id);
+                }
+            }),
+            Op::Wait(3),
+            Op::Click(card_part(ProcessType::Mix, React)),
+            Op::Until(status_says(ProcessType::Mix, "Close: one more ingredient"), 60),
+        ],
+    ));
+    v.push(check(
+        "Teaching",
+        "Two acids in the Mortar: the vessel says an acid wants a base",
+        vec![
+            setup(new_game),
+            setup(discover_everything),
+            setup(|w| place(w, ProcessType::Mix, 0)),
+            Op::Wait(5),
+            setup(|w| {
+                // two acids in play that no Mortar recipe takes together
+                let acids: Vec<u32> = {
+                    let db = w.resource::<RecipeDatabase>();
+                    let gd = w.resource::<GameData>();
+                    let subs = w.resource::<Assets<Substances>>().get(&gd.substances);
+                    let mut ids: Vec<u32> = db
+                        .canon
+                        .iter()
+                        .copied()
+                        .filter(|id| {
+                            subs.and_then(|s| s.0.get(id))
+                                .is_some_and(|s| s.properties.contains(&crate::data::common::Property::IsAcid))
+                        })
+                        .collect();
+                    ids.sort_unstable();
+                    let pair = ids.iter().enumerate().find_map(|(i, a)| {
+                        ids[i + 1..]
+                            .iter()
+                            .find(|b| {
+                                // nothing near a recipe: no Mix recipe of one of them alone, or of both and one more
+                                !db.authored.iter().any(|r| {
+                                    let has = |x: u32| r.reactants.iter().any(|s| s.substance_id == x);
+                                    r.process.family() == "Mix"
+                                        && ((r.reactants.len() == 3 && has(*a) && has(**b))
+                                            || (r.reactants.len() == 1 && (has(*a) || has(**b))))
+                                })
+                            })
+                            .map(|b| vec![*a, *b])
+                    });
+                    pair.unwrap_or_default()
+                };
+                if let Some(c) = card(w, ProcessType::Mix) {
+                    for id in acids {
+                        put_in(w, c, id);
+                    }
+                }
+            }),
+            Op::Wait(3),
+            Op::Click(card_part(ProcessType::Mix, React)),
+            Op::Until(status_says(ProcessType::Mix, "Two acids"), 60),
+        ],
+    ));
+    v
+}
+
+/// Puts a substance straight into a vessel (as a drag would).
+fn put_in(w: &mut World, card: Entity, id: u32) {
+    put_in_n(w, card, id, 1);
+}
+
+/// Puts `amount` of a substance straight into a vessel, as one chip.
+fn put_in_n(w: &mut World, card: Entity, id: u32, amount: u32) {
+    let Some(ing) = ({
+        let gd = w.resource::<GameData>();
+        w.resource::<Assets<Substances>>().get(&gd.substances).and_then(|s| s.0.get(&id)).map(|s| Ingredient {
+            id,
+            name: s.name.clone(),
+            formula: s.formula.clone(),
+            state: s.state,
+            properties: s.properties.clone(),
+            amount,
+        })
+    }) else {
+        return;
+    };
+    let zone = w.get::<Children>(card).and_then(|c| {
+        let kids: Vec<Entity> = c.iter().collect();
+        kids.into_iter().find(|k| w.get::<crate::components::VesselIngredientZone>(*k).is_some())
+    });
+    let Some(zone) = zone else { return };
+    let fonts = w.resource::<UiFonts>().clone();
+    let assets = w.resource::<AssetServer>().clone();
+    let mut queue = CommandQueue::default();
+    {
+        let mut commands = Commands::new(&mut queue, w);
+        commands.entity(zone).with_children(|z| {
+            crate::ui::inventory::spawn_vessel_chip(
+                z,
+                &ing,
+                crate::ui::inventory::ChipRole::Ingredient(card),
+                &fonts,
+                &assets,
+            );
+        });
+    }
+    queue.apply(w);
+}
+
+// ---------------------------------------------------------------------------------------
+// Balanced amounts (off by default)
+// ---------------------------------------------------------------------------------------
+/// A Mortar recipe of two reactants, one taken twice: (2x reactant, 1x reactant).
+fn two_to_one(w: &World) -> Option<(u32, u32)> {
+    let db = w.resource::<RecipeDatabase>();
+    db.authored
+        .iter()
+        .filter(|r| r.process == ProcessType::Mix && r.reactants.len() == 2 && r.required_catalyst().is_none())
+        .filter(|r| r.products.iter().all(|p| !db.transient.contains(&p.substance_id)))
+        .find_map(|r| {
+            let (a, b) = (&r.reactants[0], &r.reactants[1]);
+            match (a.moles, b.moles) {
+                (2, 1) => Some((a.substance_id, b.substance_id)),
+                (1, 2) => Some((b.substance_id, a.substance_id)),
+                _ => None,
+            }
+        })
+}
+
+fn balanced_try(two: u32, one: u32) -> Vec<Op> {
+    vec![
+        setup(new_game),
+        setup(discover_everything),
+        setup(|w| w.resource_mut::<Settings>().balanced_amounts = true),
+        setup(|w| place(w, ProcessType::Mix, 0)),
+        Op::Wait(5),
+        setup(move |w| {
+            if let (Some((a, b)), Some(c)) = (two_to_one(w), card(w, ProcessType::Mix)) {
+                put_in_n(w, c, a, two);
+                put_in_n(w, c, b, one);
+            }
+        }),
+        Op::Wait(3),
+        Op::Click(card_part(ProcessType::Mix, CardPart::React)),
+    ]
+}
+
+fn balanced_checks() -> Vec<Check> {
+    let mut v = Vec::new();
+    v.push(check(
+        "Balanced amounts",
+        "With balanced amounts on, a second drop of the same substance counts up its chip",
+        vec![
+            setup(new_game),
+            setup(|w| w.resource_mut::<Settings>().balanced_amounts = true),
+            setup(|w| place(w, ProcessType::Mix, 0)),
+            Op::Wait(5),
+            Op::Drag(tile("Water"), card_part(ProcessType::Mix, CardPart::Art)),
+            Op::Wait(5),
+            Op::Drag(tile("Water"), card_part(ProcessType::Mix, CardPart::Art)),
+            Op::Until(
+                verify(|w| {
+                    let c = card(w, ProcessType::Mix);
+                    let water: Vec<u32> = w
+                        .query::<(&Ingredient, &InVessel)>()
+                        .iter(w)
+                        .filter(|(i, v)| Some(v.0) == c && i.name == "Water")
+                        .map(|(i, _)| i.amount)
+                        .collect();
+                    if water == [2] {
+                        Ok(())
+                    } else {
+                        Err(format!("water chips: {water:?}"))
+                    }
+                }),
+                40,
+            ),
+        ],
+    ));
+    let mut short = balanced_try(1, 1);
+    short.push(Op::Until(status_says(ProcessType::Mix, "Not enough"), 60));
+    v.push(check(
+        "Balanced amounts",
+        "Short of the equation's amounts, nothing reacts and the vessel says what's short",
+        short,
+    ));
+    let mut exact = balanced_try(2, 1);
+    exact.push(Op::Until(status_says(ProcessType::Mix, "Balanced"), 120));
+    v.push(check("Balanced amounts", "The equation's amounts react in full", exact));
+    let mut dud = balanced_try(3, 1);
+    dud.push(Op::Until(status_says(ProcessType::Mix, "Unbalanced"), 120));
+    dud.push(Op::Until(
+        verify(|w| {
+            let Some((a, _)) = two_to_one(w) else { return Err("no 2:1 recipe".into()) };
+            let c = card(w, ProcessType::Mix);
+            let back = w
+                .query::<(&Ingredient, &InVessel)>()
+                .iter(w)
+                .any(|(i, v)| Some(v.0) == c && i.id == a && i.amount == 1);
+            if back {
+                Ok(())
+            } else {
+                Err("the extra wasn't handed back".into())
+            }
+        }),
+        60,
+    ));
+    v.push(check("Balanced amounts", "A wrong ratio is a dud: half the yield, and the excess handed back", dud));
     v
 }

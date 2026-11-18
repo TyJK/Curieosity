@@ -11,7 +11,7 @@
 // so new features get sounds by emitting the events they already emit. Within one frame
 // only the most important cue of each kind plays, so a reaction that discovers three
 // things and fires a milestone sounds like one milestone, not five overlapping chimes.
-use crate::ui::{Button, Interaction};
+use crate::ui::{Button, Clicked};
 use bevy::audio::{AudioPlayer, AudioSource, PlaybackSettings, Volume};
 use bevy::prelude::*;
 
@@ -184,7 +184,7 @@ fn cues_from_play_system(
     vessels: Query<&ProcessVessel>,
     lifted: Query<(), Added<DragGhostNode>>,
     landed: Query<(), (Or<(Changed<InVessel>, Added<InCatalystZone>)>, Without<PopIn>)>,
-    pressed: Query<&Interaction, (Changed<Interaction>, With<Button>, Without<Draggable>)>,
+    clicked: Query<(), (With<Clicked>, With<Button>, Without<Draggable>)>,
 ) {
     for e in events.read() {
         out.write(PlayCue(match e {
@@ -206,7 +206,7 @@ fn cues_from_play_system(
     if !landed.is_empty() {
         out.write(PlayCue(Cue::Drop));
     }
-    if pressed.iter().any(|i| *i == Interaction::Pressed) {
+    if !clicked.is_empty() {
         out.write(PlayCue(Cue::Click));
     }
 }

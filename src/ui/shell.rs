@@ -4,7 +4,7 @@
 // much of the world has been discovered, past notifications, settings), view switching and
 // Esc, and the lab
 // bench's decoration (dot grid, vignette, the "start here" hint on an empty bench).
-use crate::ui::Interaction;
+use crate::ui::Clicked;
 use bevy::prelude::*;
 
 use crate::components::ui_markers::{CanvasScrollingPane, ReactionCanvasRoot};
@@ -63,6 +63,135 @@ pub fn current_view(codex: &CodexState, rlib: &ReactionLibState, tree: &TechTree
     }
 }
 
+/// The screen is taller than it is wide (a phone held upright): the vessel list becomes a
+/// strip above the shelf, the bench takes the full width, and the header keeps its icons.
+#[derive(Resource, Default, Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Portrait(pub bool);
+
+/// The vessel strip's height, upright.
+pub const STRIP_H: f32 = 66.0;
+
+/// The header's name, the nav tabs' words and the progress track: left out upright.
+#[derive(Component)]
+pub struct HeaderWords;
+
+/// A view of a list beside a page (the Substance and Reaction Libraries): side by side,
+/// or upright the list above the page.
+#[derive(Component)]
+pub struct SplitRoot;
+/// The list, and its width side by side.
+#[derive(Component)]
+pub struct SplitList(pub f32);
+#[derive(Component)]
+pub struct SplitPane;
+
+pub fn portrait_system(windows: Query<&Window, With<bevy::window::PrimaryWindow>>, mut portrait: ResMut<Portrait>) {
+    let Ok(w) = windows.single() else { return };
+    if w.width() < 1.0 {
+        return;
+    }
+    let upright = w.height() > w.width() * 1.05;
+    if portrait.0 != upright {
+        portrait.0 = upright;
+    }
+}
+
+/// Lays the lab out for the way the screen is held (see Portrait). The bench's and the
+/// list's distance from the bottom is fit_dock_system's.
+#[allow(clippy::type_complexity)]
+pub fn portrait_layout_system(
+    portrait: Res<Portrait>,
+    mut nodes: Query<
+        (
+            &mut Node,
+            Has<crate::ui::process_toolbar::VesselSidebar>,
+            Has<crate::ui::process_toolbar::VesselSidebarHead>,
+            Has<crate::components::ui_markers::ReactionCanvasRoot>,
+            Has<HeaderWords>,
+            Has<crate::ui::toasts::ToastStack>,
+            (Has<SplitRoot>, Option<&SplitList>, Has<SplitPane>),
+        ),
+        Or<(
+            With<crate::ui::process_toolbar::VesselSidebar>,
+            With<crate::ui::process_toolbar::VesselSidebarHead>,
+            With<crate::components::ui_markers::ReactionCanvasRoot>,
+            With<HeaderWords>,
+            With<crate::ui::toasts::ToastStack>,
+            With<crate::ui::hint::HintRoot>,
+            With<crate::ui::discovery_card::DiscoveryCardRoot>,
+            With<SplitRoot>,
+            With<SplitList>,
+            With<SplitPane>,
+        )>,
+    >,
+) {
+    let up = portrait.0;
+    let side = if up { 0.0 } else { theme::SIDEBAR_W };
+    for (mut n, list, head, bench, words, toasts, (split, split_list, split_pane)) in &mut nodes {
+        let mut want = n.clone();
+        if split {
+            want.flex_direction = if up { FlexDirection::Column } else { FlexDirection::Row };
+        } else if let Some(SplitList(w)) = split_list {
+            let list_w = Val::Px(*w);
+            want.width = if up { Val::Percent(100.0) } else { list_w };
+            want.min_width = if up { Val::Px(0.0) } else { list_w };
+            want.height = Val::Percent(if up { 42.0 } else { 100.0 });
+            want.border = if up { UiRect::bottom(Val::Px(1.0)) } else { UiRect::right(Val::Px(1.0)) };
+        } else if split_pane {
+            want.height = if up { Val::Auto } else { Val::Percent(100.0) };
+            want.flex_basis = if up { Val::Px(0.0) } else { Val::Auto };
+            want.min_height = Val::Px(0.0);
+            want.padding = if up {
+                UiRect::new(Val::Px(16.0), Val::Px(16.0), Val::Px(14.0), Val::Px(30.0))
+            } else {
+                UiRect::new(Val::Px(32.0), Val::Px(32.0), Val::Px(26.0), Val::Px(40.0))
+            };
+        } else if list {
+            if up {
+                want.left = Val::Px(0.0);
+                want.right = Val::Px(0.0);
+                want.top = Val::Auto;
+                want.width = Val::Auto;
+                want.height = Val::Px(STRIP_H);
+                want.flex_direction = FlexDirection::Row;
+                want.align_items = AlignItems::Center;
+                want.column_gap = Val::Px(6.0);
+                want.padding = UiRect::all(Val::Px(6.0));
+                want.border = UiRect::top(Val::Px(1.0));
+                want.overflow = Overflow::scroll_x();
+            } else {
+                want.left = Val::Auto;
+                want.right = Val::Px(0.0);
+                want.top = Val::Px(theme::HEADER_H);
+                want.width = Val::Px(theme::SIDEBAR_W);
+                want.height = Val::Auto;
+                want.flex_direction = FlexDirection::Column;
+                want.align_items = AlignItems::Stretch;
+                want.column_gap = Val::Px(0.0);
+                want.padding = UiRect::all(Val::Px(12.0));
+                want.border = UiRect::left(Val::Px(1.0));
+                want.overflow = Overflow::scroll_y();
+            }
+        } else if head || words {
+            want.display = if up { Display::None } else { Display::Flex };
+        } else if bench {
+            want.right = Val::Px(side);
+        } else {
+            // the overlays at the bench's right edge, over the shelf (and the strip, upright)
+            want.right = Val::Px(side + 14.0);
+            let lift = if up { STRIP_H + crate::ui::inventory::SHELF_ROW } else { 0.0 };
+            if toasts {
+                want.bottom = Val::Px(theme::DOCK_H + 14.0 + lift);
+            } else if n.bottom != Val::Auto {
+                want.bottom = Val::Px(theme::DOCK_H + 12.0 + lift);
+            }
+        }
+        if *n != want {
+            *n = want;
+        }
+    }
+}
+
 pub fn spawn_header(mut commands: Commands, fonts: Res<UiFonts>, assets: Res<AssetServer>) {
     let fonts = &*fonts;
     let assets = &*assets;
@@ -102,7 +231,7 @@ pub fn spawn_header(mut commands: Commands, fonts: Res<UiFonts>, assets: Res<Ass
                     ImageNode::new(assets.load("images/ui/logo.png")),
                     Node { width: Val::Px(30.0), height: Val::Px(30.0), ..default() },
                 ));
-                b.spawn(theme::label(fonts, "Curieosity", theme::LG, Weight::Bold, theme::TEXT));
+                b.spawn((HeaderWords, theme::label(fonts, "Curieosity", theme::LG, Weight::Bold, theme::TEXT)));
             });
             // views
             h.spawn(Node { column_gap: Val::Px(6.0), align_items: AlignItems::Center, ..default() }).with_children(
@@ -130,6 +259,7 @@ pub fn spawn_header(mut commands: Commands, fonts: Res<UiFonts>, assets: Res<Ass
                         .with_children(|t| {
                             t.spawn(theme::icon(assets, icon, 16.0, theme::TEXT));
                             t.spawn((
+                                HeaderWords,
                                 theme::label(fonts, text, theme::SM, Weight::Semibold, theme::TEXT),
                                 Pickable::IGNORE,
                             ));
@@ -151,6 +281,7 @@ pub fn spawn_header(mut commands: Commands, fonts: Res<UiFonts>, assets: Res<Ass
                 c.spawn(Node { align_items: AlignItems::Center, column_gap: Val::Px(8.0), ..default() }).with_children(
                     |r| {
                         r.spawn((
+                            HeaderWords,
                             Node {
                                 border_radius: BorderRadius::all(Val::Px(99.0)),
                                 width: Val::Px(140.0),
@@ -186,37 +317,31 @@ pub fn spawn_header(mut commands: Commands, fonts: Res<UiFonts>, assets: Res<Ass
 /// Header tabs, the bell and the gear button.
 #[allow(clippy::too_many_arguments)]
 pub fn nav_input_system(
-    tabs: Query<(&Interaction, &NavTab), Changed<Interaction>>,
-    gear: Query<&Interaction, (Changed<Interaction>, With<SettingsButton>)>,
-    bell: Query<&Interaction, (Changed<Interaction>, With<JournalButton>)>,
+    tabs: Query<&NavTab, With<Clicked>>,
+    gear: Query<(), (With<Clicked>, With<SettingsButton>)>,
+    bell: Query<(), (With<Clicked>, With<JournalButton>)>,
     mut codex: ResMut<CodexState>,
     mut rlib: ResMut<ReactionLibState>,
     mut tree: ResMut<TechTreeState>,
     mut settings_ui: ResMut<SettingsUi>,
     mut journal_ui: ResMut<crate::ui::toasts::JournalUi>,
 ) {
-    for (i, tab) in &tabs {
-        if *i == Interaction::Pressed {
-            codex.open = tab.0 == View::Substances;
-            rlib.open = tab.0 == View::Reactions;
-            tree.open = tab.0 == View::TechTree;
-        }
+    for tab in &tabs {
+        codex.open = tab.0 == View::Substances;
+        rlib.open = tab.0 == View::Reactions;
+        tree.open = tab.0 == View::TechTree;
     }
-    for i in &gear {
-        if *i == Interaction::Pressed {
-            settings_ui.open = !settings_ui.open;
-        }
+    if !gear.is_empty() {
+        settings_ui.open = !settings_ui.open;
     }
-    for i in &bell {
-        if *i == Interaction::Pressed {
-            journal_ui.open = !journal_ui.open;
-        }
+    if !bell.is_empty() {
+        journal_ui.open = !journal_ui.open;
     }
 }
 
 /// Esc closes the shelf search's typing, then the credits, the settings dialog or the
-/// journal, then any open view, then lets go of the shelf selection; with nothing else to
-/// close it opens settings.
+/// journal, then any open view, then lets go of a port picked to link from, then of the
+/// shelf selection; with nothing else to close it opens settings.
 #[allow(clippy::too_many_arguments)]
 pub fn escape_system(
     keys: Res<ButtonInput<KeyCode>>,
@@ -230,6 +355,7 @@ pub fn escape_system(
     mut journal_ui: ResMut<crate::ui::toasts::JournalUi>,
     mut search: ResMut<crate::ui::inventory::ShelfSearch>,
     mut menu: ResMut<crate::ui::main_menu::MainMenu>,
+    mut pick: ResMut<crate::systems::drag_drop::LinkPick>,
     pads: Query<&Gamepad>,
 ) {
     // a controller's B and Start do what Esc does, and so does a phone's Back
@@ -258,6 +384,8 @@ pub fn escape_system(
     } else if menu.stage == MenuStage::Menu {
         // back to the game
         menu.hide();
+    } else if pick.0.is_some() {
+        pick.0 = None;
     } else if selected.0.is_some() {
         selected.0 = None;
     } else {
@@ -475,17 +603,17 @@ pub fn decorate_bench_system(
 /// together zooms out, a step at a time.
 pub fn bench_zoom_controls_system(
     mut zoom: ResMut<crate::systems::drag_drop::BenchZoom>,
-    outs: Query<&Interaction, (Changed<Interaction>, With<BenchZoomOut>)>,
-    ins: Query<&Interaction, (Changed<Interaction>, With<BenchZoomIn>)>,
+    outs: Query<(), (With<Clicked>, With<BenchZoomOut>)>,
+    ins: Query<(), (With<Clicked>, With<BenchZoomIn>)>,
     mut label: Query<&mut Text, With<BenchZoomLabel>>,
     touches: Res<Touches>,
     mut pinch: Local<Option<f32>>,
 ) {
     let mut to = zoom.0;
-    if outs.iter().any(|i| *i == Interaction::Pressed) {
+    if !outs.is_empty() {
         to = zoom.stepped(true);
     }
-    if ins.iter().any(|i| *i == Interaction::Pressed) {
+    if !ins.is_empty() {
         to = zoom.stepped(false);
     }
     let fingers: Vec<Vec2> = touches.iter().map(|t| t.position()).collect();
@@ -552,13 +680,16 @@ type HitParts = (
     &'static UiGlobalTransform,
     Option<&'static bevy::ui::CalculatedClip>,
     Option<&'static InheritedVisibility>,
+    Option<&'static Pickable>,
 );
 
-/// The topmost visible node at a point in physical window pixels.
+/// The topmost visible node at a point in physical window pixels. Nodes the pointer goes
+/// through (pop-ups, labels on buttons) are passed over, as picking passes over them.
 fn node_at(p: Vec2, stack: &bevy::ui::UiStack, hits: &Query<HitParts>) -> Option<Entity> {
     stack.uinodes.iter().rev().copied().find(|e| {
-        let Ok((node, tf, clip, vis)) = hits.get(*e) else { return false };
+        let Ok((node, tf, clip, vis, pick)) = hits.get(*e) else { return false };
         vis.is_none_or(|v| v.get())
+            && pick.is_none_or(|p| p.should_block_lower)
             && node.size.x > 0.0
             && node.contains_point(*tf, p)
             && clip.is_none_or(|c| c.contains_point(p))
@@ -567,15 +698,20 @@ fn node_at(p: Vec2, stack: &bevy::ui::UiStack, hits: &Query<HitParts>) -> Option
 
 /// Scroll the first panel at or around `e` that can still move by `d` (UI pixels; positive
 /// shows what is above and to the left, as the wheel turned up does). At the end of an
-/// inner list the movement passes on to the panel around it.
+/// inner list the movement passes on to the panel around it. A wheel turned up or down
+/// over a list that only runs sideways (the vessel strip and the shelf's pills, upright)
+/// scrolls it along; a finger moves things the way it moves.
 fn scroll_out_from(
     mut e: Entity,
     d: Vec2,
+    wheel: bool,
     parents: &Query<&ChildOf>,
     scrollers: &mut Query<(&Node, &ComputedNode, &mut ScrollPosition), Without<CanvasScrollingPane>>,
 ) -> bool {
     loop {
         if let Ok((node, cn, mut sp)) = scrollers.get_mut(e) {
+            let sideways = node.overflow.x == OverflowAxis::Scroll && node.overflow.y != OverflowAxis::Scroll;
+            let d = if wheel && sideways && d.x == 0.0 { Vec2::new(d.y, 0.0) } else { d };
             let max = scroll_max(cn);
             let can_x = node.overflow.x == OverflowAxis::Scroll && d.x != 0.0;
             let can_y = node.overflow.y == OverflowAxis::Scroll && d.y != 0.0;
@@ -629,7 +765,7 @@ pub fn wheel_scroll_system(
     let Some(cursor) = win.cursor_position() else { return };
     let Some(top) = node_at(cursor * win.scale_factor(), &stack, &hits) else { return };
     let ctrl = keys.pressed(KeyCode::ControlLeft) || keys.pressed(KeyCode::ControlRight);
-    if !ctrl && scroll_out_from(top, d, &parents, &mut scrollers) {
+    if !ctrl && scroll_out_from(top, d, true, &parents, &mut scrollers) {
         return;
     }
     // nothing scrolled: on the bench, pan it (Ctrl zooms it)
@@ -703,7 +839,7 @@ pub fn touch_scroll_system(
         if let Some(&e) = held.get(&t.id()) {
             let d = t.delta();
             if d != Vec2::ZERO {
-                scroll_out_from(e, d / s, &parents, &mut scrollers);
+                scroll_out_from(e, d / s, false, &parents, &mut scrollers);
             }
         }
     }
@@ -711,7 +847,7 @@ pub fn touch_scroll_system(
         held.remove(&t.id());
     }
     for m in swipes.read() {
-        scroll_out_from(m.from, m.moved / s, &parents, &mut scrollers);
+        scroll_out_from(m.from, m.moved / s, false, &parents, &mut scrollers);
     }
 }
 

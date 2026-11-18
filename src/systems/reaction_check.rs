@@ -1,6 +1,6 @@
 // src/systems/reaction_check.rs
-use crate::ui::{Button, Interaction};
-use bevy::platform::collections::HashSet;
+use crate::ui::{Button, Clicked};
+use bevy::platform::collections::{HashMap, HashSet};
 use bevy::prelude::*;
 
 use crate::components::ui_markers::{
@@ -79,6 +79,28 @@ const ART_SMALL: f32 = 30.0;
 pub const COMPACT_BENCH: f32 = 420.0;
 
 pub const VESSEL_W: f32 = 216.0;
+/// A full-size card's height, near enough, for laying cards out in rows.
+const VESSEL_ROW_H: f32 = 370.0;
+
+/// Where the `count`th new vessel goes, in the pane's units: across the top of what the
+/// bench shows (`shown` is its top-left, `view` its size, both in pane units), as many as
+/// fit side by side, and on a bench tall enough for two rows (a phone held upright) on to a
+/// second row. Once the slots are used up the next round sits a little lower.
+pub fn vessel_slot(count: usize, shown: Vec2, view: Vec2, margin: f32) -> Vec2 {
+    let step = VESSEL_W + 28.0;
+    let cols = (((view.x - 24.0) / step).floor() as usize).clamp(1, 4);
+    let rows = if view.y - margin >= 2.0 * VESSEL_ROW_H { 2 } else { 1 };
+    let (col, down) = if rows == 2 {
+        let per = cols * 2;
+        let slot = count % per;
+        (slot % cols, (slot / cols) as f32 * VESSEL_ROW_H + (count / per) as f32 * 16.0)
+    } else {
+        // one row: a second round staggers below the first, then each round a little lower
+        let slot = count % (cols * 2);
+        (slot % cols, (slot / cols) as f32 * 30.0 + (count / (cols * 2)) as f32 * 16.0)
+    };
+    shown + Vec2::new(24.0 + col as f32 * step, margin + down)
+}
 const VESSEL_BG: Color = Color::srgb(0.035, 0.047, 0.110);
 
 /// One colour per family of vessels (Heat, Cool, Pressure and so on). Every vessel of a
@@ -204,6 +226,36 @@ pub fn vessel_art_system(
     }
 }
 
+/// A port's touch area: wider than its dot, overhanging the row by the difference.
+fn port_hit_area() -> Node {
+    let (dot, hit) = (18.0, 38.0);
+    Node {
+        width: Val::Px(hit),
+        height: Val::Px(hit),
+        margin: UiRect::all(Val::Px(-(hit - dot) / 2.0)),
+        align_items: AlignItems::Center,
+        justify_content: JustifyContent::Center,
+        ..default()
+    }
+}
+
+/// The dot a port shows.
+fn port_dot(fill: Color, edge: Color) -> impl Bundle {
+    (
+        Node {
+            border_radius: BorderRadius::all(Val::Px(9.0)),
+            width: Val::Px(18.0),
+            height: Val::Px(18.0),
+            border: UiRect::all(Val::Px(2.0)),
+            flex_shrink: 0.0,
+            ..default()
+        },
+        BackgroundColor(fill),
+        BorderColor::all(edge),
+        Pickable::IGNORE,
+    )
+}
+
 fn dim(c: Color, f: f32) -> Color {
     let s = c.to_srgba();
     Color::srgb(s.red * f, s.green * f, s.blue * f)
@@ -213,7 +265,7 @@ fn dim(c: Color, f: f32) -> Color {
 /// free slot of the visible area.
 pub fn process_button_system(
     vessels_q: Query<(), With<VesselCard>>,
-    interaction_q: Query<(&Interaction, &ProcessButton), (Changed<Interaction>, With<Button>)>,
+    clicked: Query<&ProcessButton, (With<Clicked>, With<Button>)>,
     unlocks: Res<crate::ui::process_toolbar::ProcessUnlocks>,
     mut commands: Commands,
     scrolling_panes: Query<(Entity, &Node), With<CanvasScrollingPane>>,
@@ -222,32 +274,24 @@ pub fn process_button_system(
     mut active: ResMut<crate::systems::drag_drop::ActiveVessel>,
     dock: Res<crate::ui::inventory::Dock>,
     zoom: Res<crate::systems::drag_drop::BenchZoom>,
+    bench: Query<&ComputedNode, With<crate::components::ui_markers::ReactionCanvasRoot>>,
 ) {
     let Ok((pane, pane_node)) = scrolling_panes.single() else { return };
     // a compact card starts higher, so the whole of it fits a short bench
     let margin = if dock.bench < COMPACT_BENCH { 10.0 } else { 24.0 };
     let Some(fonts) = fonts.as_ref() else { return };
 
-    for (interaction, button) in &interaction_q {
-        if *interaction != Interaction::Pressed || !unlocks.0.contains(&button.process) {
+    for button in &clicked {
+        if !unlocks.0.contains(&button.process) {
             continue;
         }
         let count = vessels_q.iter().count();
-        // the top-left of what the bench shows, in the pane's own units (it may be zoomed)
-        let shown = -crate::systems::drag_drop::pane_offset(pane_node) / zoom.0.max(0.01);
-        let (pan_x, pan_y) = (shown.x, shown.y);
-        let slot = count % 8;
-        let left = pan_x + 24.0 + (slot % 4) as f32 * (VESSEL_W + 28.0);
-        let top = pan_y + margin + (slot / 4) as f32 * 30.0 + (count / 8) as f32 * 16.0;
-        let card = spawn_vessel_card(
-            &mut commands,
-            pane,
-            &button.process,
-            &button.name,
-            Vec2::new(left, top),
-            fonts,
-            &asset_server,
-        );
+        // what the bench shows, in the pane's own units (it may be zoomed)
+        let z = zoom.0.max(0.01);
+        let shown = -crate::systems::drag_drop::pane_offset(pane_node) / z;
+        let view = crate::systems::drag_drop::bench_view(&bench) / z;
+        let at = vessel_slot(count, shown, view, margin);
+        let card = spawn_vessel_card(&mut commands, pane, &button.process, &button.name, at, fonts, &asset_server);
         active.0 = Some(card); // a double-tap fills the vessel just placed
     }
 }
@@ -326,7 +370,9 @@ pub fn spawn_vessel_card(
                                 Pickable::IGNORE,
                             ));
                         });
-                        hdr.spawn((VesselHeaderButtons, Node { column_gap: Val::Px(2.0), ..default() })).with_children(|btns| {
+                        // spaced apart, so a finger going for one doesn't land on its neighbour
+                        // (Clear and Close sit side by side)
+                        hdr.spawn((VesselHeaderButtons, Node { column_gap: Val::Px(8.0), ..default() })).with_children(|btns| {
                             theme::spawn_icon_button(
                                 btns,
                                 asset_server,
@@ -382,25 +428,25 @@ pub fn spawn_vessel_card(
                         Name::new("PortWrapper"),
                     ))
                     .with_children(|row| {
+                        // each port is an 18 px dot in a 38 px touch area that overhangs the
+                        // row, so a finger finds it without the card growing
                         row.spawn((
-                            InputPort, DropTarget, Pickable::default(), Interaction::default(),
-                            Tip::Text("Input port", "Drag a link here from another vessel's output port: its products will flow in and react."),
-                            Node { border_radius: BorderRadius::all(Val::Px(9.0)), width: Val::Px(18.0), height: Val::Px(18.0), border: UiRect::all(Val::Px(2.0)), ..default() },
-                            BackgroundColor(theme::BG), BorderColor::all(theme::CYAN),
+                            InputPort, DropTarget, Pickable::default(), port_hit_area(),
+                            Tip::Text("Input port", "Products of the vessel linked here flow in and react. Link by dragging from another vessel's output port onto this vessel, or tap that port and then this vessel."),
                             Name::new("InputPort"),
-                        ));
+                        ))
+                        .with_child(port_dot(theme::BG, theme::CYAN));
                         row.spawn((
                             VesselPortLabel,
-                            theme::label(fonts, "in  ·  drag out to chain  ·  out", 9.5, theme::Weight::Regular, theme::TEXT_3),
+                            theme::label(fonts, "in  ·  drag or tap out to chain  ·  out", 9.5, theme::Weight::Regular, theme::TEXT_3),
                             Pickable::IGNORE,
                         ));
                         row.spawn((
-                            OutputPort { filter: PortFilter::Any }, Draggable, Pickable::default(),
-                            Tip::Text("Output port", "Drag from here to another vessel's input port to chain them."),
-                            Node { border_radius: BorderRadius::all(Val::Px(9.0)), width: Val::Px(18.0), height: Val::Px(18.0), border: UiRect::all(Val::Px(2.0)), ..default() },
-                            BackgroundColor(theme::GOLD.with_alpha(0.35)), BorderColor::all(theme::GOLD),
+                            OutputPort { filter: PortFilter::Any }, Draggable, Pickable::default(), port_hit_area(),
+                            Tip::Text("Output port", "Drag from here onto another vessel to chain them, or tap here and then tap the vessel to feed."),
                             Name::new("OutputPort"),
-                        ));
+                        ))
+                        .with_child(port_dot(theme::GOLD.with_alpha(0.35), theme::GOLD));
                     });
 
                 // --- ingredient zone ---
@@ -408,7 +454,6 @@ pub fn spawn_vessel_card(
                     VesselIngredientZone,
                     DropTarget,
                     Pickable::default(),
-                    Interaction::default(),
                     Tip::Text(
                         "Contents",
                         "Put substances here, then press React. Tap a substance's x to take it out, or drag it onto another vessel to move it.",
@@ -437,7 +482,6 @@ pub fn spawn_vessel_card(
                             VesselCatalystZone,
                             DropTarget,
                             Pickable::default(),
-                            Interaction::default(),
                             Tip::Text("Catalyst slot", "A catalyst speeds a reaction without being used up. It stays here between reactions."),
                             Node { border_radius: BorderRadius::all(Val::Px(theme::R_MD)),
                                 width: Val::Percent(100.0),
@@ -621,13 +665,11 @@ pub fn vessel_fit_system(
 }
 
 pub fn vessel_react_button_system(
-    interaction_q: Query<(&Interaction, &ChildOf), (Changed<Interaction>, With<VesselReactButton>, With<Button>)>,
+    clicked: Query<&ChildOf, (With<Clicked>, With<VesselReactButton>, With<Button>)>,
     mut ev_check: MessageWriter<CheckVesselReaction>,
 ) {
-    for (interaction, parent) in &interaction_q {
-        if *interaction == Interaction::Pressed {
-            ev_check.write(CheckVesselReaction(parent.0));
-        }
+    for parent in &clicked {
+        ev_check.write(CheckVesselReaction(parent.0));
     }
 }
 
@@ -667,22 +709,21 @@ pub fn chain_starts(vessel: Entity, links: &[(Entity, Entity)]) -> Vec<Entity> {
 /// vessels at the start of the chain. The links carry their products on, and every vessel
 /// downstream reacts as they arrive (propagate_products_system).
 pub fn vessel_chain_button_system(
-    mut buttons: Query<(Entity, &Interaction, &mut Node), With<VesselChainButton>>,
-    pressed: Query<(), (Changed<Interaction>, With<VesselChainButton>)>,
+    mut buttons: Query<(Entity, Has<Clicked>, &mut Node), With<VesselChainButton>>,
     links: Query<&ReactionLink>,
     parents: Query<&ChildOf>,
     cards: Query<(), With<VesselCard>>,
     mut ev_check: MessageWriter<CheckVesselReaction>,
 ) {
     let pairs: Vec<(Entity, Entity)> = links.iter().map(|l| (l.from_vessel, l.to_vessel)).collect();
-    for (b, interaction, mut node) in &mut buttons {
+    for (b, clicked, mut node) in &mut buttons {
         let Some(vessel) = vessel_of(b, &parents, &cards) else { continue };
         let fed = pairs.iter().any(|&(from, to)| to == vessel && from != vessel);
         let d = if fed { Display::Flex } else { Display::None };
         if node.display != d {
             node.display = d;
         }
-        if fed && *interaction == Interaction::Pressed && pressed.contains(b) {
+        if fed && clicked {
             for start in chain_starts(vessel, &pairs) {
                 ev_check.write(CheckVesselReaction(start));
             }
@@ -692,21 +733,18 @@ pub fn vessel_chain_button_system(
 
 pub fn vessel_clear_button_system(
     mut commands: Commands,
-    button_q: Query<(Entity, &Interaction), (Changed<Interaction>, With<VesselClearButton>)>,
+    button_q: Query<Entity, (With<Clicked>, With<VesselClearButton>)>,
     parent_q: Query<&ChildOf>,
     cards: Query<(), With<VesselCard>>,
     ingredients_q: Query<(Entity, &InVessel)>,
     catalysts_q: Query<(Entity, &InCatalystZone)>,
     mut eq_q: Query<(&mut Text, &mut TextColor, &ChildOf), With<EquationText>>,
 ) {
-    for (btn, interaction) in &button_q {
-        if *interaction != Interaction::Pressed {
-            continue;
-        }
+    for btn in &button_q {
         let Some(vessel) = vessel_of(btn, &parent_q, &cards) else { continue };
         for (e, in_vessel) in &ingredients_q {
             if in_vessel.0 == vessel {
-                commands.entity(e).despawn();
+                commands.entity(e).try_despawn();
             }
         }
         for (e, in_zone) in &catalysts_q {
@@ -720,15 +758,12 @@ pub fn vessel_clear_button_system(
 
 pub fn vessel_delete_button_system(
     mut commands: Commands,
-    button_q: Query<(Entity, &Interaction), (Changed<Interaction>, With<VesselDeleteButton>)>,
+    button_q: Query<Entity, (With<Clicked>, With<VesselDeleteButton>)>,
     parent_q: Query<&ChildOf>,
     cards: Query<(), With<VesselCard>>,
     links_q: Query<(Entity, &ReactionLink)>,
 ) {
-    for (btn, interaction) in &button_q {
-        if *interaction != Interaction::Pressed {
-            continue;
-        }
+    for btn in &button_q {
         let Some(vessel) = vessel_of(btn, &parent_q, &cards) else { continue };
         commands.entity(vessel).despawn();
         for (link_entity, link) in &links_q {
@@ -771,8 +806,11 @@ pub fn reaction_check_system(
     settings: Option<Res<Settings>>,
     mut events: MessageWriter<GameEvent>,
     unlocks: Res<crate::ui::process_toolbar::ProcessUnlocks>,
+    hand_back: (Res<UiFonts>, Res<AssetServer>, Query<(Entity, &ChildOf), With<VesselIngredientZone>>),
 ) {
     let speed = settings.as_ref().map(|s| s.reaction_speed).unwrap_or(1.0).max(0.05);
+    let balanced = settings.as_ref().is_some_and(|s| s.balanced_amounts);
+    let (fonts, assets, zones) = hand_back;
     let Some(recipe_db) = recipe_db else {
         ev_check.clear();
         return;
@@ -821,9 +859,15 @@ pub fn reaction_check_system(
                     if unlocks.0.contains(p) { "" } else { ", which you haven't unlocked yet" },
                 )),
                 Lookup::OtherVessel(p) => {
-                    Some(format!("These don't react in the {}, but try a {}.", vessel_name(process), vessel_name(p)))
+                    let other = vessel_name(p);
+                    Some(format!(
+                        "These don't react in the {}, but try {} {other}.",
+                        vessel_name(process),
+                        crate::data::common::article(other)
+                    ))
                 }
-                _ => None,
+                // what the chemistry, or the recipes, can tell
+                _ => crate::systems::lessons::why_not(&recipe_db, process, &reactant_ids, substances_db),
             };
             let status = hint.clone().unwrap_or_else(|| "No reaction.".to_string());
             set_status(&mut eq_q, vessel_entity, &status, theme::RED);
@@ -854,28 +898,114 @@ pub fn reaction_check_system(
             }
         }
 
-        // Consume ingredients.
+        // With balanced amounts on, the amounts are weighed against the equation: short of
+        // one equation's worth doesn't react; n times over makes n times the products; any
+        // other ratio is a dud, making half and handing the excess back.
+        let mut times = 1;
+        let mut leftover: Vec<(u32, u32)> = Vec::new();
+        let mut note: Option<String> = None;
+        if balanced {
+            let mut placed: HashMap<u32, u32> = HashMap::new();
+            for (_, ing, iv) in vessel_ingredients.iter() {
+                if iv.0 == vessel_entity {
+                    *placed.entry(ing.id).or_default() += ing.amount.max(1);
+                }
+            }
+            let (n, exact, short) = weigh(reaction, &placed);
+            if n == 0 {
+                let (id, m) = short.unwrap_or((reactant_ids[0], 1));
+                let others: Vec<String> = reaction
+                    .reactants
+                    .iter()
+                    .filter(|x| x.substance_id != id)
+                    .map(|x| format!("{} {}", x.moles.max(1), name_of(x.substance_id)))
+                    .collect();
+                let msg = if others.is_empty() {
+                    format!("Not enough {}: the equation takes {m} of it.", name_of(id))
+                } else {
+                    format!("Not enough {}: the equation takes {m} for every {}.", name_of(id), others.join(" and "))
+                };
+                set_status(&mut eq_q, vessel_entity, &msg, theme::GOLD);
+                events.write(GameEvent::Fizzle {
+                    process: process.clone(),
+                    reactants: reactant_ids.clone(),
+                    reason: msg.clone(),
+                });
+                toasts.push(ToastKind::Hint, msg);
+                commands.entity(vessel_entity).insert(Fizzle(Timer::from_seconds(0.6, TimerMode::Once)));
+                continue;
+            }
+            times = n;
+            if !exact {
+                leftover = reaction
+                    .reactants
+                    .iter()
+                    .map(|x| (x.substance_id, placed.get(&x.substance_id).copied().unwrap_or(0) - n * x.moles.max(1)))
+                    .filter(|(_, left)| *left > 0)
+                    .collect();
+                let left: Vec<String> = leftover.iter().map(|(id, k)| format!("{k} {}", name_of(*id))).collect();
+                note = Some(format!(
+                    "Unbalanced: half the yield, and {} left over. Match the equation's amounts for all of it.",
+                    left.join(" and ")
+                ));
+            }
+        }
+
+        // Consume ingredients (a transient may be breaking down this same frame: try).
         for (entity, _, in_vessel) in vessel_ingredients.iter() {
             if in_vessel.0 == vessel_entity {
-                commands.entity(entity).despawn();
+                commands.entity(entity).try_despawn();
+            }
+        }
+        // ...and hand back what an unbalanced batch didn't use
+        if let Some((zone, _)) = zones.iter().find(|(_, parent)| parent.parent() == vessel_entity) {
+            for (id, k) in &leftover {
+                let Some(sub) = substances_db.0.get(id) else { continue };
+                let ing = Ingredient {
+                    id: *id,
+                    name: sub.name.clone(),
+                    formula: sub.formula.clone(),
+                    state: sub.state,
+                    properties: sub.properties.clone(),
+                    amount: *k,
+                };
+                commands.entity(zone).with_children(|z| {
+                    spawn_vessel_chip(z, &ing, ChipRole::Ingredient(vessel_entity), &fonts, &assets);
+                });
             }
         }
 
         let equation = format!("{}\n{}", reaction.name, build_equation_string(reaction, substances_db));
-        set_status(&mut eq_q, vessel_entity, &equation, theme::TEXT);
+        match &note {
+            Some(n) => {
+                set_status(&mut eq_q, vessel_entity, &format!("{equation}\n{n}"), theme::GOLD);
+                toasts.push(ToastKind::Hint, n.clone());
+            }
+            None if balanced => {
+                let times_note = if times > 1 { format!(", {times} times over") } else { String::new() };
+                set_status(
+                    &mut eq_q,
+                    vessel_entity,
+                    &format!("{equation}\nBalanced{times_note}: the full yield."),
+                    theme::TEXT,
+                );
+            }
+            None => set_status(&mut eq_q, vessel_entity, &equation, theme::TEXT),
+        }
         events.write(GameEvent::Reacted { reaction_id: reaction.id, vessel: vessel_entity });
 
-        // Prepare products.
+        // Prepare products (n batches; half, rounded up, for a dud).
         let mut products = Vec::new();
         for sp in &reaction.products {
             if let Some(sub) = substances_db.0.get(&sp.substance_id) {
+                let full = sp.moles.max(1) * times;
                 products.push(Ingredient {
                     id: sub.id,
                     name: sub.name.clone(),
                     formula: sub.formula.clone(),
                     state: sub.state,
                     properties: sub.properties.clone(),
-                    amount: sp.moles.max(1),
+                    amount: if note.is_some() { full.div_ceil(2) } else { full },
                 });
             }
         }
@@ -922,6 +1052,104 @@ pub fn handle_reaction_timers_system(
     }
 }
 
+/// How long a transient lasts in a vessel before it breaks down (and at least DECAY_FRAMES
+/// frames, so a slow frame can't take it before the reaction waiting for it has looked).
+pub const DECAY_SECS: f32 = 1.6;
+const DECAY_FRAMES: u32 = 6;
+
+/// On a transient's chip (Property::IsTransient): unless a reaction takes it within
+/// DECAY_SECS it breaks down, its edge going from green to red first.
+#[derive(Component)]
+pub struct Decay {
+    timer: Timer,
+    frames: u32,
+}
+
+impl Default for Decay {
+    fn default() -> Self {
+        Self { timer: Timer::from_seconds(DECAY_SECS, TimerMode::Once), frames: 0 }
+    }
+}
+
+/// Breaks down transients that nothing used, and says how to use one.
+pub fn decay_system(
+    mut commands: Commands,
+    time: Res<Time>,
+    mut chips: Query<(Entity, &mut Decay, &Ingredient, &InVessel, &mut BorderColor)>,
+    mut eq_q: Query<(&mut Text, &mut TextColor, &ChildOf), With<EquationText>>,
+    mut toasts: ResMut<Toasts>,
+) {
+    for (e, mut d, ing, in_vessel, mut border) in &mut chips {
+        d.timer.tick(time.delta());
+        d.frames += 1;
+        border.left = theme::mix(theme::GREEN, theme::RED, d.timer.fraction());
+        if d.timer.is_finished() && d.frames >= DECAY_FRAMES {
+            commands.entity(e).try_despawn();
+            let msg = format!(
+                "{} doesn't keep: it broke down. Link this vessel into the one that uses it, and it flows straight there.",
+                ing.name
+            );
+            set_status(&mut eq_q, in_vessel.0, &msg, theme::GOLD);
+            toasts.push(ToastKind::Hint, msg);
+        }
+    }
+}
+
+/// With balanced amounts on, a substance put into a vessel that already holds it adds to
+/// that chip's count ("2 HCl") instead of sitting beside it.
+pub fn merge_chips_system(
+    mut commands: Commands,
+    settings: Option<Res<Settings>>,
+    mut chips: Query<(Entity, Ref<InVessel>, &mut Ingredient, Option<&Children>)>,
+    children_q: Query<&Children>,
+    mut texts: Query<&mut Text, With<crate::ui::inventory::ChipFormulaText>>,
+) {
+    if !settings.as_ref().is_some_and(|s| s.balanced_amounts) || !chips.iter().any(|c| c.1.is_added()) {
+        return;
+    }
+    // the new chips, and for each (vessel, substance) the chip that was there first
+    let mut new: Vec<(Entity, Entity, u32, u32)> = Vec::new();
+    let mut keep: Vec<(Entity, u32, Entity)> = Vec::new();
+    let mut seen: Vec<_> = chips.iter().map(|(e, v, i, _)| (e, v.0, i.id, i.amount, v.is_added())).collect();
+    seen.sort_by_key(|c| (c.4, c.0.index().index()));
+    for (e, vessel, id, amount, added) in seen {
+        if let Some(k) = keep.iter().find(|k| k.0 == vessel && k.1 == id) {
+            if added {
+                new.push((e, k.2, id, amount));
+            }
+        } else {
+            keep.push((vessel, id, e));
+        }
+    }
+    for (e, into, _, amount) in new {
+        commands.entity(e).try_despawn();
+        let Ok((_, _, mut ing, kids)) = chips.get_mut(into) else { continue };
+        ing.amount += amount;
+        let label = format!("{} {}", ing.amount, crate::components::format_formula(&ing.formula));
+        let mut todo: Vec<Entity> = kids.map(|k| k.iter().collect()).unwrap_or_default();
+        while let Some(c) = todo.pop() {
+            if let Ok(mut t) = texts.get_mut(c) {
+                t.0 = label.clone();
+            }
+            if let Ok(k) = children_q.get(c) {
+                todo.extend(k.iter());
+            }
+        }
+    }
+}
+
+/// With balanced amounts on: how many times over the equation the vessel holds (n), and
+/// whether the amounts match it exactly. n = 0 means a reactant is short of one equation's
+/// worth (which one, and how many it takes).
+pub fn weigh(reaction: &Reaction, placed: &HashMap<u32, u32>) -> (u32, bool, Option<(u32, u32)>) {
+    let need: Vec<(u32, u32)> = reaction.reactants.iter().map(|s| (s.substance_id, s.moles.max(1))).collect();
+    let have = |id: u32| placed.get(&id).copied().unwrap_or(0);
+    let n = need.iter().map(|(id, m)| have(*id) / m).min().unwrap_or(0);
+    let short = need.iter().find(|(id, m)| have(*id) < *m).copied();
+    let exact = n > 0 && need.iter().all(|(id, m)| have(*id) == n * m);
+    (n, exact, short)
+}
+
 /// Fades a fizzle's red flash back to the vessel's normal border.
 pub fn fizzle_system(
     mut commands: Commands,
@@ -962,7 +1190,11 @@ pub fn propagate_products_system(
         for link in outgoing_links {
             let to_vessel = link.to_vessel;
             let Ok(port) = port_q.get(link.from_port) else { continue };
-            let product_index = available_products.iter().position(|product| matches_filter(product, &port.filter));
+            // a transient goes first: it is what the link is there for
+            let product_index = available_products
+                .iter()
+                .position(|product| product.is_transient() && matches_filter(product, &port.filter))
+                .or_else(|| available_products.iter().position(|product| matches_filter(product, &port.filter)));
             if let Some(index) = product_index {
                 let product_to_move = available_products.remove(index);
                 if let Ok(children) = all_vessels.get(to_vessel) {

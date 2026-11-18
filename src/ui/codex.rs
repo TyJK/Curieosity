@@ -5,8 +5,9 @@
 // state and tags, the description, physical data, what industry does with it (how much is
 // made, how it travels and is kept, the grades it sells at), the known reactions that make it
 // and use it (click one to open it in the Reaction Library), and its references.
-use crate::ui::{Button, Interaction};
+use crate::ui::{Button, Clicked};
 use bevy::prelude::*;
+use bevy::ui::Pressed;
 use bevy::ui::ScrollPosition;
 
 use crate::components::format_formula;
@@ -319,6 +320,12 @@ fn spawn_fact_grid(p: &mut ChildSpawnerCommands, fonts: &UiFonts, facts: Vec<(&'
 const MEDICINE_NOTE: &str = "Medicines are shown here for how they are made and what they do. Real medicines \
 are made under licence to strict purity standards, and taken only as a doctor or pharmacist directs.";
 
+/// Shown under a transient: why it isn't on the shelf, and how it is used.
+const TRANSIENT_NOTE: &str = "This doesn't keep: it is made and used at once, so it never goes on the \
+shelf. Link the vessel that makes it to the one that uses it (drag or tap from the first one's output port \
+to the second vessel), put the other ingredients in that second vessel, and react the first: it flows \
+straight across. Left where it was made, it breaks down.";
+
 /// Shown under a class of compounds: why its formula is one member's.
 const CLASS_NOTE: &str = "A family of closely related compounds, made and used as one. \
 The formula and structure shown are a typical member's.";
@@ -337,6 +344,7 @@ fn tags(sub: &Substance) -> Vec<(&'static str, Color)> {
             Property::IsMonomer => t.push(("Monomer", Color::srgb(1.0, 0.65, 0.85))),
             Property::IsMedicine => t.push(("Medicine", Color::srgb(0.45, 0.90, 0.80))),
             Property::IsClass => t.push(("Class", Color::srgb(0.75, 0.70, 1.0))),
+            Property::IsTransient => t.push(("Used at once", Color::srgb(1.0, 0.55, 0.35))),
             _ => {}
         }
     }
@@ -347,7 +355,7 @@ pub fn spawn_codex(mut commands: Commands, fonts: Res<UiFonts>, assets: Res<Asse
     let fonts = &*fonts;
     let assets = &*assets;
     commands
-        .spawn((CodexRoot, theme::view_root(600), Name::new("CodexRoot")))
+        .spawn((CodexRoot, crate::ui::shell::SplitRoot, theme::view_root(600), Name::new("CodexRoot")))
         .insert(Node {
             position_type: PositionType::Absolute,
             left: Val::Px(0.0),
@@ -361,6 +369,7 @@ pub fn spawn_codex(mut commands: Commands, fonts: Res<UiFonts>, assets: Res<Asse
         .with_children(|root| {
             // --- left column: header, search, categories, list ---
             root.spawn((
+                crate::ui::shell::SplitList(LIST_W),
                 Node {
                     width: Val::Px(LIST_W),
                     min_width: Val::Px(LIST_W),
@@ -470,6 +479,7 @@ pub fn spawn_codex(mut commands: Commands, fonts: Res<UiFonts>, assets: Res<Asse
             });
             // --- right column: the substance page ---
             root.spawn((
+                crate::ui::shell::SplitPane,
                 CodexScrollable { is_left: false },
                 ScrollPosition::default(),
                 Node {
@@ -497,14 +507,12 @@ pub fn spawn_codex(mut commands: Commands, fonts: Res<UiFonts>, assets: Res<Asse
 
 /// Show/hide the library; the close button returns to the lab.
 pub fn codex_button_system(
-    closes: Query<&Interaction, (Changed<Interaction>, With<CodexCloseButton>)>,
+    closes: Query<(), (With<Clicked>, With<CodexCloseButton>)>,
     mut state: ResMut<CodexState>,
     mut root_q: Query<&mut Node, With<CodexRoot>>,
 ) {
-    for i in &closes {
-        if *i == Interaction::Pressed {
-            state.open = false;
-        }
+    if !closes.is_empty() {
+        state.open = false;
     }
     if let Ok(mut node) = root_q.single_mut() {
         let d = if state.open { Display::Flex } else { Display::None };
@@ -612,7 +620,7 @@ pub fn codex_window_system(
     mut content_q: Query<(Entity, &mut VirtualList, &mut Node, &ComputedNode), With<CodexListContent>>,
     scroll_q: Query<(&CodexScrollable, &ComputedNode, &ScrollPosition)>,
     mut rows: Query<&mut Node, (With<CodexEntry>, Without<CodexListContent>)>,
-    pressed: Query<&Interaction, With<CodexEntry>>,
+    pressed: Query<(), (With<CodexEntry>, Or<(With<Pressed>, With<Clicked>)>)>,
     fonts: Res<UiFonts>,
     assets: Res<AssetServer>,
 ) {
@@ -626,7 +634,7 @@ pub fn codex_window_system(
         return;
     };
     let focused = focus.and_then(|f| f.entity);
-    let keep = |e: Entity| Some(e) == focused || pressed.get(e).is_ok_and(|i| *i == Interaction::Pressed);
+    let keep = |e: Entity| Some(e) == focused || pressed.contains(e);
     let (width, view_h) = if state.open {
         (cn.size.x * cn.inverse_scale_factor(), view.size.y * view.inverse_scale_factor())
     } else {
@@ -748,23 +756,18 @@ fn spawn_thumb(parent: &mut ChildSpawnerCommands, fonts: &UiFonts, assets: &Asse
     }
 }
 
-pub fn codex_entry_click_system(
-    q: Query<(&Interaction, &CodexEntry), (Changed<Interaction>, With<Button>)>,
-    mut state: ResMut<CodexState>,
-) {
-    for (interaction, entry) in &q {
-        if *interaction == Interaction::Pressed {
-            state.selected = Some(entry.0);
-        }
+pub fn codex_entry_click_system(q: Query<&CodexEntry, (With<Clicked>, With<Button>)>, mut state: ResMut<CodexState>) {
+    for entry in &q {
+        state.selected = Some(entry.0);
     }
 }
 
 pub fn codex_category_tab_system(
-    q: Query<(&Interaction, &CodexCategoryTab), (Changed<Interaction>, With<Button>)>,
+    q: Query<&CodexCategoryTab, (With<Clicked>, With<Button>)>,
     mut filter: ResMut<CodexFilter>,
 ) {
-    for (interaction, tab) in &q {
-        if *interaction == Interaction::Pressed && filter.category != tab.0 {
+    for tab in &q {
+        if filter.category != tab.0 {
             filter.category = tab.0;
         }
     }
@@ -832,7 +835,7 @@ pub fn codex_search_input_system(
     state: Res<CodexState>,
     mut filter: ResMut<CodexFilter>,
     mut text_q: Query<(&mut Text, &mut TextColor), With<CodexSearchText>>,
-    boxes: Query<&Interaction, (Changed<Interaction>, With<CodexSearchBox>)>,
+    boxes: Query<(), (With<Clicked>, With<CodexSearchBox>)>,
     mut typing: ResMut<crate::ui::inventory::TypingBox>,
 ) {
     use crate::ui::inventory::TypingBox;
@@ -844,11 +847,9 @@ pub fn codex_search_input_system(
         return;
     }
     let mut changed = false;
-    for i in &boxes {
-        if *i == Interaction::Pressed {
-            *typing = TypingBox::Codex;
-            crate::platform::keyboard_show(&filter.search);
-        }
+    if !boxes.is_empty() {
+        *typing = TypingBox::Codex;
+        crate::platform::keyboard_show(&filter.search);
     }
     if *typing == TypingBox::Codex {
         if let Some(t) = crate::platform::keyboard_text() {
@@ -1122,6 +1123,9 @@ pub fn update_codex_detail_system(
         if sub.properties.contains(&Property::IsClass) {
             p.spawn(theme::para(fonts, CLASS_NOTE.to_string(), theme::SM, theme::TEXT_3, Val::Px(820.0)));
         }
+        if sub.is_transient() {
+            p.spawn(theme::para(fonts, TRANSIENT_NOTE.to_string(), theme::SM, theme::GOLD, Val::Px(820.0)));
+        }
         if sub.properties.contains(&Property::IsMedicine) {
             p.spawn(theme::para(fonts, MEDICINE_NOTE.to_string(), theme::SM, theme::GOLD, Val::Px(820.0)));
         }
@@ -1278,22 +1282,18 @@ fn reaction_row(p: &mut ChildSpawnerCommands, fonts: &UiFonts, assets: &AssetSer
 }
 
 pub fn codex_link_click_system(
-    q: Query<(&Interaction, &CodexRefLink), (Changed<Interaction>, With<Button>)>,
-    reactions: Query<(&Interaction, &CodexReactionLink), (Changed<Interaction>, With<Button>)>,
+    q: Query<&CodexRefLink, (With<Clicked>, With<Button>)>,
+    reactions: Query<&CodexReactionLink, (With<Clicked>, With<Button>)>,
     mut codex: ResMut<CodexState>,
     mut rlib: ResMut<ReactionLibState>,
 ) {
-    for (interaction, link) in &q {
-        if *interaction == Interaction::Pressed {
-            open_url(&link.0);
-        }
+    for link in &q {
+        open_url(&link.0);
     }
-    for (interaction, link) in &reactions {
-        if *interaction == Interaction::Pressed {
-            codex.open = false;
-            rlib.open = true;
-            rlib.selected = Some(link.0);
-        }
+    for link in &reactions {
+        codex.open = false;
+        rlib.open = true;
+        rlib.selected = Some(link.0);
     }
 }
 

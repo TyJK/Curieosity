@@ -20347,7 +20347,7 @@ Along with having antioxidant properties and energy producing effects, sodium py
             decay_particle_id: None,
             properties: [IsBase],
             description: Some("Debrisoquine is a derivative of guanidine.  It is an antihypertensive drug similar to guanethidine. Debrisoquine is frequently used for phenotyping the CYP2D6 enzyme, a drug-metabolizing enzyme.
-Debrisoquine has been identified as a inhibitor of TMPRSS2 protease, which is involved in the viral entry process of SARS-CoV-2. In a laboratory study, it showed antiviral activity by blocking the ability of the virus to enter human lung cells.
+Debrisoquine has been identified as an inhibitor of TMPRSS2 protease, which is involved in the viral entry process of SARS-CoV-2. In a laboratory study, it showed antiviral activity by blocking the ability of the virus to enter human lung cells.
 The guanidine part of the molecule also appears in guanoxan and guanadrel. The 7-bromo analog of debrisoquine is called guanisoquin."),
             text_source: Some("Wikipedia"),
             hazard_summary: None,
@@ -27378,7 +27378,7 @@ Diphenyl sulfone is produced by the sulfonation of benzene with sulfuric acid an
             description: Some("Iron phosphide is a chemical compound of iron and phosphorus, with a formula of FeP. Crystals are isolated as grey needles.
 Manufacturing of iron phosphide takes place at elevated temperatures, where the elements combine directly. Iron phosphide reacts with moisture and acids producing phosphine (PH3), a toxic and pyrophoric gas.
 Iron phosphide is a good electric and heat conductor.
-Below a Néel temperature of about 119 K, FeP takes on an helimagnetic structure."),
+Below a Néel temperature of about 119 K, FeP takes on a helimagnetic structure."),
             text_source: Some("Wikipedia"),
             hazard_summary: Some("H301 (100%): Toxic if swallowed [Danger Acute toxicity, oral]"),
             uses: ["Fillers", "Adhesive Manufacturing"],
@@ -28481,7 +28481,7 @@ Along with sodium hydroxide (NaOH), KOH is a prototypical strong base. It has ma
             hazard_summary: Some("H314: Causes severe skin burns and eye damage [Danger Skin corrosion/irritation]"),
             uses: ["Adsorbents and absorbents", "Agricultural chemicals (non-pesticidal)", "Anti-freeze agent", "Bleaching agents", "Catalyst", "Cleaning agent"],
             logp: Some(-0.938),
-            appearance: Some("Potassium hydroxide, solution appears as an clear aqueous solution. Corrosive to metals and tissue. Noncombustible. Used in chemical manufacturing, petroleum refining, cleaning compounds."),
+            appearance: Some("Potassium hydroxide, solution appears as a clear aqueous solution. Corrosive to metals and tissue. Noncombustible. Used in chemical manufacturing, petroleum refining, cleaning compounds."),
             synonyms: ["KOH", "lye", "E525", "Aetzkali", "potash lye", "Kaliumhydroxid", "caustic potash", "potasse caustique"],
             references: [("Wikipedia", "https://en.wikipedia.org/?curid=235343"), ("PubChem", "https://pubchem.ncbi.nlm.nih.gov/compound/14797"), ("ChEBI", "https://www.ebi.ac.uk/chebi/searchId.do?chebiId=CHEBI_32035"), ("Wikidata", "http://www.wikidata.org/entity/Q132298"), ("NIST", "https://webbook.nist.gov/cgi/cbook.cgi?ID=C1310583&Units=SI")],
             element_info: None,
@@ -34637,7 +34637,7 @@ Ziprasidone was approved for medical use in the United States in 2001. The pills
             decay_product_id: None,
             decay_particle_id: None,
             properties: [IsAcid, IsBase],
-            description: Some("Proline (symbol Pro or P) is an organic acid classed as a proteinogenic amino acid (used in the biosynthesis of proteins), although it does not contain the amino group -NH2 but is rather a secondary amine. The secondary amine nitrogen is in the protonated form (NH2+) under biological conditions, while the carboxyl group is in the deprotonated −COO− form. The \"side chain\" from the α carbon connects to the nitrogen forming a pyrrolidine loop, classifying it as a aliphatic amino acid. It is non-essential in humans, meaning the body can synthesize it from the non-essential amino acid L-glutamate. It is encoded by all the codons starting with CC (CCU, CCC, CCA, and CCG).
+            description: Some("Proline (symbol Pro or P) is an organic acid classed as a proteinogenic amino acid (used in the biosynthesis of proteins), although it does not contain the amino group -NH2 but is rather a secondary amine. The secondary amine nitrogen is in the protonated form (NH2+) under biological conditions, while the carboxyl group is in the deprotonated −COO− form. The \"side chain\" from the α carbon connects to the nitrogen forming a pyrrolidine loop, classifying it as an aliphatic amino acid. It is non-essential in humans, meaning the body can synthesize it from the non-essential amino acid L-glutamate. It is encoded by all the codons starting with CC (CCU, CCC, CCA, and CCG).
 Proline is the only proteinogenic amino acid which is a secondary amine, as the nitrogen atom is attached both to the α-carbon and to a chain of three carbons that together form a five-membered ring."),
             text_source: Some("Wikipedia"),
             hazard_summary: None,
@@ -34735,7 +34735,7 @@ Cytarabine was patented in 1960 and approved for medical use in 1969. It is on t
             decay_product_id: None,
             decay_particle_id: None,
             properties: [IsBase],
-            description: Some("Alcaftadine, sold under the brand name Lastacaft, is an antihistamine used to help prevent itching of the eyes. It is an H1 histamine receptor antagonist. It is given as an drops in the eye.
+            description: Some("Alcaftadine, sold under the brand name Lastacaft, is an antihistamine used to help prevent itching of the eyes. It is an H1 histamine receptor antagonist. It is given as drops in the eye.
 It was approved for medical use in the United States in July 2010. It is available as a generic medication and as an over-the-counter medication."),
             text_source: Some("Wikipedia"),
             hazard_summary: None,
@@ -46648,7 +46648,7 @@ Like cholestyramine, colestipol works in the gut by trapping bile acids and prev
             decay_product_id: None,
             decay_particle_id: None,
             properties: [],
-            description: Some("Isoflurane, sold under the brand name Forane among others, is a halogenated ether used as a general anesthetic. It can be used to start or maintain anesthesia; however, other medications are often used to start anesthesia, due to airway irritation with isoflurane. Isoflurane is a inhalational anesthetic given via inhalation.
+            description: Some("Isoflurane, sold under the brand name Forane among others, is a halogenated ether used as a general anesthetic. It can be used to start or maintain anesthesia; however, other medications are often used to start anesthesia, due to airway irritation with isoflurane. Isoflurane is an inhalational anesthetic given via inhalation.
 Isoflurane was approved for medical use in the United States in 1979. It is on the World Health Organization's List of Essential Medicines."),
             text_source: Some("Wikipedia"),
             hazard_summary: None,
@@ -64621,7 +64621,7 @@ As is the case with most volatile esters, it has a pleasant aroma and taste.  It
             decay_product_id: None,
             decay_particle_id: None,
             properties: [IsBase],
-            description: Some("Nicotine is an alkaloid found primarily in plants of the nightshade family, notably in tobacco and Duboisia hopwoodii. In addition to extraction from tobacco, it is synthesized. Nicotine is used recreationally for its stimulant and anxiolytic effects. In tobacco leaves, nicotine constitutes about 0.6–3.0% of the dry weight, and smaller, trace quantities occur in other Solanaceae crops such as tomatoes, potatoes, and eggplants. In pure form, nicotine is a colorless to yellowish, oily liquid that readily penetrates biological membranes and acts as a potent neurotoxin in insects, where it serves as a antiherbivore toxin. Historically, it was widely used as an insecticide, and its structure provided the basis for synthetic neonicotinoid pesticides.
+            description: Some("Nicotine is an alkaloid found primarily in plants of the nightshade family, notably in tobacco and Duboisia hopwoodii. In addition to extraction from tobacco, it is synthesized. Nicotine is used recreationally for its stimulant and anxiolytic effects. In tobacco leaves, nicotine constitutes about 0.6–3.0% of the dry weight, and smaller, trace quantities occur in other Solanaceae crops such as tomatoes, potatoes, and eggplants. In pure form, nicotine is a colorless to yellowish, oily liquid that readily penetrates biological membranes and acts as a potent neurotoxin in insects, where it serves as an antiherbivore toxin. Historically, it was widely used as an insecticide, and its structure provided the basis for synthetic neonicotinoid pesticides.
 In humans, nicotine acts primarily as a stimulant by binding to and activating nicotinic acetylcholine receptors (nAChRs) in the central nervous system and peripheral tissues. This results in the release of neurotransmitters such as dopamine, acetylcholine, and norepinephrine, producing effects including increased alertness, reduced anxiety, and mild euphoria. Nicotine is typically consumed through tobacco smoking, vaping, or other nicotine delivery systems. An average cigarette yields about 2 mg of absorbed nicotine, a dose sufficient to produce reinforcement and dependence while remaining far below toxic levels.
 Nicotine is highly addictive, and nicotine dependence is characterized by tolerance, physical dependence, psychological dependence, and nicotine withdrawal symptoms such as irritability, anxiety, and difficulty concentrating. Nicotine replacement therapy (NRT) products, including gums, patches, and lozenges, deliver the compound in slower, lower doses that are less addictive and are used medically to help people quit smoking. Synthetic derivatives of nicotine, such as varenicline, act as partial agonists at nicotinic receptors and are also used as smoking cessation aids.
 Although nicotine itself is not classified as a carcinogen by either the International Agency for Research on Cancer or the Surgeon General of the United States, high doses can cause nicotine poisoning and respiratory paralysis. Chronic exposure may also affect the immune, cardiovascular, and nervous systems. Nicotine is also a known teratogen, associated with adverse developmental effects during pregnancy, and may impair adolescent neurodevelopment, though the extent of this effect in humans remains debated."),
@@ -78819,7 +78819,7 @@ Norethisterone was discovered in 1951 and was one of the first progestins to be 
             hazard_summary: Some("H360 (88.1%): May damage fertility or the unborn child [Danger Reproductive toxicity]"),
             uses: ["CIR ingredient: Retinol", "MEDICATION", "MEDICATION (VET)", "Vitamin (antixerophthalmic)"],
             logp: Some(5.51),
-            appearance: Some("Vitamin a appears as yellow crystals or orange solid. Practically water insoluble. (NTP, 1992)"),
+            appearance: Some("Vitamin A appears as yellow crystals or orange solid. Practically water insoluble. (NTP, 1992)"),
             synonyms: ["3,7-dimethyl-9-(2,6,6-trimethylcyclohex-1-en-1-…", "all-trans-Retinol", "68-26-8", "trans-retinol", "Veroftal", "Agoncal", "Bentavit A", "All-trans retinol"],
             references: [("Wikipedia", "https://en.wikipedia.org/?curid=54115"), ("PubChem", "https://pubchem.ncbi.nlm.nih.gov/compound/1071"), ("ChEBI", "https://www.ebi.ac.uk/chebi/searchId.do?chebiId=CHEBI_50211"), ("Wikidata", "http://www.wikidata.org/entity/Q27104754"), ("NIST", "https://webbook.nist.gov/cgi/cbook.cgi?ID=C68268&Units=SI")],
             element_info: None,
@@ -101247,7 +101247,7 @@ Gemcitabine was patented in 1983 and was approved for medical use in 1995. Gener
             decay_product_id: None,
             decay_particle_id: None,
             properties: [],
-            description: Some("Atovaquone, sold under the brand name Mepron, is an naphthoquinone antiprotozoal medication used in the prevention and treatment Pneumocystis jirovecii pneumonia (PCP), and malaria (in combination with proguanil), as well as for treatment of babesiosis (in combination with azithromycin).
+            description: Some("Atovaquone, sold under the brand name Mepron, is a naphthoquinone antiprotozoal medication used in the prevention and treatment Pneumocystis jirovecii pneumonia (PCP), and malaria (in combination with proguanil), as well as for treatment of babesiosis (in combination with azithromycin).
 Atovaquone is an analogue of ubiquinone (coenzyme Q10) and exerts its pharmaceutical effects by binding to the ubiquinone binding site on the parasitic mitochondrial cytochrome bc1 complex, thus inhibiting a step of protozoal pyrimidine synthesis.
 Atovaquone is a hydroxy-1,4-naphthoquinone, an analog of both ubiquinone and lawsone."),
             text_source: Some("Wikipedia"),
