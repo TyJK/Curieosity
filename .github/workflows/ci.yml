@@ -3,6 +3,10 @@
 # display). The whole tech tree is played weekly, or on demand from the Actions tab
 # ("Run workflow", tick "full"). Each review uploads its report and screenshots; any
 # failed check or step fails the run.
+#
+# Once the checks and the review pass, the Android and iOS apps are built (android.yml and
+# ios.yml, called from here), for a pull request, a push to main or a run started by hand;
+# their APK and IPA are this run's artifacts. The weekly run builds nothing: nothing changed.
 name: CI
 
 on:
@@ -73,3 +77,17 @@ jobs:
           name: review-${{ github.run_number }}
           path: review/
           retention-days: 30
+
+  android:
+    name: Android
+    needs: [check, review]
+    if: github.event_name != 'schedule'
+    uses: ./.github/workflows/android.yml
+    secrets: inherit
+
+  ios:
+    name: iOS
+    needs: [check, review]
+    if: github.event_name != 'schedule'
+    uses: ./.github/workflows/ios.yml
+    secrets: inherit
