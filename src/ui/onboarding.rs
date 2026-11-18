@@ -5,20 +5,20 @@
 //     hover (off in Settings)
 //   * the first-steps tour: four coach marks through the first loop (place a vessel, drag
 //     a substance in, press React, see the discovery). Skippable; Settings can replay it.
-//   * the next-step card on the bench: the first step of the tech tree that can be made now
+//   (the Hint button on the bench, which replaced the next-step card, is ui/hint.rs)
 //   * the era banner when the player reaches a new age
 //
 // Everything here reads the game; nothing else depends on it except Settings (its
 // switches) and the review run's checks.
+use crate::ui::Interaction;
 use bevy::ecs::system::SystemParam;
 use bevy::picking::hover::HoverMap;
-use bevy::picking::pointer::{PointerId, PointerLocation, PointerPress};
+use bevy::picking::pointer::{PointerId, PointerLocation, PointerPressState};
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 
 use crate::components::{InVessel, Ingredient, ProcessVessel, VesselCard, VesselReactButton};
 use crate::data::common::ProcessType;
-use crate::data::reactions::Reaction;
 use crate::data::substances::Substances;
 use crate::resources::player_progress::PlayerProgress;
 use crate::resources::recipe_database::RecipeDatabase;
@@ -29,7 +29,7 @@ use crate::ui::inventory::{InventoryScroll, ShelfTile};
 use crate::ui::process_toolbar::{roman, vessel_name, ProcessButton, ProcessUnlocks};
 use crate::ui::reaction_library::ReactionLibState;
 use crate::ui::settings::{Settings, SettingsUi};
-use crate::ui::tech_tree::{node_state, NodeState, TechTreeState};
+use crate::ui::tech_tree::TechTreeState;
 use crate::ui::theme::{self, Kind, Weight};
 use crate::GameData;
 
@@ -39,16 +39,7 @@ impl Plugin for OnboardingPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<TooltipState>().init_resource::<Coach>().init_resource::<CurrentEra>().add_systems(
             Update,
-            (
-                spawn_onboarding_ui,
-                tooltip_system,
-                coach_input_system,
-                coach_system,
-                next_step_system,
-                next_step_input_system,
-                era_banner_system,
-                fade_system,
-            )
+            (spawn_onboarding_ui, tooltip_system, coach_input_system, coach_system, era_banner_system, fade_system)
                 .chain(),
         );
     }
@@ -148,7 +139,7 @@ pub fn tip_text(
                 body.push('\n');
                 body.push_str(&first_sentence(d, 150));
             }
-            body.push_str("\nDrag it onto a vessel, or click to select it.");
+            body.push_str("\nDrag it onto a vessel, or tap to select it; a double-tap fills the vessel you used last.");
             (s.name.clone(), body)
         }
         Tip::Vessel(p) => {
@@ -161,7 +152,7 @@ pub fn tip_text(
                     .and_then(|db| db.milestones.iter().find(|m| m.unlock.contains(p)))
                     .and_then(|m| subs.and_then(|s| s.0.get(&m.on)).map(|s| s.name.clone()));
                 match by {
-                    Some(n) => format!("Locked: discover {n} to unlock it."),
+                    Some(n) => format!("Locked: discover {n} to unlock it. {}", p.why()),
                     None => "Locked.".to_string(),
                 }
             };
@@ -181,7 +172,7 @@ pub fn tip_text(
 pub fn tooltip_system(
     time: Res<Time<Real>>,
     hover: Res<HoverMap>,
-    pointers: Query<(&PointerId, &PointerLocation, &PointerPress)>,
+    pointers: Query<(&PointerId, &PointerLocation, &PointerPressState)>,
     parents: Query<&ChildOf>,
     tips: Query<&Tip>,
     settings: Option<Res<Settings>>,
@@ -345,13 +336,13 @@ pub struct CoachTargets<'w, 's> {
     chips: Query<'w, 's, &'static InVessel, With<Ingredient>>,
     reacts: Query<'w, 's, (Entity, &'static ChildOf), With<VesselReactButton>>,
     cards: Query<'w, 's, (Entity, &'static ProcessVessel), With<VesselCard>>,
-    next_card: Query<'w, 's, (Entity, &'static Node), With<NextStepCard>>,
+    next_card: Query<'w, 's, (Entity, &'static Node), With<crate::ui::hint::HintRoot>>,
     shelf: Query<'w, 's, Entity, With<InventoryScroll>>,
     rects: Query<'w, 's, (&'static ComputedNode, &'static UiGlobalTransform)>,
 }
 
 impl CoachTargets<'_, '_> {
-    /// The next-step card, if it is showing.
+    /// The Hint button (or its open card), if it is showing.
     fn card(&self) -> Option<Entity> {
         self.next_card.iter().find(|(_, n)| n.display != Display::None).map(|(e, _)| e)
     }
@@ -394,13 +385,13 @@ pub struct CoachNodes<'w, 's> {
         'w,
         's,
         (&'static mut Node, &'static mut Visibility),
-        (With<CoachBubble>, Without<CoachRing>, Without<NextStepCard>, Without<CoachNext>),
+        (With<CoachBubble>, Without<CoachRing>, Without<crate::ui::hint::HintRoot>, Without<CoachNext>),
     >,
     ring: Query<
         'w,
         's,
         (&'static mut Node, &'static mut Visibility, &'static mut BorderColor),
-        (With<CoachRing>, Without<CoachBubble>, Without<NextStepCard>, Without<CoachNext>),
+        (With<CoachRing>, Without<CoachBubble>, Without<crate::ui::hint::HintRoot>, Without<CoachNext>),
     >,
     title: Query<'w, 's, &'static mut Text, (With<CoachTitle>, Without<CoachText>)>,
     text: Query<'w, 's, &'static mut Text, (With<CoachText>, Without<CoachTitle>)>,
@@ -408,7 +399,7 @@ pub struct CoachNodes<'w, 's> {
         'w,
         's,
         &'static mut Node,
-        (With<CoachNext>, Without<CoachBubble>, Without<CoachRing>, Without<NextStepCard>),
+        (With<CoachNext>, Without<CoachBubble>, Without<CoachRing>, Without<crate::ui::hint::HintRoot>),
     >,
 }
 
@@ -513,7 +504,7 @@ pub fn coach_system(
                     coach.made.iter().map(|id| name(*id)).collect::<Vec<_>>().join(", ")
                 },
                 if targets.card().is_some() {
-                    "This card always suggests one you can make now; the Tech Tree shows the whole map."
+                    "Hint offers things to make next, with clues when you ask; the Tech Tree shows the whole map."
                 } else {
                     "The Tech Tree shows what you can make next."
                 }
@@ -584,137 +575,6 @@ pub fn bubble_spot(min: Vec2, size: Vec2, screen: Vec2) -> (f32, f32) {
         return (clamp_x(min.x), below);
     }
     (clamp_x(right), clamp_y(min.y))
-}
-
-// ---------------------------------------------------------------------------------------
-// The next-step card
-// ---------------------------------------------------------------------------------------
-#[derive(Component)]
-pub struct NextStepCard;
-#[derive(Component)]
-pub struct NextStepTitle;
-#[derive(Component)]
-pub struct NextStepBody;
-/// The reaction the card is showing (it opens that step in the tech tree).
-#[derive(Component)]
-pub struct NextStepShow(pub Option<u32>);
-
-/// The suggestion: the first step of the tech tree that can be made right now, preferring
-/// the eras over the side laboratory.
-pub fn next_step<'a>(
-    db: &'a RecipeDatabase,
-    progress: &PlayerProgress,
-    unlocks: &ProcessUnlocks,
-) -> Option<&'a Reaction> {
-    let side = db.side_epoch();
-    let ready = |r: &&Reaction| node_state(r, progress, unlocks) == NodeState::Available;
-    db.authored.iter().filter(|r| Some(r.epoch) != side).find(ready).or_else(|| db.authored.iter().find(ready))
-}
-
-#[allow(clippy::too_many_arguments, clippy::type_complexity)]
-pub fn next_step_system(
-    db: Option<Res<RecipeDatabase>>,
-    progress: Res<PlayerProgress>,
-    unlocks: Res<ProcessUnlocks>,
-    settings: Option<Res<Settings>>,
-    game_data: Option<Res<GameData>>,
-    substances: Res<Assets<Substances>>,
-    views: (Res<CodexState>, Res<ReactionLibState>, Res<TechTreeState>),
-    mut card: Query<(&mut Node, &mut NextStepShow, &ComputedNode), With<NextStepCard>>,
-    mut toast_stack: Query<&mut Node, (With<crate::ui::toasts::ToastStack>, Without<NextStepCard>)>,
-    mut title_q: Query<&mut Text, (With<NextStepTitle>, Without<NextStepBody>)>,
-    mut body_q: Query<&mut Text, (With<NextStepBody>, Without<NextStepTitle>)>,
-    mut last: Local<Option<(u32, bool)>>,
-    room: (Res<crate::ui::inventory::Dock>, ResMut<crate::ui::toasts::ToastRoom>),
-) {
-    let Some(db) = db else { return };
-    let Ok((mut node, mut show, computed)) = card.single_mut() else { return };
-    let (dock, mut toast_room) = room;
-    let card_bottom = Val::Px(dock.h + 12.0);
-    if node.bottom != card_bottom {
-        node.bottom = card_bottom;
-    }
-    let (codex, rlib, tree) = views;
-    let wanted =
-        settings.as_ref().is_none_or(|s| s.next_step) && progress.ready && !(codex.open || rlib.open || tree.open);
-    let step = if wanted { next_step(&db, &progress, &unlocks) } else { None };
-    let d = if step.is_some() { Display::Flex } else { Display::None };
-    if node.display != d {
-        node.display = d;
-    }
-    // the pop-ups rise above the card while it shows
-    let lift = if step.is_some() {
-        let h = computed.size.y * computed.inverse_scale_factor();
-        if h > 0.0 {
-            h + 10.0
-        } else {
-            84.0
-        }
-    } else {
-        0.0
-    };
-    if let Ok(mut t) = toast_stack.single_mut() {
-        let want = Val::Px(dock.h + 14.0 + lift);
-        if t.bottom != want {
-            t.bottom = want;
-        }
-    }
-    // each pop-up takes about 50 px: as many as fit between the card and the header
-    let fit = (((dock.bench - lift - 14.0) / 50.0).floor().max(1.0) as usize).min(4);
-    if toast_room.0 != fit {
-        toast_room.0 = fit;
-    }
-    let Some(r) = step else {
-        *last = None;
-        return;
-    };
-    show.0 = Some(r.id);
-    let key = (r.id, progress.is_changed() || unlocks.is_changed());
-    if last.is_some_and(|(id, _)| id == r.id) && !key.1 {
-        return;
-    }
-    *last = Some(key);
-    let subs = game_data.as_ref().and_then(|g| substances.get(&g.substances));
-    let name = |id: u32| subs.and_then(|s| s.0.get(&id)).map(|s| s.name.clone()).unwrap_or_else(|| format!("#{id}"));
-    let inputs: Vec<String> = r.reactants.iter().map(|s| name(s.substance_id)).collect();
-    let mut body = format!("{} in the {}", inputs.join(" + "), vessel_name(&r.process));
-    if let Some(c) = r.required_catalyst() {
-        body.push_str(&format!("\ncatalyst: {}", name(c)));
-    }
-    if let Ok(mut t) = title_q.single_mut() {
-        t.0 = r.name.clone();
-    }
-    if let Ok(mut t) = body_q.single_mut() {
-        t.0 = body;
-    }
-}
-
-/// "Show in the tree" on the card opens the tech tree on that step.
-pub fn next_step_input_system(
-    mut buttons: Query<(&Interaction, &NextStepShow, &mut BackgroundColor, &mut BorderColor), Changed<Interaction>>,
-    mut tree: ResMut<TechTreeState>,
-) {
-    for (i, show, mut bg, mut border) in &mut buttons {
-        // the same hover response as every other button: lifted fill, brighter edge
-        let (b, l) = next_step_look(*i != Interaction::None);
-        bg.0 = b;
-        *border = BorderColor::all(l);
-        if *i == Interaction::Pressed {
-            if let Some(id) = show.0 {
-                tree.open = true;
-                tree.selected = Some(id);
-            }
-        }
-    }
-}
-
-/// The next-step card's fill and edge, resting or hovered.
-pub fn next_step_look(hovered: bool) -> (Color, Color) {
-    if hovered {
-        (theme::mix(theme::SURFACE, theme::GOLD, 0.16).with_alpha(0.98), theme::GOLD)
-    } else {
-        (theme::mix(theme::SURFACE, theme::GOLD, 0.08).with_alpha(0.96), theme::GOLD.with_alpha(0.7))
-    }
 }
 
 // ---------------------------------------------------------------------------------------
@@ -798,6 +658,7 @@ pub fn era_banner_system(
         .with_children(|root| {
             root.spawn((
                 Node {
+                    border_radius: BorderRadius::all(Val::Px(theme::R_LG)),
                     flex_direction: FlexDirection::Column,
                     align_items: AlignItems::Center,
                     row_gap: Val::Px(4.0),
@@ -805,7 +666,6 @@ pub fn era_banner_system(
                     border: UiRect::all(Val::Px(1.5)),
                     ..default()
                 },
-                BorderRadius::all(Val::Px(theme::R_LG)),
                 BackgroundColor(theme::mix(theme::SURFACE, theme::GOLD, 0.10).with_alpha(0.0)),
                 BorderColor::all(theme::GOLD.with_alpha(0.0)),
                 FadeBox(theme::mix(theme::SURFACE, theme::GOLD, 0.10)),
@@ -884,6 +744,7 @@ pub fn spawn_onboarding_ui(
             GlobalZIndex(2000),
             Visibility::Hidden,
             Node {
+                border_radius: BorderRadius::all(Val::Px(theme::R_MD)),
                 position_type: PositionType::Absolute,
                 width: Val::Px(TIP_W),
                 flex_direction: FlexDirection::Column,
@@ -892,7 +753,6 @@ pub fn spawn_onboarding_ui(
                 border: UiRect::all(Val::Px(1.0)),
                 ..default()
             },
-            BorderRadius::all(Val::Px(theme::R_MD)),
             BackgroundColor(theme::RAISED.with_alpha(0.98)),
             BorderColor::all(theme::LINE_STRONG),
             theme::shadow(18.0, 6.0, 0.6),
@@ -917,8 +777,12 @@ pub fn spawn_onboarding_ui(
         CoachRing,
         GlobalZIndex(1500),
         Visibility::Hidden,
-        Node { position_type: PositionType::Absolute, border: UiRect::all(Val::Px(2.5)), ..default() },
-        BorderRadius::all(Val::Px(theme::R_MD + 4.0)),
+        Node {
+            border_radius: BorderRadius::all(Val::Px(theme::R_MD + 4.0)),
+            position_type: PositionType::Absolute,
+            border: UiRect::all(Val::Px(2.5)),
+            ..default()
+        },
         BorderColor::all(theme::CYAN),
         Pickable::IGNORE,
         Name::new("CoachRing"),
@@ -929,6 +793,7 @@ pub fn spawn_onboarding_ui(
             GlobalZIndex(1600),
             Visibility::Hidden,
             Node {
+                border_radius: BorderRadius::all(Val::Px(theme::R_LG)),
                 position_type: PositionType::Absolute,
                 width: Val::Px(300.0),
                 flex_direction: FlexDirection::Column,
@@ -937,7 +802,6 @@ pub fn spawn_onboarding_ui(
                 border: UiRect::all(Val::Px(1.5)),
                 ..default()
             },
-            BorderRadius::all(Val::Px(theme::R_LG)),
             BackgroundColor(theme::mix(theme::SURFACE, theme::CYAN, 0.10)),
             BorderColor::all(theme::CYAN),
             theme::shadow(26.0, 8.0, 0.6),
@@ -957,57 +821,6 @@ pub fn spawn_onboarding_ui(
                 theme::spawn_button(row, fonts, &assets, Kind::Ghost, None, "Skip the tour", CoachSkip);
                 theme::spawn_button(row, fonts, &assets, Kind::Primary, None, "Got it", CoachNext);
             });
-        });
-
-    // the next-step card, bottom right of the bench (vessels fill the bench from the top
-    // left)
-    commands
-        .spawn((
-            NextStepCard,
-            NextStepShow(None),
-            Button,
-            GlobalZIndex(600),
-            Node {
-                position_type: PositionType::Absolute,
-                right: Val::Px(theme::SIDEBAR_W + 14.0),
-                bottom: Val::Px(theme::DOCK_H + 12.0),
-                width: Val::Px(280.0),
-                flex_direction: FlexDirection::Column,
-                row_gap: Val::Px(3.0),
-                padding: UiRect::axes(Val::Px(12.0), Val::Px(10.0)),
-                border: UiRect::all(Val::Px(1.0)),
-                display: Display::None,
-                ..default()
-            },
-            BorderRadius::all(Val::Px(theme::R_MD)),
-            BackgroundColor(next_step_look(false).0),
-            BorderColor::all(next_step_look(false).1),
-            theme::shadow(18.0, 6.0, 0.5),
-            Tip::Text(
-                "Next step",
-                "The first step on the tech tree you can make right now. Click to see it in the tree.",
-            ),
-            Name::new("NextStepCard"),
-        ))
-        .with_children(|c| {
-            c.spawn(Node {
-                justify_content: JustifyContent::SpaceBetween,
-                align_items: AlignItems::Center,
-                ..default()
-            })
-            .with_children(|h| {
-                h.spawn((theme::label(fonts, "NEXT STEP", theme::XS, Weight::Bold, theme::GOLD), Pickable::IGNORE));
-                h.spawn((
-                    theme::label(fonts, "show in tree  ›", theme::XS, Weight::Regular, theme::TEXT_3),
-                    Pickable::IGNORE,
-                ));
-            });
-            c.spawn((
-                NextStepTitle,
-                theme::label(fonts, "", theme::MD, Weight::Semibold, theme::TEXT),
-                Pickable::IGNORE,
-            ));
-            c.spawn((NextStepBody, theme::para(fonts, "", theme::XS, theme::TEXT_2, Val::Px(256.0)), Pickable::IGNORE));
         });
 }
 

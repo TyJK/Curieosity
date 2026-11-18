@@ -1,4 +1,5 @@
 // src/systems/reaction_check.rs
+use crate::ui::{Button, Interaction};
 use bevy::platform::collections::HashSet;
 use bevy::prelude::*;
 
@@ -48,48 +49,71 @@ pub struct VesselArtFill;
 #[derive(Component)]
 pub struct VesselArtAccent;
 
+/// The vessel's big picture, under its title (hidden on a short bench).
+#[derive(Component)]
+pub struct VesselArtBig;
+
+/// The small picture beside the title, shown instead of the big one on a short bench.
+#[derive(Component)]
+pub struct VesselArtSmall;
+
+/// The vessel's name in its header (larger in the overview form).
+#[derive(Component)]
+pub struct VesselTitleText;
+/// The header's buttons (left out of the overview form).
+#[derive(Component)]
+pub struct VesselHeaderButtons;
+/// The "in · drag out to chain · out" line between the ports (left out of the overview).
+#[derive(Component)]
+pub struct VesselPortLabel;
+
+/// The run-chain button in a card's header: shown while something feeds the vessel.
+#[derive(Component)]
+pub struct VesselChainButton;
+
 const ART_SIZE: f32 = 104.0;
+const ART_SMALL: f32 = 30.0;
+
+/// Below this bench height (interface pixels: a phone held sideways) vessel cards are built
+/// compact, so a whole card fits on the bench.
+pub const COMPACT_BENCH: f32 = 420.0;
 
 pub const VESSEL_W: f32 = 216.0;
 const VESSEL_BG: Color = Color::srgb(0.035, 0.047, 0.110);
 
-/// Accent colour per process: vessel border, progress bar, and the reaction glow.
+/// One colour per family of vessels (Heat, Cool, Pressure and so on). Every vessel of a
+/// family wears it, so the colour alone says what kind of vessel it is; the tier numeral
+/// tells a family's vessels apart. The twelve are picked to stay distinct from each other.
+pub fn family_color(family: &str) -> Color {
+    match family {
+        "Mix" => Color::srgb(0.35, 0.85, 0.80),
+        "Heat" => Color::srgb(1.00, 0.42, 0.20),
+        "Cool" => Color::srgb(0.50, 0.82, 1.00),
+        "Distillation" => Color::srgb(0.75, 0.55, 1.00),
+        "Electrolysis" => Color::srgb(1.00, 0.88, 0.30),
+        "Catalysis" => Color::srgb(0.45, 0.95, 0.45),
+        "Pressure" => Color::srgb(0.70, 0.70, 0.74),
+        "Polymer" => Color::srgb(1.00, 0.50, 0.80),
+        "Separation" => Color::srgb(1.00, 0.70, 0.38),
+        "Biology" => Color::srgb(0.75, 0.90, 0.38),
+        "Radiation" => Color::srgb(0.95, 0.45, 1.00),
+        "Fabrication" => Color::srgb(0.88, 0.92, 1.00),
+        _ => Color::srgb(0.70, 0.70, 0.70),
+    }
+}
+
+/// Accent colour per process: vessel border, progress bar, and the reaction glow. It is
+/// the vessel's family colour (the battery a reaction may ask for counts as electrolysis).
 pub fn process_color(p: &ProcessType) -> Color {
     match p {
-        ProcessType::Mix => Color::srgb(0.35, 0.85, 0.80),
-        ProcessType::Heat => Color::srgb(1.00, 0.55, 0.20),
-        ProcessType::Cool => Color::srgb(0.55, 0.80, 1.00),
-        ProcessType::Smelting => Color::srgb(0.95, 0.30, 0.15),
-        ProcessType::Distillation => Color::srgb(0.70, 0.55, 1.00),
-        ProcessType::Electrolysis => Color::srgb(1.00, 0.90, 0.30),
-        ProcessType::Irradiate => Color::srgb(1.00, 0.97, 0.70),
-        ProcessType::Catalysis => Color::srgb(0.45, 0.95, 0.45),
-        ProcessType::Pressurize => Color::srgb(0.60, 0.70, 0.85),
-        ProcessType::Polymerize => Color::srgb(1.00, 0.50, 0.80),
-        ProcessType::ApplyCurrent => Color::srgb(1.00, 0.90, 0.30),
-        ProcessType::Wait => Color::srgb(0.70, 0.70, 0.70),
-        ProcessType::Flask => Color::srgb(0.40, 0.92, 0.95),
-        ProcessType::BlastFurnace => Color::srgb(1.00, 0.42, 0.22),
-        ProcessType::ArcFurnace => Color::srgb(0.75, 0.70, 1.00),
-        ProcessType::AirLiquefier => Color::srgb(0.62, 0.92, 1.00),
-        ProcessType::Column => Color::srgb(0.80, 0.62, 1.00),
-        ProcessType::ElectrolyticCell => Color::srgb(1.00, 0.80, 0.30),
-        ProcessType::NuclearReactor => Color::srgb(0.40, 0.85, 1.00),
-        ProcessType::Cyclotron => Color::srgb(0.95, 0.45, 1.00),
-        ProcessType::Cracker => Color::srgb(0.65, 0.95, 0.35),
-        ProcessType::HighPressure => Color::srgb(0.55, 0.78, 1.00),
-        ProcessType::DiamondPress => Color::srgb(0.85, 0.95, 1.00),
-        ProcessType::Fermenter => Color::srgb(0.90, 0.75, 0.40),
-        ProcessType::Bioreactor => Color::srgb(0.55, 1.00, 0.70),
-        ProcessType::CrystalPuller => Color::srgb(0.70, 0.80, 1.00),
-        ProcessType::CvdChamber => Color::srgb(1.00, 0.55, 0.95),
-        ProcessType::Centrifuge => Color::srgb(0.95, 0.82, 0.45),
-        ProcessType::Ultracentrifuge => Color::srgb(1.00, 0.70, 0.40),
+        ProcessType::ApplyCurrent => family_color("Electrolysis"),
+        other => family_color(other.family()),
     }
 }
 
 /// Colour of a vessel's accent layer: the flame is orange, the frost blue, the gauge
-/// needle red, and so on.
+/// needle red, and so on. Details may differ within a family (the arc furnace's arc burns
+/// blue-white) while the vessel itself wears the family colour.
 pub fn accent_glow(p: &ProcessType) -> Color {
     match p {
         ProcessType::Heat => Color::srgb(1.0, 0.62, 0.18),
@@ -195,8 +219,13 @@ pub fn process_button_system(
     scrolling_panes: Query<(Entity, &Node), With<CanvasScrollingPane>>,
     fonts: Option<Res<UiFonts>>,
     asset_server: Res<AssetServer>,
+    mut active: ResMut<crate::systems::drag_drop::ActiveVessel>,
+    dock: Res<crate::ui::inventory::Dock>,
+    zoom: Res<crate::systems::drag_drop::BenchZoom>,
 ) {
     let Ok((pane, pane_node)) = scrolling_panes.single() else { return };
+    // a compact card starts higher, so the whole of it fits a short bench
+    let margin = if dock.bench < COMPACT_BENCH { 10.0 } else { 24.0 };
     let Some(fonts) = fonts.as_ref() else { return };
 
     for (interaction, button) in &interaction_q {
@@ -204,12 +233,13 @@ pub fn process_button_system(
             continue;
         }
         let count = vessels_q.iter().count();
-        let pan_x = if let Val::Px(v) = pane_node.left { -v } else { 0.0 };
-        let pan_y = if let Val::Px(v) = pane_node.top { -v } else { 0.0 };
+        // the top-left of what the bench shows, in the pane's own units (it may be zoomed)
+        let shown = -crate::systems::drag_drop::pane_offset(pane_node) / zoom.0.max(0.01);
+        let (pan_x, pan_y) = (shown.x, shown.y);
         let slot = count % 8;
         let left = pan_x + 24.0 + (slot % 4) as f32 * (VESSEL_W + 28.0);
-        let top = pan_y + 24.0 + (slot / 4) as f32 * 30.0 + (count / 8) as f32 * 16.0;
-        spawn_vessel_card(
+        let top = pan_y + margin + (slot / 4) as f32 * 30.0 + (count / 8) as f32 * 16.0;
+        let card = spawn_vessel_card(
             &mut commands,
             pane,
             &button.process,
@@ -218,6 +248,7 @@ pub fn process_button_system(
             fonts,
             &asset_server,
         );
+        active.0 = Some(card); // a double-tap fills the vessel just placed
     }
 }
 
@@ -241,7 +272,7 @@ pub fn spawn_vessel_card(
                 Draggable,
                 DropTarget,
                 ProcessVessel { process: process.clone() },
-                Node {
+                Node { border_radius: BorderRadius::all(Val::Px(theme::R_LG)),
                     position_type: PositionType::Absolute,
                     left: Val::Px(pos.x),
                     top: Val::Px(pos.y),
@@ -253,7 +284,6 @@ pub fn spawn_vessel_card(
                     row_gap: Val::Px(7.0),
                     ..default()
                 },
-                BorderRadius::all(Val::Px(theme::R_LG)),
                 BackgroundGradient::from(LinearGradient::to_bottom(vec![
                     ColorStop::auto(theme::mix(theme::SURFACE, accent, 0.10)),
                     ColorStop::auto(VESSEL_BG),
@@ -272,53 +302,70 @@ pub fn spawn_vessel_card(
                         ..default()
                     })
                     .with_children(|hdr| {
-                        hdr.spawn((theme::label(fonts, name, theme::LG, theme::Weight::Semibold, accent), Pickable::IGNORE));
-                        hdr.spawn(Node { column_gap: Val::Px(2.0), ..default() }).with_children(|btns| {
+                        hdr.spawn((
+                            Node { align_items: AlignItems::Center, column_gap: Val::Px(7.0), ..default() },
+                            Pickable::IGNORE,
+                        ))
+                        .with_children(|t| {
+                            // the small picture (a short bench shows this instead of the big one)
+                            t.spawn((
+                                VesselArtSmall,
+                                Node {
+                                    width: Val::Px(ART_SMALL),
+                                    height: Val::Px(ART_SMALL),
+                                    display: Display::None,
+                                    ..default()
+                                },
+                                Pickable::IGNORE,
+                            ))
+                            .with_children(|art| spawn_art_layers(art, process, asset_server));
+                            t.spawn((
+                                VesselTitleText,
+                                theme::label(fonts, name, theme::LG, theme::Weight::Semibold, accent),
+                                TextLayout::no_wrap(),
+                                Pickable::IGNORE,
+                            ));
+                        });
+                        hdr.spawn((VesselHeaderButtons, Node { column_gap: Val::Px(2.0), ..default() })).with_children(|btns| {
+                            theme::spawn_icon_button(
+                                btns,
+                                asset_server,
+                                "chain",
+                                26.0,
+                                theme::GOLD,
+                                (
+                                    VesselChainButton,
+                                    Tip::Text(
+                                        "Run the chain",
+                                        "React every vessel at the start of what feeds this one. Their products flow on through the links, and each vessel reacts as they arrive.",
+                                    ),
+                                ),
+                            );
                             theme::spawn_icon_button(btns, asset_server, "clear", 26.0, theme::TEXT_2, VesselClearButton);
                             theme::spawn_icon_button(btns, asset_server, "close", 26.0, theme::TEXT_2, VesselDeleteButton);
                         });
                     });
 
                 // --- the vessel itself: outline, contents and accent layers ---
-                let layer = |path: String, color: Color| {
-                    (
-                        ImageNode::new(asset_server.load(path)).with_color(color),
-                        Node {
-                            position_type: PositionType::Absolute,
-                            width: Val::Percent(100.0),
-                            height: Val::Percent(100.0),
-                            ..default()
-                        },
-                        Pickable::IGNORE,
-                    )
-                };
                 vessel
                     .spawn((
+                        VesselArtBig,
                         Node { width: Val::Px(ART_SIZE), height: Val::Px(ART_SIZE), ..default() },
                         Pickable::IGNORE,
                         Name::new("VesselArt"),
                     ))
-                    .with_children(|art| {
-                        art.spawn((VesselArtFill, layer(vessel_art_path(process, "fill"), Color::NONE)));
-                        art.spawn(layer(vessel_art_path(process, "outline"), accent));
-                        art.spawn((
-                            VesselArtAccent,
-                            layer(vessel_art_path(process, "accent"), accent_glow(process).with_alpha(0.3)),
-                        ));
-                    });
+                    .with_children(|art| spawn_art_layers(art, process, asset_server));
 
                 // --- progress bar (fills while the reaction runs) ---
                 vessel
                     .spawn((
-                        Node { width: Val::Percent(100.0), height: Val::Px(4.0), ..default() },
-                        BorderRadius::all(Val::Px(99.0)),
+                        Node { border_radius: BorderRadius::all(Val::Px(99.0)), width: Val::Percent(100.0), height: Val::Px(4.0), ..default() },
                         BackgroundColor(theme::RAISED),
                     ))
                     .with_children(|bar| {
                         bar.spawn((
                             ReactionProgressBar,
-                            Node { width: Val::Percent(0.0), height: Val::Percent(100.0), ..default() },
-                            BorderRadius::all(Val::Px(99.0)),
+                            Node { border_radius: BorderRadius::all(Val::Px(99.0)), width: Val::Percent(0.0), height: Val::Percent(100.0), ..default() },
                             BackgroundColor(accent),
                         ));
                     });
@@ -338,20 +385,19 @@ pub fn spawn_vessel_card(
                         row.spawn((
                             InputPort, DropTarget, Pickable::default(), Interaction::default(),
                             Tip::Text("Input port", "Drag a link here from another vessel's output port: its products will flow in and react."),
-                            Node { width: Val::Px(18.0), height: Val::Px(18.0), border: UiRect::all(Val::Px(2.0)), ..default() },
-                            BorderRadius::all(Val::Px(9.0)),
+                            Node { border_radius: BorderRadius::all(Val::Px(9.0)), width: Val::Px(18.0), height: Val::Px(18.0), border: UiRect::all(Val::Px(2.0)), ..default() },
                             BackgroundColor(theme::BG), BorderColor::all(theme::CYAN),
                             Name::new("InputPort"),
                         ));
                         row.spawn((
+                            VesselPortLabel,
                             theme::label(fonts, "in  ·  drag out to chain  ·  out", 9.5, theme::Weight::Regular, theme::TEXT_3),
                             Pickable::IGNORE,
                         ));
                         row.spawn((
                             OutputPort { filter: PortFilter::Any }, Draggable, Pickable::default(),
                             Tip::Text("Output port", "Drag from here to another vessel's input port to chain them."),
-                            Node { width: Val::Px(18.0), height: Val::Px(18.0), border: UiRect::all(Val::Px(2.0)), ..default() },
-                            BorderRadius::all(Val::Px(9.0)),
+                            Node { border_radius: BorderRadius::all(Val::Px(9.0)), width: Val::Px(18.0), height: Val::Px(18.0), border: UiRect::all(Val::Px(2.0)), ..default() },
                             BackgroundColor(theme::GOLD.with_alpha(0.35)), BorderColor::all(theme::GOLD),
                             Name::new("OutputPort"),
                         ));
@@ -365,9 +411,9 @@ pub fn spawn_vessel_card(
                     Interaction::default(),
                     Tip::Text(
                         "Contents",
-                        "Drop substances here, then press React. Drag one out to remove it, or onto another vessel to move it.",
+                        "Put substances here, then press React. Tap a substance's x to take it out, or drag it onto another vessel to move it.",
                     ),
-                    Node {
+                    Node { border_radius: BorderRadius::all(Val::Px(theme::R_MD)),
                         width: Val::Percent(100.0),
                         min_height: Val::Px(84.0),
                         max_height: Val::Px(240.0),
@@ -379,7 +425,6 @@ pub fn spawn_vessel_card(
                         overflow: Overflow::clip_y(),
                         ..default()
                     },
-                    BorderRadius::all(Val::Px(theme::R_MD)),
                     BackgroundColor(Color::srgba(0.0, 0.0, 0.03, 0.55)),
                     BorderColor::all(theme::LINE),
                     Name::new("IngredientZone"),
@@ -394,7 +439,7 @@ pub fn spawn_vessel_card(
                             Pickable::default(),
                             Interaction::default(),
                             Tip::Text("Catalyst slot", "A catalyst speeds a reaction without being used up. It stays here between reactions."),
-                            Node {
+                            Node { border_radius: BorderRadius::all(Val::Px(theme::R_MD)),
                                 width: Val::Percent(100.0),
                                 min_height: Val::Px(42.0),
                                 flex_direction: FlexDirection::Column,
@@ -403,7 +448,6 @@ pub fn spawn_vessel_card(
                                 border: UiRect::all(Val::Px(1.0)),
                                 ..default()
                             },
-                            BorderRadius::all(Val::Px(theme::R_MD)),
                             BackgroundColor(theme::GREEN.with_alpha(0.06)),
                             BorderColor::all(theme::GREEN.with_alpha(0.55)),
                             Name::new("CatalystZone"),
@@ -420,7 +464,7 @@ pub fn spawn_vessel_card(
                 vessel.spawn((
                     EquationText,
                     Text::new("Drop ingredients in, then React."),
-                    TextFont { font: fonts.symbols.clone(), font_size: 12.0, ..default() },
+                    TextFont { font: fonts.symbols.clone().into(), font_size: FontSize::Px(12.0), ..default() },
                     TextColor(theme::TEXT_3),
                     Node { max_width: Val::Px(VESSEL_W - 24.0), ..default() },
                     Pickable::IGNORE,
@@ -454,6 +498,128 @@ pub fn spawn_vessel_card(
     card
 }
 
+/// A vessel picture's three layers: the contents (tinted with what is inside), the outline,
+/// and the accent that glows while it reacts.
+fn spawn_art_layers(art: &mut ChildSpawnerCommands, process: &ProcessType, asset_server: &AssetServer) {
+    let layer = |path: String, color: Color| {
+        (
+            ImageNode::new(asset_server.load(path)).with_color(color),
+            Node {
+                position_type: PositionType::Absolute,
+                width: Val::Percent(100.0),
+                height: Val::Percent(100.0),
+                ..default()
+            },
+            Pickable::IGNORE,
+        )
+    };
+    art.spawn((VesselArtFill, layer(vessel_art_path(process, "fill"), Color::NONE)));
+    art.spawn(layer(vessel_art_path(process, "outline"), process_color(process)));
+    art.spawn((VesselArtAccent, layer(vessel_art_path(process, "accent"), accent_glow(process).with_alpha(0.3))));
+}
+
+/// On a short bench (a phone held sideways), or zoomed out, vessel cards go compact: the
+/// small picture beside the title instead of the big one, a shorter contents area and
+/// button, less padding. Zoomed out to the overview (drag_drop::OVERVIEW and below) they
+/// fold down to what they hold: the name and the formulas of the contents, in larger type
+/// so they stay readable small, and the ports (the links stay put); the buttons, the art,
+/// the equation and each substance's name and x step aside. Applied to new cards and new
+/// contents, and to everything when the bench changes size or zoom.
+#[allow(clippy::type_complexity)]
+pub fn vessel_fit_system(
+    dock: Res<crate::ui::inventory::Dock>,
+    zoom: Res<crate::systems::drag_drop::BenchZoom>,
+    new_cards: Query<(), Added<VesselCard>>,
+    new_chips: Query<(), Or<(Added<InVessel>, Added<InCatalystZone>)>>,
+    mut nodes: Query<
+        (
+            &mut Node,
+            Has<VesselCard>,
+            Has<VesselArtBig>,
+            Has<VesselArtSmall>,
+            Has<VesselIngredientZone>,
+            Has<VesselReactButton>,
+            Has<VesselHeaderButtons>,
+            Has<VesselPortLabel>,
+            Has<EquationText>,
+            Has<crate::ui::inventory::ChipIcon>,
+            Has<crate::ui::inventory::ChipNameText>,
+            Has<crate::ui::inventory::VesselChipRemove>,
+        ),
+        Or<(
+            With<VesselCard>,
+            With<VesselArtBig>,
+            With<VesselArtSmall>,
+            With<VesselIngredientZone>,
+            With<VesselReactButton>,
+            With<VesselHeaderButtons>,
+            With<VesselPortLabel>,
+            With<EquationText>,
+            With<crate::ui::inventory::ChipIcon>,
+            With<crate::ui::inventory::ChipNameText>,
+            With<crate::ui::inventory::VesselChipRemove>,
+        )>,
+    >,
+    mut fonts: Query<
+        (&mut TextFont, Has<VesselTitleText>),
+        Or<(With<VesselTitleText>, With<crate::ui::inventory::ChipFormulaText>)>,
+    >,
+) {
+    if !(dock.is_changed() || zoom.is_changed() || !new_cards.is_empty() || !new_chips.is_empty()) {
+        return;
+    }
+    let overview = zoom.overview();
+    let compact = dock.bench < COMPACT_BENCH || zoom.0 < 0.99;
+    let (pad, gap, zone_h, react_h) = if compact { (8.0, 4.0, 44.0, 30.0) } else { (10.0, 7.0, 84.0, 34.0) };
+    let shown = |on: bool| if on { Display::Flex } else { Display::None };
+    for (mut n, card, big, small, zone, react, buttons, port_label, equation, chip_icon, chip_name, chip_x) in
+        &mut nodes
+    {
+        let display = if card {
+            if n.row_gap != Val::Px(gap) {
+                n.row_gap = Val::Px(gap);
+                n.padding = UiRect::all(Val::Px(pad));
+            }
+            None
+        } else if big {
+            Some(shown(!compact))
+        } else if small {
+            Some(shown(compact))
+        } else if zone {
+            let h = if overview { 0.0 } else { zone_h };
+            if n.min_height != Val::Px(h) {
+                n.min_height = Val::Px(h);
+            }
+            None
+        } else if react {
+            if n.height != Val::Px(react_h) {
+                n.height = Val::Px(react_h);
+            }
+            Some(shown(!overview))
+        } else if buttons || port_label || equation || chip_icon || chip_name || chip_x {
+            Some(shown(!overview))
+        } else {
+            None
+        };
+        if let Some(d) = display {
+            if n.display != d {
+                n.display = d;
+            }
+        }
+    }
+    for (mut f, title) in &mut fonts {
+        let size = match (title, overview) {
+            (true, true) => 26.0,
+            (true, false) => theme::LG,
+            (false, true) => 22.0,
+            (false, false) => 13.0,
+        };
+        if f.font_size != FontSize::Px(size) {
+            f.font_size = FontSize::Px(size);
+        }
+    }
+}
+
 pub fn vessel_react_button_system(
     interaction_q: Query<(&Interaction, &ChildOf), (Changed<Interaction>, With<VesselReactButton>, With<Button>)>,
     mut ev_check: MessageWriter<CheckVesselReaction>,
@@ -474,6 +640,54 @@ fn vessel_of(mut e: Entity, parents: &Query<&ChildOf>, cards: &Query<(), With<Ve
         e = parents.get(e).ok()?.0;
     }
     None
+}
+
+/// The vessels at the start of everything that feeds `vessel` through the links (those
+/// nothing feeds), in a steady order. A vessel nothing feeds is its own start. Loops are
+/// walked once.
+pub fn chain_starts(vessel: Entity, links: &[(Entity, Entity)]) -> Vec<Entity> {
+    let mut seen = vec![vessel];
+    let mut todo = vec![vessel];
+    while let Some(v) = todo.pop() {
+        for &(from, to) in links {
+            if to == v && !seen.contains(&from) {
+                seen.push(from);
+                todo.push(from);
+            }
+        }
+    }
+    let mut starts: Vec<Entity> =
+        seen.into_iter().filter(|v| !links.iter().any(|&(from, to)| to == *v && from != *v)).collect();
+    // in the order they were made (Entity's own ordering is not by index)
+    starts.sort_by_key(|v| v.index().index());
+    starts
+}
+
+/// The run-chain button shows on a vessel while something feeds it; pressing it reacts the
+/// vessels at the start of the chain. The links carry their products on, and every vessel
+/// downstream reacts as they arrive (propagate_products_system).
+pub fn vessel_chain_button_system(
+    mut buttons: Query<(Entity, &Interaction, &mut Node), With<VesselChainButton>>,
+    pressed: Query<(), (Changed<Interaction>, With<VesselChainButton>)>,
+    links: Query<&ReactionLink>,
+    parents: Query<&ChildOf>,
+    cards: Query<(), With<VesselCard>>,
+    mut ev_check: MessageWriter<CheckVesselReaction>,
+) {
+    let pairs: Vec<(Entity, Entity)> = links.iter().map(|l| (l.from_vessel, l.to_vessel)).collect();
+    for (b, interaction, mut node) in &mut buttons {
+        let Some(vessel) = vessel_of(b, &parents, &cards) else { continue };
+        let fed = pairs.iter().any(|&(from, to)| to == vessel && from != vessel);
+        let d = if fed { Display::Flex } else { Display::None };
+        if node.display != d {
+            node.display = d;
+        }
+        if fed && *interaction == Interaction::Pressed && pressed.contains(b) {
+            for start in chain_starts(vessel, &pairs) {
+                ev_check.write(CheckVesselReaction(start));
+            }
+        }
+    }
 }
 
 pub fn vessel_clear_button_system(
@@ -830,4 +1044,57 @@ fn build_equation_string(reaction: &Reaction, substances: &Substances) -> String
     let lhs = format_side(&reaction.reactants, substances);
     let rhs = format_side(&reaction.products, substances);
     format!("{} → {}", lhs, rhs)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::chain_starts;
+    use bevy::prelude::Entity;
+
+    fn e(n: u32) -> Entity {
+        Entity::from_raw_u32(n).unwrap()
+    }
+
+    #[test]
+    fn a_chain_starts_where_nothing_feeds_it() {
+        // 1 -> 2 -> 4, 3 -> 4, 4 -> 5
+        let links = [(e(1), e(2)), (e(2), e(4)), (e(3), e(4)), (e(4), e(5))];
+        assert_eq!(chain_starts(e(5), &links), vec![e(1), e(3)]);
+        assert_eq!(chain_starts(e(2), &links), vec![e(1)]);
+        assert_eq!(chain_starts(e(1), &links), vec![e(1)], "nothing feeds it: it is its own start");
+        assert_eq!(chain_starts(e(9), &links), vec![e(9)]);
+    }
+
+    #[test]
+    fn each_family_has_its_own_colour_and_every_vessel_wears_it() {
+        use super::{family_color, process_color};
+        use crate::data::common::VESSEL_SPECS;
+        let grey = family_color("Other");
+        let mut families: Vec<&str> = VESSEL_SPECS.iter().map(|s| s.category).collect();
+        families.sort();
+        families.dedup();
+        for f in &families {
+            assert_ne!(family_color(f), grey, "{f} has no colour of its own");
+        }
+        for (i, a) in families.iter().enumerate() {
+            for b in &families[i + 1..] {
+                let (x, y) = (family_color(a).to_srgba(), family_color(b).to_srgba());
+                let d = ((x.red - y.red).powi(2) + (x.green - y.green).powi(2) + (x.blue - y.blue).powi(2)).sqrt();
+                assert!(d > 0.12, "{a} and {b} look alike");
+            }
+        }
+        for s in VESSEL_SPECS {
+            assert_eq!(process_color(&s.process), family_color(s.category), "{} wears another colour", s.name);
+        }
+    }
+
+    #[test]
+    fn a_loop_is_walked_once() {
+        // 1 -> 2 -> 3 -> 2: the loop has no start of its own; 1 feeds it
+        let links = [(e(1), e(2)), (e(2), e(3)), (e(3), e(2))];
+        assert_eq!(chain_starts(e(3), &links), vec![e(1)]);
+        // a closed loop with nothing feeding it: no start, nothing reacts
+        let ring = [(e(1), e(2)), (e(2), e(1))];
+        assert!(chain_starts(e(1), &ring).is_empty());
+    }
 }

@@ -5,6 +5,7 @@
 // state and tags, the description, physical data, what industry does with it (how much is
 // made, how it travels and is kept, the grades it sells at), the known reactions that make it
 // and use it (click one to open it in the Reaction Library), and its references.
+use crate::ui::{Button, Interaction};
 use bevy::prelude::*;
 use bevy::ui::ScrollPosition;
 
@@ -71,6 +72,9 @@ pub struct CodexDetail;
 pub struct CodexCategoryTab(pub InvCategory);
 #[derive(Component)]
 pub struct CodexSearchText;
+/// The search field (a tap brings up a phone's keyboard).
+#[derive(Component)]
+pub struct CodexSearchBox;
 #[derive(Component)]
 pub struct CodexCountText;
 #[derive(Component)]
@@ -90,25 +94,9 @@ pub struct CodexRefLink(pub String);
 #[derive(Component)]
 pub struct CodexReactionLink(pub u32);
 
-/// While the review run checks the link buttons, the URLs they would open are collected
-/// here instead of starting a browser.
-pub static URL_SINK: std::sync::Mutex<Option<Vec<String>>> = std::sync::Mutex::new(None);
-
-pub fn open_url(url: &str) {
-    if let Ok(mut sink) = URL_SINK.lock() {
-        if let Some(urls) = sink.as_mut() {
-            urls.push(url.to_string());
-            return;
-        }
-    }
-    #[cfg(target_os = "windows")]
-    let _ = std::process::Command::new("cmd").args(["/C", "start", "", url]).spawn();
-    #[cfg(target_os = "macos")]
-    let _ = std::process::Command::new("open").arg(url).spawn();
-    #[cfg(all(unix, not(target_os = "macos")))]
-    let _ = std::process::Command::new("xdg-open").arg(url).spawn();
-    let _ = url;
-}
+// Links open through the platform layer (a browser command on a desktop, an intent on
+// Android); the review run's URL sink lives there too.
+pub use crate::platform::{open_url, URL_SINK};
 
 fn state_name(s: MatterState) -> &'static str {
     match s {
@@ -306,6 +294,7 @@ fn spawn_fact_grid(p: &mut ChildSpawnerCommands, fonts: &UiFonts, facts: Vec<(&'
             for (k, v) in facts {
                 grid.spawn((
                     Node {
+                        border_radius: BorderRadius::all(Val::Px(theme::R_MD)),
                         min_width: Val::Px(150.0),
                         max_width: Val::Px(320.0),
                         flex_direction: FlexDirection::Column,
@@ -314,7 +303,6 @@ fn spawn_fact_grid(p: &mut ChildSpawnerCommands, fonts: &UiFonts, facts: Vec<(&'
                         border: UiRect::all(Val::Px(1.0)),
                         ..default()
                     },
-                    BorderRadius::all(Val::Px(theme::R_MD)),
                     BackgroundColor(theme::RAISED),
                     BorderColor::all(theme::LINE),
                 ))
@@ -401,32 +389,28 @@ pub fn spawn_codex(mut commands: Commands, fonts: Res<UiFonts>, assets: Res<Asse
                     });
                     theme::spawn_icon_button(hdr, assets, "close", 32.0, theme::TEXT_2, CodexCloseButton);
                 });
-                // search field (type anywhere while the library is open)
+                // search field (type anywhere while the library is open; on a phone, tap it
+                // for the keyboard)
                 col.spawn((
-                    Node {
-                        height: Val::Px(38.0),
-                        flex_shrink: 0.0,
-                        align_items: AlignItems::Center,
-                        column_gap: Val::Px(9.0),
-                        padding: UiRect::horizontal(Val::Px(11.0)),
-                        border: UiRect::all(Val::Px(1.0)),
-                        ..default()
-                    },
-                    BorderRadius::all(Val::Px(theme::R_MD)),
-                    BackgroundColor(theme::BG),
-                    BorderColor::all(theme::LINE_STRONG),
+                    theme::button(
+                        Kind::Secondary,
+                        Node {
+                            height: Val::Px(38.0),
+                            flex_shrink: 0.0,
+                            align_items: AlignItems::Center,
+                            column_gap: Val::Px(9.0),
+                            padding: UiRect::horizontal(Val::Px(11.0)),
+                            ..default()
+                        },
+                        theme::R_MD,
+                    ),
+                    CodexSearchBox,
                 ))
                 .with_children(|s| {
                     s.spawn(theme::icon(assets, "search", 16.0, theme::TEXT_3));
                     s.spawn((
                         CodexSearchText,
-                        theme::label(
-                            fonts,
-                            "Type to search names and formulas",
-                            theme::SM,
-                            Weight::Regular,
-                            theme::TEXT_3,
-                        ),
+                        theme::label(fonts, search_prompt(), theme::SM, Weight::Regular, theme::TEXT_3),
                     ));
                 });
                 col.spawn(Node {
@@ -718,12 +702,12 @@ fn spawn_codex_row(
         .with_children(|c| {
             c.spawn((
                 theme::label(fonts, short(&sub.name, 40), theme::SM, Weight::Semibold, theme::TEXT),
-                TextLayout::new_with_no_wrap(),
+                TextLayout::no_wrap(),
                 Pickable::IGNORE,
             ));
             c.spawn((
                 theme::label(fonts, format_formula(&sub.formula), theme::XS, Weight::Regular, theme::CYAN),
-                TextLayout::new_with_no_wrap(),
+                TextLayout::no_wrap(),
                 Pickable::IGNORE,
             ));
         });
@@ -738,6 +722,7 @@ fn spawn_thumb(parent: &mut ChildSpawnerCommands, fonts: &UiFonts, assets: &Asse
         parent
             .spawn((
                 Node {
+                    border_radius: BorderRadius::all(Val::Px(theme::R_SM)),
                     width: Val::Px(size),
                     height: Val::Px(size),
                     align_items: AlignItems::Center,
@@ -746,7 +731,6 @@ fn spawn_thumb(parent: &mut ChildSpawnerCommands, fonts: &UiFonts, assets: &Asse
                     border: UiRect::all(Val::Px(1.0)),
                     ..default()
                 },
-                BorderRadius::all(Val::Px(theme::R_SM)),
                 BackgroundColor(theme::mix(theme::RAISED, c, 0.12)),
                 BorderColor::all(c.with_alpha(0.5)),
                 Pickable::IGNORE,
@@ -832,17 +816,48 @@ pub fn keycode_to_char(k: KeyCode) -> Option<char> {
     })
 }
 
-/// While the library is open, typing edits the search (Backspace deletes).
+/// What the empty search field says.
+fn search_prompt() -> &'static str {
+    if crate::platform::SOFT_KEYBOARD {
+        "Tap to search names and formulas"
+    } else {
+        "Type to search names and formulas"
+    }
+}
+
+/// While the library is open, typing edits the search (Backspace deletes). On a phone a tap
+/// on the field brings up the keyboard, whose text becomes the search.
 pub fn codex_search_input_system(
     keys: Res<ButtonInput<KeyCode>>,
     state: Res<CodexState>,
     mut filter: ResMut<CodexFilter>,
     mut text_q: Query<(&mut Text, &mut TextColor), With<CodexSearchText>>,
+    boxes: Query<&Interaction, (Changed<Interaction>, With<CodexSearchBox>)>,
+    mut typing: ResMut<crate::ui::inventory::TypingBox>,
 ) {
+    use crate::ui::inventory::TypingBox;
     if !state.open {
+        if *typing == TypingBox::Codex {
+            *typing = TypingBox::None;
+            crate::platform::keyboard_hide();
+        }
         return;
     }
     let mut changed = false;
+    for i in &boxes {
+        if *i == Interaction::Pressed {
+            *typing = TypingBox::Codex;
+            crate::platform::keyboard_show(&filter.search);
+        }
+    }
+    if *typing == TypingBox::Codex {
+        if let Some(t) = crate::platform::keyboard_text() {
+            if t != filter.search {
+                filter.search = t;
+                changed = true;
+            }
+        }
+    }
     for k in keys.get_just_pressed() {
         match k {
             KeyCode::Backspace | KeyCode::Delete => {
@@ -860,7 +875,7 @@ pub fn codex_search_input_system(
     if changed {
         if let Ok((mut text, mut color)) = text_q.single_mut() {
             if filter.search.is_empty() {
-                text.0 = "Type to search names and formulas".to_string();
+                text.0 = search_prompt().to_string();
                 color.0 = theme::TEXT_3;
             } else {
                 text.0 = format!("{}|", filter.search);
@@ -971,6 +986,7 @@ pub fn update_codex_detail_system(
             |hero| {
                 hero.spawn((
                     Node {
+                        border_radius: BorderRadius::all(Val::Px(theme::R_LG)),
                         width: Val::Px(230.0),
                         height: Val::Px(230.0),
                         flex_shrink: 0.0,
@@ -978,7 +994,6 @@ pub fn update_codex_detail_system(
                         border: UiRect::all(Val::Px(1.0)),
                         ..default()
                     },
-                    BorderRadius::all(Val::Px(theme::R_LG)),
                     BackgroundGradient::from(RadialGradient {
                         color_space: default(),
                         position: UiPosition::CENTER,
@@ -997,6 +1012,7 @@ pub fn update_codex_detail_system(
                         let c = element_tile_color(&sub.formula);
                         card.spawn((
                             Node {
+                                border_radius: BorderRadius::all(Val::Px(theme::R_SM)),
                                 position_type: PositionType::Absolute,
                                 left: Val::Px(10.0),
                                 top: Val::Px(10.0),
@@ -1008,7 +1024,6 @@ pub fn update_codex_detail_system(
                                 border: UiRect::all(Val::Px(1.0)),
                                 ..default()
                             },
-                            BorderRadius::all(Val::Px(theme::R_SM)),
                             BackgroundColor(theme::mix(theme::BG, c, 0.16)),
                             BorderColor::all(c.with_alpha(0.7)),
                         ))
@@ -1254,7 +1269,7 @@ fn reaction_row(p: &mut ChildSpawnerCommands, fonts: &UiFonts, assets: &AssetSer
                 ));
                 c.spawn((
                     Text::new(equation_text(r, subs)),
-                    TextFont { font: fonts.symbols.clone(), font_size: 12.0, ..default() },
+                    TextFont { font: fonts.symbols.clone().into(), font_size: FontSize::Px(12.0), ..default() },
                     TextColor(theme::mix(accent, theme::TEXT, 0.5)),
                     Pickable::IGNORE,
                 ));

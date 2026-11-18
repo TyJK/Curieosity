@@ -4,13 +4,18 @@
 // vessels, milestone messages, and "no reaction" hints. Anything can queue one through
 // `ResMut<Toasts>`; `spawn_toasts_system` turns the queue into UI and `fade_toasts_system`
 // slides them in and ages them out.
+//
+// The discoveries and milestones also go into the journal (kept in the save), which the
+// bell in the header opens: every past notification, newest first. Hints about the reaction
+// in hand are left out of it.
+use crate::ui::{Button, Interaction};
 use bevy::prelude::*;
 
 use crate::resources::ui_fonts::UiFonts;
 use crate::ui::settings::Settings;
 use crate::ui::theme;
 
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Hash)]
 pub enum ToastKind {
     Discovery,
     Milestone,
@@ -43,6 +48,45 @@ impl ToastKind {
 
 #[derive(Resource, Default)]
 pub struct Toasts(pub Vec<(ToastKind, String)>);
+
+/// One past notification.
+#[derive(Clone, Debug, PartialEq)]
+pub struct JournalEntry {
+    pub kind: ToastKind,
+    pub text: String,
+}
+
+/// The past discoveries and milestones, oldest first (the save keeps the latest ones).
+#[derive(Resource, Default, Debug)]
+pub struct Journal(pub Vec<JournalEntry>);
+
+/// How many entries the journal keeps.
+pub const JOURNAL_MAX: usize = 300;
+
+impl Journal {
+    pub fn push(&mut self, kind: ToastKind, text: impl Into<String>) {
+        self.0.push(JournalEntry { kind, text: text.into() });
+        let over = self.0.len().saturating_sub(JOURNAL_MAX);
+        if over > 0 {
+            self.0.drain(..over);
+        }
+    }
+
+    /// As the save writes it: (kind, text) pairs.
+    pub fn to_pairs(&self) -> Vec<(String, String)> {
+        self.0.iter().map(|e| (format!("{:?}", e.kind), e.text.clone())).collect()
+    }
+
+    /// From the save (an entry of a kind this build doesn't know is read as a milestone).
+    pub fn from_pairs(pairs: &[(String, String)]) -> Self {
+        let mut j = Journal::default();
+        for (k, t) in pairs {
+            let kind = if k == "Discovery" { ToastKind::Discovery } else { ToastKind::Milestone };
+            j.push(kind, t.clone());
+        }
+        j
+    }
+}
 
 impl Toasts {
     pub fn push(&mut self, kind: ToastKind, text: impl Into<String>) {
@@ -102,6 +146,7 @@ pub fn spawn_toasts_system(
     assets: Res<AssetServer>,
     stack_q: Query<(Entity, Option<&Children>), With<ToastStack>>,
     room: Res<ToastRoom>,
+    mut journal: ResMut<Journal>,
 ) {
     let cap = room.0.clamp(1, MAX_VISIBLE);
     // the room shrank (a smaller screen, a bigger interface): the oldest go first
@@ -112,6 +157,12 @@ pub fn spawn_toasts_system(
     }
     if toasts.0.is_empty() {
         return;
+    }
+    // the journal keeps every discovery and milestone, pop-ups or not
+    for (kind, text) in &toasts.0 {
+        if *kind != ToastKind::Hint {
+            journal.push(*kind, text.clone());
+        }
     }
     if settings.as_ref().is_some_and(|s| !s.notifications) {
         toasts.0.clear();
@@ -129,7 +180,7 @@ pub fn spawn_toasts_system(
         }
     }
 
-    let queued: Vec<(ToastKind, String)> = toasts.0.drain(..).collect();
+    let queued = std::mem::take(&mut toasts.0);
     let skip = queued.len().saturating_sub(cap);
     commands.entity(stack).with_children(|parent| {
         for (kind, text) in queued.into_iter().skip(skip) {
@@ -139,6 +190,7 @@ pub fn spawn_toasts_system(
                     Toast { age: 0.0, lifetime: kind.lifetime() },
                     Pickable::IGNORE,
                     Node {
+                        border_radius: BorderRadius::all(Val::Px(theme::R_MD)),
                         padding: UiRect::new(Val::Px(12.0), Val::Px(16.0), Val::Px(9.0), Val::Px(9.0)),
                         border: UiRect::new(Val::Px(4.0), Val::Px(1.0), Val::Px(1.0), Val::Px(1.0)),
                         column_gap: Val::Px(10.0),
@@ -146,7 +198,6 @@ pub fn spawn_toasts_system(
                         max_width: Val::Percent(100.0),
                         ..default()
                     },
-                    BorderRadius::all(Val::Px(theme::R_MD)),
                     BackgroundColor(theme::mix(theme::SURFACE, accent, 0.10)),
                     BorderColor {
                         left: accent,
@@ -161,9 +212,9 @@ pub fn spawn_toasts_system(
                     t.spawn(theme::icon(&assets, kind.icon(), 18.0, accent));
                     t.spawn((
                         Text::new(text),
-                        TextFont { font: fonts.semibold.clone(), font_size: 14.0, ..default() },
+                        TextFont { font: fonts.semibold.clone().into(), font_size: FontSize::Px(14.0), ..default() },
                         TextColor(theme::TEXT),
-                        TextLayout::new_with_linebreak(LineBreak::WordBoundary),
+                        TextLayout::linebreak(LineBreak::WordBoundary),
                         Node { max_width: Val::Px(400.0), ..default() },
                         Pickable::IGNORE,
                     ));
@@ -204,4 +255,200 @@ pub fn fade_toasts_system(
             }
         }
     }
+}
+
+// ---------------------------------------------------------------------------------------
+// The journal: every past notification
+// ---------------------------------------------------------------------------------------
+#[derive(Resource, Default)]
+pub struct JournalUi {
+    pub open: bool,
+}
+
+#[derive(Component)]
+pub struct JournalRoot;
+#[derive(Component)]
+pub struct JournalBackdrop;
+#[derive(Component)]
+pub struct JournalClose;
+/// The list (rebuilt while the dialog is open and the journal changes).
+#[derive(Component)]
+pub struct JournalList;
+/// One entry in the list (the checks read them).
+#[derive(Component)]
+pub struct JournalRow(pub usize);
+
+pub fn spawn_journal(mut commands: Commands, fonts: Res<UiFonts>, assets: Res<AssetServer>) {
+    commands
+        .spawn((
+            JournalRoot,
+            // the keyboard stays inside the dialog while it shows
+            crate::ui::focus::FocusCover,
+            GlobalZIndex(940),
+            Node {
+                position_type: PositionType::Absolute,
+                left: Val::Px(0.0),
+                right: Val::Px(0.0),
+                top: Val::Px(0.0),
+                bottom: Val::Px(0.0),
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                display: Display::None,
+                ..default()
+            },
+            Name::new("Journal"),
+        ))
+        .with_children(|root| {
+            root.spawn((
+                JournalBackdrop,
+                Button,
+                crate::ui::focus::NoFocus,
+                Node {
+                    position_type: PositionType::Absolute,
+                    left: Val::Px(0.0),
+                    right: Val::Px(0.0),
+                    top: Val::Px(0.0),
+                    bottom: Val::Px(0.0),
+                    ..default()
+                },
+                BackgroundColor(Color::srgba(0.0, 0.0, 0.02, 0.62)),
+            ));
+            root.spawn((
+                Node {
+                    border_radius: BorderRadius::all(Val::Px(theme::R_LG)),
+                    width: Val::Px(620.0),
+                    max_width: Val::Percent(94.0),
+                    max_height: Val::Percent(90.0),
+                    flex_direction: FlexDirection::Column,
+                    padding: UiRect::all(Val::Px(20.0)),
+                    row_gap: Val::Px(10.0),
+                    border: UiRect::all(Val::Px(1.0)),
+                    overflow: Overflow::clip(),
+                    ..default()
+                },
+                BackgroundColor(theme::SURFACE),
+                BorderColor::all(theme::LINE_STRONG),
+                theme::shadow(40.0, 14.0, 0.6),
+                Pickable::default(),
+                bevy::ui::FocusPolicy::Block,
+            ))
+            .with_children(|dialog| {
+                dialog
+                    .spawn(Node {
+                        justify_content: JustifyContent::SpaceBetween,
+                        align_items: AlignItems::Center,
+                        flex_shrink: 0.0,
+                        ..default()
+                    })
+                    .with_children(|h| {
+                        h.spawn(Node { column_gap: Val::Px(10.0), align_items: AlignItems::Center, ..default() })
+                            .with_children(|t| {
+                                t.spawn(theme::icon(&assets, "bell", 22.0, theme::GOLD));
+                                t.spawn(theme::label(
+                                    &fonts,
+                                    "Notifications",
+                                    theme::XL,
+                                    theme::Weight::Semibold,
+                                    theme::TEXT,
+                                ));
+                            });
+                        theme::spawn_icon_button(h, &assets, "close", 32.0, theme::TEXT_2, JournalClose);
+                    });
+                dialog.spawn(theme::label(
+                    &fonts,
+                    "Every discovery and milestone so far, newest first.",
+                    theme::XS,
+                    theme::Weight::Regular,
+                    theme::TEXT_3,
+                ));
+                dialog.spawn((
+                    JournalList,
+                    Node {
+                        flex_direction: FlexDirection::Column,
+                        row_gap: Val::Px(6.0),
+                        flex_shrink: 1.0,
+                        min_height: Val::Px(0.0),
+                        overflow: Overflow::scroll_y(),
+                        ..default()
+                    },
+                    ScrollPosition::default(),
+                    Pickable::default(),
+                ));
+            });
+        });
+}
+
+pub fn journal_input_system(
+    mut ui: ResMut<JournalUi>,
+    closers: Query<&Interaction, (Changed<Interaction>, Or<(With<JournalClose>, With<JournalBackdrop>)>)>,
+) {
+    for i in &closers {
+        if *i == Interaction::Pressed {
+            ui.open = false;
+        }
+    }
+}
+
+/// Shows the dialog while open, and lists the journal newest first.
+pub fn journal_view_system(
+    mut commands: Commands,
+    ui: Res<JournalUi>,
+    journal: Res<Journal>,
+    fonts: Option<Res<UiFonts>>,
+    assets: Res<AssetServer>,
+    mut root: Query<&mut Node, With<JournalRoot>>,
+    mut list: Query<(Entity, &mut ScrollPosition), With<JournalList>>,
+) {
+    if let Ok(mut n) = root.single_mut() {
+        let d = if ui.open { Display::Flex } else { Display::None };
+        if n.display != d {
+            n.display = d;
+        }
+    }
+    if !ui.open || !(ui.is_changed() || journal.is_changed()) {
+        return;
+    }
+    let (Some(fonts), Ok((list, mut scroll))) = (fonts, list.single_mut()) else { return };
+    if ui.is_changed() {
+        scroll.0 = Vec2::ZERO;
+    }
+    commands.entity(list).despawn_children();
+    commands.entity(list).with_children(|l| {
+        if journal.0.is_empty() {
+            l.spawn(theme::label(
+                &fonts,
+                "Nothing yet: your discoveries will be listed here.",
+                theme::SM,
+                theme::Weight::Regular,
+                theme::TEXT_3,
+            ));
+        }
+        for (i, e) in journal.0.iter().enumerate().rev() {
+            let accent = e.kind.accent();
+            l.spawn((
+                JournalRow(i),
+                Node {
+                    border_radius: BorderRadius::all(Val::Px(theme::R_SM)),
+                    flex_shrink: 0.0,
+                    column_gap: Val::Px(10.0),
+                    align_items: AlignItems::Center,
+                    padding: UiRect::new(Val::Px(10.0), Val::Px(10.0), Val::Px(6.0), Val::Px(6.0)),
+                    border: UiRect::left(Val::Px(3.0)),
+                    ..default()
+                },
+                BackgroundColor(theme::mix(theme::RAISED, accent, 0.06)),
+                BorderColor::all(accent),
+            ))
+            .with_children(|r| {
+                r.spawn(theme::icon(&assets, e.kind.icon(), 16.0, accent));
+                r.spawn((
+                    Text::new(e.text.clone()),
+                    TextFont { font: fonts.main.clone().into(), font_size: FontSize::Px(theme::SM), ..default() },
+                    TextColor(theme::TEXT),
+                    TextLayout::linebreak(LineBreak::WordBoundary),
+                    Node { flex_shrink: 1.0, ..default() },
+                ));
+            });
+        }
+    });
 }

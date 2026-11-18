@@ -172,9 +172,184 @@ impl VirtualList {
     }
 }
 
+/// A windowed canvas: items placed anywhere on a big content node (a map you pan both ways),
+/// each built while its rect is within a screen of the view and dropped once it is more than
+/// two screens away. The owning view keeps the items' rects, by index, and builds the ones a
+/// pass asks for. The Tech Tree's graph uses it: thousands of steps and their lines.
+#[derive(Component, Default)]
+pub struct VirtualCanvas {
+    rects: Vec<Rect>,
+    /// the built items: index -> entity
+    built: HashMap<usize, Entity>,
+    /// bumped whenever the items change, so the next pass re-plans
+    version: u64,
+    /// (the view, rounded, and the version) the last pass planned for
+    last: Option<(IVec4, u64)>,
+}
+
+/// What one canvas pass asks the view to do.
+#[derive(Default, Debug)]
+pub struct CanvasPass {
+    /// items to build, by index
+    pub build: Vec<usize>,
+    /// entities to drop
+    pub drop: Vec<Entity>,
+}
+
+impl VirtualCanvas {
+    /// Replace every item (the view is rebuilding); returns the built entities for
+    /// despawning. The next pass builds what is in sight.
+    pub fn set(&mut self, rects: Vec<Rect>) -> Vec<Entity> {
+        self.rects = rects;
+        self.version += 1;
+        self.last = None;
+        self.built.drain().map(|(_, e)| e).collect()
+    }
+
+    /// Record an entity the view built for an item.
+    pub fn record(&mut self, item: usize, entity: Entity) {
+        self.built.insert(item, entity);
+    }
+
+    /// How many items are built (for tests and the checks).
+    pub fn built_len(&self) -> usize {
+        self.built.len()
+    }
+
+    /// How many items there are in all.
+    pub fn len(&self) -> usize {
+        self.rects.len()
+    }
+
+    /// True when it holds no items.
+    pub fn is_empty(&self) -> bool {
+        self.rects.is_empty()
+    }
+
+    /// Plan a pass for a view `view` (content pixels: the scroll position and the view's
+    /// size). An empty view (hidden, not laid out) lets go of everything. `keep` says whether
+    /// a built item out of range must stay anyway (pressed, focused). None when nothing changed.
+    pub fn plan(&mut self, view: Rect, keep: impl Fn(Entity) -> bool) -> Option<CanvasPass> {
+        if view.width() <= 0.0 || view.height() <= 0.0 {
+            if self.built.is_empty() {
+                return None;
+            }
+            self.last = None;
+            return Some(CanvasPass { drop: self.built.drain().map(|(_, e)| e).collect(), ..default() });
+        }
+        // re-plan once the view has moved a little (16 px), not every pixel of a pan
+        let key = (
+            IVec4::new(
+                (view.min.x / 16.0).floor() as i32,
+                (view.min.y / 16.0).floor() as i32,
+                (view.width() / 16.0).ceil() as i32,
+                (view.height() / 16.0).ceil() as i32,
+            ),
+            self.version,
+        );
+        if self.last == Some(key) {
+            return None;
+        }
+        self.last = Some(key);
+        let size = view.size();
+        // build within one screen of the view, drop beyond two
+        let near = Rect::from_corners(view.min - size, view.max + size);
+        let far = Rect::from_corners(view.min - size * 2.0, view.max + size * 2.0);
+        let touches =
+            |a: &Rect, b: &Rect| a.min.x < b.max.x && b.min.x < a.max.x && a.min.y < b.max.y && b.min.y < a.max.y;
+        let mut pass = CanvasPass::default();
+        self.built.retain(|&i, e| {
+            let stay = self.rects.get(i).is_some_and(|r| touches(r, &far)) || keep(*e);
+            if !stay {
+                pass.drop.push(*e);
+            }
+            stay
+        });
+        for (i, r) in self.rects.iter().enumerate() {
+            if !self.built.contains_key(&i) && touches(r, &near) {
+                pass.build.push(i);
+            }
+        }
+        Some(pass)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A 100 x 100 grid of 50 px items, 100 px apart (10,000 px square).
+    fn canvas() -> VirtualCanvas {
+        let mut c = VirtualCanvas::default();
+        let rects = (0..10_000)
+            .map(|i| {
+                let at = Vec2::new((i % 100) as f32 * 100.0, (i / 100) as f32 * 100.0);
+                Rect::from_corners(at, at + Vec2::splat(50.0))
+            })
+            .collect();
+        c.set(rects);
+        c
+    }
+
+    fn apply_canvas(c: &mut VirtualCanvas, p: &CanvasPass, next: &mut u32) {
+        for &i in &p.build {
+            *next += 1;
+            c.record(i, Entity::from_raw_u32(*next).unwrap());
+        }
+    }
+
+    #[test]
+    fn a_canvas_builds_only_what_is_near_the_view() {
+        let mut c = canvas();
+        // a 400 x 300 view at the top left: built out to 800 x 600 (a screen right and down)
+        let p = c.plan(Rect::new(0.0, 0.0, 400.0, 300.0), |_| false).unwrap();
+        assert_eq!(p.build.len(), 8 * 6, "8 columns by 6 rows of items");
+        let mut n = 0;
+        apply_canvas(&mut c, &p, &mut n);
+        assert!(c.plan(Rect::new(0.0, 0.0, 400.0, 300.0), |_| false).is_none(), "nothing moved");
+        assert!(c.plan(Rect::new(5.0, 5.0, 405.0, 305.0), |_| false).is_none(), "a few pixels is not a move");
+    }
+
+    #[test]
+    fn panning_a_canvas_builds_ahead_and_drops_far_behind() {
+        let mut c = canvas();
+        let mut n = 0;
+        let p = c.plan(Rect::new(0.0, 0.0, 400.0, 300.0), |_| false).unwrap();
+        apply_canvas(&mut c, &p, &mut n);
+        // across the map: everything from the corner goes, the new neighbourhood is built
+        let at = Vec2::new(5000.0, 5000.0);
+        let p = c.plan(Rect::from_corners(at, at + Vec2::new(400.0, 300.0)), |_| false).unwrap();
+        assert_eq!(p.drop.len(), 48);
+        assert_eq!(p.build.len(), 12 * 9, "a screen each side: 1200 x 900 of items");
+        apply_canvas(&mut c, &p, &mut n);
+        assert_eq!(c.built_len(), 108);
+    }
+
+    #[test]
+    fn a_hidden_canvas_lets_go_and_a_new_set_starts_over() {
+        let mut c = canvas();
+        let mut n = 0;
+        let p = c.plan(Rect::new(0.0, 0.0, 400.0, 300.0), |_| false).unwrap();
+        apply_canvas(&mut c, &p, &mut n);
+        let p = c.plan(Rect::default(), |_| false).unwrap();
+        assert_eq!(p.drop.len(), 48);
+        assert_eq!(c.built_len(), 0);
+        let p = c.plan(Rect::new(0.0, 0.0, 400.0, 300.0), |_| false).unwrap();
+        apply_canvas(&mut c, &p, &mut n);
+        let old = c.set(vec![Rect::new(0.0, 0.0, 10.0, 10.0)]);
+        assert_eq!(old.len(), 48, "the old items are handed back for despawning");
+        let p = c.plan(Rect::new(0.0, 0.0, 400.0, 300.0), |_| false).unwrap();
+        assert_eq!(p.build, vec![0]);
+    }
+
+    #[test]
+    fn a_long_item_is_built_wherever_it_passes() {
+        let mut c = VirtualCanvas::default();
+        // a line from x 0 to x 9000 (a link across eras)
+        c.set(vec![Rect::new(0.0, 100.0, 9000.0, 102.0)]);
+        let p = c.plan(Rect::new(4000.0, 0.0, 4400.0, 300.0), |_| false).unwrap();
+        assert_eq!(p.build, vec![0]);
+    }
 
     fn grid(n: u32) -> VirtualList {
         let mut v = VirtualList::new(Vec2::new(84.0, 104.0), Vec2::splat(8.0));

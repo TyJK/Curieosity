@@ -1,0 +1,8 @@
+# The Rust every build uses: this machine, CI, and the Android and release builds. Each
+# Rust release adds clippy lints, and CI turns every warning into an error, so moving to a
+# newer Rust is a change of its own: raise this, run the clippy commands in ci.yml, fix
+# what they find, and commit both together.
+[toolchain]
+channel = "1.97.1"
+components = ["rustfmt", "clippy"]
+profile = "minimal"

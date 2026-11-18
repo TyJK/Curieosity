@@ -14,9 +14,10 @@
 //     cover or above it (the header stays reachable from a view; nothing behind Settings);
 //   * a long list or grid (`FocusGroup`: the shelf, the vessel list, the library lists,
 //     the tech tree) is one Tab stop; the arrow keys move inside it.
+use crate::ui::{Button, Interaction};
 use bevy::camera::NormalizedRenderTarget;
 use bevy::picking::backend::HitData;
-use bevy::picking::events::{Click, Pointer};
+use bevy::picking::events::{Pointer, PointerClick};
 use bevy::picking::pointer::{Location, PointerButton, PointerId};
 use bevy::platform::collections::HashMap;
 use bevy::prelude::*;
@@ -75,12 +76,12 @@ fn spawn_focus_ring(mut commands: Commands) {
     commands.spawn((
         FocusRing,
         Node {
+            border_radius: BorderRadius::all(Val::Px(theme::R_MD)),
             position_type: PositionType::Absolute,
             border: UiRect::all(Val::Px(2.5)),
             display: Display::None,
             ..default()
         },
-        BorderRadius::all(Val::Px(theme::R_MD)),
         // light, not cyan: cyan already marks hover and selection, so focus must differ
         BorderColor::all(theme::TEXT),
         GlobalZIndex(1950),
@@ -110,7 +111,14 @@ fn mark_focus_roles(
     covers: Query<
         Entity,
         (
-            Or<(With<CodexRoot>, With<ReactionLibRoot>, With<TechRoot>, With<SettingsRoot>, With<CreditsRoot>)>,
+            Or<(
+                With<CodexRoot>,
+                With<ReactionLibRoot>,
+                With<TechRoot>,
+                With<SettingsRoot>,
+                With<CreditsRoot>,
+                With<crate::ui::main_menu::MenuRoot>,
+            )>,
             Without<FocusCover>,
         ),
     >,
@@ -379,7 +387,7 @@ fn key_focus_system(
     tree: FocusTree,
     mut interactions: Query<&mut Interaction>,
     draggable: Query<(), With<Draggable>>,
-    typing: (Res<CodexState>, Res<ReactionLibState>),
+    typing: (Res<CodexState>, Res<ReactionLibState>, Res<crate::ui::inventory::ShelfSearch>),
     mut scrollers: Query<(&Node, &ComputedNode, &UiGlobalTransform, &mut ScrollPosition)>,
     window: Query<Entity, With<PrimaryWindow>>,
     pads: Query<&Gamepad>,
@@ -412,7 +420,7 @@ fn key_focus_system(
     } else {
         None
     };
-    let searching = typing.0.open || typing.1.open;
+    let searching = typing.0.open || typing.1.open || typing.2.typing;
     let press = keys.just_pressed(KeyCode::Enter)
         || keys.just_pressed(KeyCode::NumpadEnter)
         || (!searching && keys.just_pressed(KeyCode::Space))
@@ -484,9 +492,15 @@ fn key_focus_system(
                 return;
             };
             let location = Location { target, position: min + size * 0.5 };
-            let hit = HitData { camera: Entity::PLACEHOLDER, depth: 0.0, position: None, normal: None };
-            let click = Click { button: PointerButton::Primary, hit, duration: std::time::Duration::ZERO };
-            commands.trigger(Pointer::new(PointerId::Mouse, location, click, c));
+            let hit = HitData { camera: Entity::PLACEHOLDER, depth: 0.0, position: None, normal: None, extra: None };
+            commands.trigger(PointerClick {
+                entity: c,
+                pointer: Pointer::new(PointerId::Mouse, location),
+                button: PointerButton::Primary,
+                hit,
+                duration: std::time::Duration::ZERO,
+                count: 1,
+            });
         } else if let Ok(mut i) = interactions.get_mut(c) {
             *i = Interaction::Pressed;
             focus.pressed = Some(c);

@@ -1,6 +1,7 @@
-# Builds the Android app: an APK to install by hand. Start it from the Actions tab
-# ("Android", then "Run workflow"); pushing a v* tag builds it too. The APK is the run's
-# artifact, kept for 30 days.
+# Builds the Android app: an APK to install by hand. CI builds it once its checks pass
+# (ci.yml calls this workflow); it can also be started from the Actions tab ("Android", then
+# "Run workflow"), and pushing a v* tag builds it too. The APK is the run's artifact, kept
+# for 30 days.
 #
 # With the repository secret ANDROID_KEYSTORE (a keystore, base64-encoded) every build is
 # signed with the same key, so a new APK installs over the last and keeps the progress.
@@ -9,6 +10,7 @@
 name: Android
 
 on:
+  workflow_call:
   workflow_dispatch:
   push:
     tags: ["v*"]
@@ -22,14 +24,17 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: "17"
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: aarch64-linux-android
+      # the version rust-toolchain.toml names, and its Android target
+      - name: Rust
+        shell: bash
+        run: |
+          rustup show active-toolchain || rustup toolchain install
+          rustup target add aarch64-linux-android
       - uses: Swatinem/rust-cache@v2
         with:
           key: android

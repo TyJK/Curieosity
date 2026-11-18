@@ -3,6 +3,7 @@
 // The shelf: every discovered substance, filtered by category, as draggable tiles; and the
 // chips that stand for a substance inside a vessel. New tiles and products pop in. Only the
 // tiles in sight (and a screen either side) are built: see ui/virtual_list.rs.
+use crate::ui::{Button, Interaction};
 use bevy::prelude::*;
 use bevy::ui::ScrollPosition;
 
@@ -55,12 +56,27 @@ pub fn dock_height(screen_h: f32) -> f32 {
     (screen_h * 0.36).clamp(DOCK_MIN, theme::DOCK_H)
 }
 
-/// Sizes the dock to the screen, and moves the bench and the vessel list to sit on it.
+/// Below this width (interface pixels) the shelf's header leaves out its how-to lines, so
+/// the pills, the search and the selection still fit on one row.
+pub const NARROW_W: f32 = 1240.0;
+
+/// Sizes the dock to the screen, and moves the bench and the vessel list to sit on it. On
+/// a narrow screen the shelf header drops its how-to lines.
 #[allow(clippy::type_complexity)]
 pub fn fit_dock_system(
     windows: Query<&Window, With<bevy::window::PrimaryWindow>>,
     ui_scale: Res<UiScale>,
     mut dock: ResMut<Dock>,
+    mut how_to: Query<
+        (&mut Node, Has<crate::ui::detail_panel::SelectionHint>),
+        (
+            With<crate::ui::detail_panel::SelectionHint>,
+            Without<ShelfDock>,
+            Without<crate::components::ui_markers::ReactionCanvasRoot>,
+            Without<crate::ui::process_toolbar::VesselSidebar>,
+        ),
+    >,
+    selected: Res<crate::ui::detail_panel::SelectedSubstance>,
     mut nodes: Query<
         (&mut Node, Has<ShelfDock>),
         Or<(
@@ -74,6 +90,14 @@ pub fn fit_dock_system(
     let screen = w.height() / ui_scale.0.max(0.01);
     if screen < 1.0 {
         return;
+    }
+    let narrow = w.width() / ui_scale.0.max(0.01) < NARROW_W;
+    for (mut n, is_hint) in &mut how_to {
+        // the hint shows only with nothing selected (selection_view_system); narrow hides both
+        let want = if narrow || (is_hint && selected.0.is_some()) { Display::None } else { Display::Flex };
+        if n.display != want {
+            n.display = want;
+        }
     }
     let h = dock_height(screen);
     let want = Dock { h, bench: screen - theme::HEADER_H - h };
@@ -94,6 +118,43 @@ pub fn fit_dock_system(
 /// Marks a category tab button.
 #[derive(Component)]
 pub struct CategoryTab(pub InvCategory);
+
+/// The shelf's search: what is typed, and whether typing goes to it.
+#[derive(Resource, Default, Debug, Clone)]
+pub struct ShelfSearch {
+    pub typing: bool,
+    pub text: String,
+}
+
+impl ShelfSearch {
+    /// Whether a substance matches what is typed (names and formulas, any case).
+    pub fn matches(&self, sub: &crate::data::substances::Substance) -> bool {
+        let q = self.text.trim().to_lowercase();
+        q.is_empty() || sub.name.to_lowercase().contains(&q) || sub.formula.to_lowercase().contains(&q)
+    }
+}
+
+/// Which search box the on-screen keyboard is typing into (a phone's keyboard types into
+/// one text field; on a desktop, typing arrives as key presses and this stays None).
+#[derive(Resource, Default, Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TypingBox {
+    #[default]
+    None,
+    Shelf,
+    Codex,
+    Reactions,
+}
+
+/// The shelf's search box, its text and its clear button.
+#[derive(Component)]
+pub struct ShelfSearchBox;
+#[derive(Component)]
+pub struct ShelfSearchText;
+#[derive(Component)]
+pub struct ShelfSearchClear;
+/// "SHELF", or "KIT" while a target's kit is showing.
+#[derive(Component)]
+pub struct ShelfTitle;
 
 /// Which category the inventory is currently filtered to. Also a Resource.
 #[derive(Resource, Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -257,7 +318,7 @@ pub fn spawn_inventory_panel(mut commands: Commands, fonts: Res<UiFonts>, assets
                     })
                     .with_children(|t| {
                         t.spawn(theme::icon(&assets, "flask", 16.0, theme::CYAN));
-                        t.spawn(theme::label(&fonts, "SHELF", theme::XS, Weight::Bold, theme::TEXT_2));
+                        t.spawn((ShelfTitle, theme::label(&fonts, "SHELF", theme::XS, Weight::Bold, theme::TEXT_2)));
                     });
                     for (cat, label) in TABS {
                         bar.spawn((
@@ -281,6 +342,54 @@ pub fn spawn_inventory_panel(mut commands: Commands, fonts: Res<UiFonts>, assets
                             ));
                         });
                     }
+                    // the search: tap to type (a phone's keyboard comes up), the x clears it
+                    bar.spawn((
+                        theme::button(
+                            theme::Kind::Secondary,
+                            Node {
+                                height: Val::Px(26.0),
+                                min_width: Val::Px(120.0),
+                                padding: UiRect::new(Val::Px(9.0), Val::Px(4.0), Val::Px(0.0), Val::Px(0.0)),
+                                column_gap: Val::Px(6.0),
+                                align_items: AlignItems::Center,
+                                margin: UiRect::left(Val::Px(6.0)),
+                                ..default()
+                            },
+                            99.0,
+                        ),
+                        ShelfSearchBox,
+                        crate::ui::onboarding::Tip::Text(
+                            "Search the shelf",
+                            "Tap and type part of a name or a formula.",
+                        ),
+                    ))
+                    .with_children(|b| {
+                        b.spawn(theme::icon(&assets, "search", 13.0, theme::TEXT_3));
+                        b.spawn((
+                            ShelfSearchText,
+                            theme::label(&fonts, "Search", 12.0, Weight::Regular, theme::TEXT_3),
+                            Node { flex_grow: 1.0, ..default() },
+                            Pickable::IGNORE,
+                        ));
+                        b.spawn((
+                            theme::button(
+                                theme::Kind::Ghost,
+                                Node {
+                                    width: Val::Px(20.0),
+                                    height: Val::Px(20.0),
+                                    align_items: AlignItems::Center,
+                                    justify_content: JustifyContent::Center,
+                                    display: Display::None,
+                                    ..default()
+                                },
+                                99.0,
+                            ),
+                            ShelfSearchClear,
+                        ))
+                        .with_children(|x| {
+                            x.spawn(theme::icon(&assets, "close", 11.0, theme::TEXT_2));
+                        });
+                    });
                     bar.spawn(Node { flex_grow: 1.0, ..default() });
                     bar.spawn((ShelfCount, theme::label(&fonts, "", theme::XS, Weight::Regular, theme::TEXT_3)));
                     crate::ui::detail_panel::spawn_selection_bar(bar, &fonts, &assets);
@@ -327,10 +436,12 @@ pub struct ShelfTile {
 }
 
 impl ShelfTile {
-    /// (background, border) for a tile that is hovered and/or selected.
+    /// (background, border) for a tile that is hovered and/or selected. The selection is
+    /// white (with an outline, see `shelf_selection_outline_system`): no element tile,
+    /// whatever its block colour, looks like it.
     pub fn look(&self, hovered: bool, selected: bool) -> (Color, Color) {
         if selected {
-            (theme::mix(self.bg, theme::CYAN, 0.22), theme::CYAN)
+            (theme::mix(self.bg, theme::TEXT, 0.12), theme::TEXT)
         } else if hovered {
             (theme::mix(self.bg, theme::TEXT, 0.05), theme::CYAN.with_alpha(0.8))
         } else {
@@ -351,6 +462,122 @@ pub fn shelf_hover_system(
         let (b, c) = tile.look(*i != Interaction::None, selected.0 == Some(ing.id));
         bg.0 = b;
         *border = BorderColor::all(c);
+    }
+}
+
+/// The selected tile wears a white outline as well as its white edge (a dragged tile's
+/// outline belongs to the drag).
+pub fn shelf_selection_outline_system(
+    selected: Res<crate::ui::detail_panel::SelectedSubstance>,
+    mut tiles: Query<(&Ingredient, &mut Outline), (With<ShelfTile>, Without<DragGhost>)>,
+) {
+    for (ing, mut outline) in &mut tiles {
+        let want = if selected.0 == Some(ing.id) {
+            Outline { width: Val::Px(2.0), offset: Val::Px(2.0), color: theme::TEXT }
+        } else {
+            Outline { width: Val::Px(0.0), offset: Val::Px(0.0), color: Color::NONE }
+        };
+        if outline.color != want.color || outline.width != want.width {
+            *outline = want;
+        }
+    }
+}
+
+/// The shelf's search box: a tap starts typing into it (and brings up a phone's keyboard),
+/// another tap, Enter or Esc (see shell::escape_system) stops; the x clears it. Typing
+/// letters and digits adds to it, Backspace takes away.
+#[allow(clippy::too_many_arguments)]
+pub fn shelf_search_system(
+    keys: Res<ButtonInput<KeyCode>>,
+    mut search: ResMut<ShelfSearch>,
+    mut typing_box: ResMut<TypingBox>,
+    views: (
+        Res<crate::ui::codex::CodexState>,
+        Res<crate::ui::reaction_library::ReactionLibState>,
+        Res<crate::ui::tech_tree::TechTreeState>,
+    ),
+    boxes: Query<&Interaction, (Changed<Interaction>, With<ShelfSearchBox>)>,
+    clears: Query<&Interaction, (Changed<Interaction>, With<ShelfSearchClear>)>,
+    mut text_q: Query<(&mut Text, &mut TextColor), With<ShelfSearchText>>,
+    mut clear_q: Query<&mut Node, With<ShelfSearchClear>>,
+) {
+    let mut cleared = false;
+    for i in &clears {
+        if *i == Interaction::Pressed {
+            search.text.clear();
+            search.typing = false;
+            cleared = true;
+        }
+    }
+    if !cleared {
+        for i in &boxes {
+            if *i == Interaction::Pressed {
+                search.typing = !search.typing;
+                if search.typing {
+                    crate::platform::keyboard_show(&search.text);
+                }
+            }
+        }
+    }
+    let (codex, rlib, tree) = views;
+    if search.typing && (codex.open || rlib.open || tree.open) {
+        search.typing = false;
+    }
+    if search.typing {
+        let mut text = search.text.clone();
+        for k in keys.get_just_pressed() {
+            match k {
+                KeyCode::Backspace | KeyCode::Delete => {
+                    text.pop();
+                }
+                KeyCode::Enter | KeyCode::NumpadEnter => search.typing = false,
+                KeyCode::Space => text.push(' '),
+                _ => {
+                    if let Some(c) = crate::ui::codex::keycode_to_char(*k) {
+                        text.push(c);
+                    }
+                }
+            }
+        }
+        // a phone's keyboard keeps its own text: that is what was typed, whatever keys it sent
+        if let Some(t) = crate::platform::keyboard_text() {
+            text = t;
+        }
+        if text != search.text {
+            search.text = text;
+        }
+    }
+    // the on-screen keyboard follows the box it is typing for
+    let want = if search.typing {
+        TypingBox::Shelf
+    } else if *typing_box == TypingBox::Shelf {
+        TypingBox::None
+    } else {
+        *typing_box
+    };
+    if *typing_box != want {
+        if want == TypingBox::None {
+            crate::platform::keyboard_hide();
+        }
+        *typing_box = want;
+    }
+    if !search.is_changed() {
+        return;
+    }
+    if let Ok((mut t, mut c)) = text_q.single_mut() {
+        let (text, color) = match (search.typing, search.text.is_empty()) {
+            (true, _) => (format!("{}|", search.text), theme::TEXT),
+            (false, true) => ("Search".to_string(), theme::TEXT_3),
+            (false, false) => (search.text.clone(), theme::TEXT),
+        };
+        t.0 = text;
+        c.0 = color;
+    }
+    if let Ok(mut n) = clear_q.single_mut() {
+        let d = if search.text.is_empty() { Display::None } else { Display::Flex };
+        if n.display != d {
+            n.display = d;
+        }
     }
 }
 
@@ -388,7 +615,9 @@ pub fn populate_inventory_system(
     filter: Res<InvCategory>,
     recipe_db: Option<Res<crate::resources::recipe_database::RecipeDatabase>>,
     dragging: Query<(), With<DragGhost>>,
-    mut layout: Local<Option<(InvCategory, bool)>>,
+    narrowing: (Res<ShelfSearch>, Res<crate::ui::hint::HintState>),
+    mut title_q: Query<(&mut Text, &mut TextColor), (With<ShelfTitle>, Without<ShelfCount>)>,
+    mut layout: Local<Option<(InvCategory, bool, String, Option<u32>)>>,
     mut pending: Local<bool>,
 ) {
     // Wait for the authored layer to be applied and the save/start set to be loaded.
@@ -399,7 +628,12 @@ pub fn populate_inventory_system(
         return;
     };
     let names_first = settings.as_ref().is_some_and(|s| s.names_first);
-    let rebuild = *layout != Some((*filter, names_first));
+    // while a target is chosen the shelf is its kit (unless the kit is switched off)
+    let (search, hint) = narrowing;
+    let kit = hint.shelf_kit(settings.as_deref());
+    let kit_ids: Option<std::collections::HashSet<u32>> = kit.map(|k| k.shelf().collect());
+    let key = (*filter, names_first, search.text.trim().to_lowercase(), kit.map(|k| k.target));
+    let rebuild = layout.as_ref() != Some(&key);
     if !(rebuild || progress.is_changed() || *pending) {
         return;
     }
@@ -407,11 +641,29 @@ pub fn populate_inventory_system(
         return;
     };
 
-    let mut items: Vec<_> =
-        substances.0.values().filter(|s| progress.discovered.contains(&s.id) && matches_category(s, *filter)).collect();
+    let mut items: Vec<_> = substances
+        .0
+        .values()
+        .filter(|s| {
+            progress.discovered.contains(&s.id)
+                && matches_category(s, *filter)
+                && search.matches(s)
+                && kit_ids.as_ref().is_none_or(|k| k.contains(&s.id))
+        })
+        .collect();
     items.sort_by_key(|s| shelf_key(s));
     if let Ok(mut t) = count_q.single_mut() {
-        t.0 = format!("{} on the shelf", items.len());
+        t.0 = match kit {
+            Some(_) => format!("{} in the kit", items.len()),
+            None => format!("{} on the shelf", items.len()),
+        };
+    }
+    if let Ok((mut t, mut c)) = title_q.single_mut() {
+        let (text, color) = if kit.is_some() { ("KIT", theme::GOLD) } else { ("SHELF", theme::TEXT_2) };
+        if t.0 != text {
+            t.0 = text.to_string();
+            c.0 = color;
+        }
     }
     let ids: Vec<u32> = items.iter().map(|s| s.id).collect();
     let wanted: std::collections::HashSet<u32> = ids.iter().copied().collect();
@@ -426,14 +678,14 @@ pub fn populate_inventory_system(
     *pending = false;
 
     if rebuild {
-        // Switching category: jump back to the top so a short list doesn't open parked
-        // below its content.
-        if layout.is_some_and(|(f, _)| f != *filter) {
+        // A new category, search or kit: jump back to the top so a short list doesn't open
+        // parked below its content.
+        if layout.as_ref().is_some_and(|l| l.0 != key.0 || l.2 != key.2 || l.3 != key.3) {
             for mut sp in &mut scroll_q {
                 sp.0.y = 0.0;
             }
         }
-        *layout = Some((*filter, names_first));
+        *layout = Some(key);
         for (tab, mut skin) in &mut tabs {
             let active = tab.0 == *filter;
             if skin.active != active {
@@ -565,8 +817,10 @@ pub fn spawn_shelf_tile(
     } else {
         None
     };
+    // an element's block colour is in its tint and its symbol; its edge stays neutral like
+    // every other tile's, so only the selection ever has a lit edge
     let (bg, border) = match block {
-        Some(c) => (theme::mix(theme::RAISED, c, 0.10), c.with_alpha(0.55)),
+        Some(c) => (theme::mix(theme::RAISED, c, 0.10), theme::LINE),
         None => (theme::RAISED, theme::LINE),
     };
     commands
@@ -577,6 +831,7 @@ pub fn spawn_shelf_tile(
             crate::ui::onboarding::Tip::Substance(sub.id),
             Interaction::default(),
             Node {
+                border_radius: BorderRadius::all(Val::Px(theme::R_MD)),
                 position_type: PositionType::Absolute,
                 left: Val::Px(at.x),
                 top: Val::Px(at.y),
@@ -589,7 +844,6 @@ pub fn spawn_shelf_tile(
                 border: UiRect::all(Val::Px(1.0)),
                 ..default()
             },
-            BorderRadius::all(Val::Px(theme::R_MD)),
             BackgroundColor(bg),
             BorderColor::all(border),
         ))
@@ -641,7 +895,7 @@ pub fn spawn_shelf_tile(
                     item.spawn((theme::label(fonts, name, 12.0, Weight::Semibold, theme::TEXT), Pickable::IGNORE));
                     item.spawn((
                         Text::new(label),
-                        TextFont { font: fonts.main.clone(), font_size: 11.0, ..default() },
+                        TextFont { font: fonts.main.clone().into(), font_size: FontSize::Px(11.0), ..default() },
                         TextColor(theme::TEXT_2),
                         Node { max_width: Val::Px(80.0), ..default() },
                         Pickable::IGNORE,
@@ -649,7 +903,7 @@ pub fn spawn_shelf_tile(
                 } else {
                     item.spawn((
                         Text::new(label),
-                        TextFont { font: fonts.semibold.clone(), font_size: size, ..default() },
+                        TextFont { font: fonts.semibold.clone().into(), font_size: FontSize::Px(size), ..default() },
                         TextColor(theme::TEXT),
                         Node { max_width: Val::Px(80.0), ..default() },
                         Pickable::IGNORE,
@@ -678,6 +932,11 @@ impl PopIn {
     }
 }
 
+/// Left on a node whose pop-in has played (the checks read it: a pop can come and go
+/// between two slow frames).
+#[derive(Component)]
+pub struct Popped;
+
 /// A new shelf tile's border glows green and fades back to its usual colour.
 #[derive(Component, Default)]
 pub struct NewGlow {
@@ -703,7 +962,7 @@ pub fn pop_in_system(
         tf.scale = Vec2::splat(scale);
         if x >= 1.0 {
             tf.scale = Vec2::ONE;
-            commands.entity(e).try_remove::<PopIn>();
+            commands.entity(e).try_remove::<PopIn>().try_insert(Popped);
         }
     }
     for (e, mut g, tile, mut border, interaction) in &mut glows {
@@ -742,6 +1001,42 @@ pub fn element_tile_color(formula: &str) -> Color {
     block_color(z)
 }
 
+/// The x on a substance in a vessel: tapping it takes the substance out.
+#[derive(Component)]
+pub struct VesselChipRemove;
+/// A chip's picture (the bench's overview leaves it out).
+#[derive(Component)]
+pub struct ChipIcon;
+/// A chip's formula line (larger in the bench's overview).
+#[derive(Component)]
+pub struct ChipFormulaText;
+/// A chip's name line (the bench's overview leaves it out).
+#[derive(Component)]
+pub struct ChipNameText;
+
+/// A tap on a chip's x takes the chip out of its vessel (and goes no further: it neither
+/// selects the substance nor puts the selection in the vessel).
+fn remove_chip_on_click(mut t: On<PointerClick>, mut commands: Commands, parents: Query<&ChildOf>) {
+    t.propagate(false);
+    if t.button != PointerButton::Primary {
+        return;
+    }
+    if let Ok(c) = parents.get(t.entity) {
+        commands.entity(c.parent()).try_despawn();
+    }
+}
+
+/// A drag that starts on the x is not a drag of the chip.
+fn keep_drag_start_on_x(mut t: On<PointerDragStart>) {
+    t.propagate(false);
+}
+fn keep_drag_on_x(mut t: On<PointerDrag>) {
+    t.propagate(false);
+}
+fn keep_drag_end_on_x(mut t: On<PointerDragEnd>) {
+    t.propagate(false);
+}
+
 /// What a chip is doing inside a vessel (the Entity is the VesselCard).
 #[derive(Clone, Copy)]
 pub enum ChipRole {
@@ -770,6 +1065,7 @@ pub fn spawn_vessel_chip(
         // drag a chip out to take it back, or onto another vessel to move it
         Draggable,
         Node {
+            border_radius: BorderRadius::all(Val::Px(theme::R_SM)),
             width: Val::Percent(100.0),
             min_height: Val::Px(34.0),
             align_items: AlignItems::Center,
@@ -778,7 +1074,6 @@ pub fn spawn_vessel_chip(
             border: UiRect::new(Val::Px(3.0), Val::Px(1.0), Val::Px(1.0), Val::Px(1.0)),
             ..default()
         },
-        BorderRadius::all(Val::Px(theme::R_SM)),
         BackgroundColor(theme::mix(theme::RAISED, accent, 0.10)),
         BorderColor {
             left: accent,
@@ -801,27 +1096,29 @@ pub fn spawn_vessel_chip(
     chip_cmd.with_children(|chip| {
         if is_element_formula(&ing.formula) {
             chip.spawn((
+                ChipIcon,
                 Node {
+                    border_radius: BorderRadius::all(Val::Px(5.0)),
                     width: Val::Px(28.0),
                     height: Val::Px(28.0),
                     align_items: AlignItems::Center,
                     justify_content: JustifyContent::Center,
                     ..default()
                 },
-                BorderRadius::all(Val::Px(5.0)),
                 BackgroundColor(theme::mix(theme::RAISED, element_tile_color(&ing.formula), 0.15)),
                 Pickable::IGNORE,
             ))
             .with_children(|t| {
                 t.spawn((
                     Text::new(element_symbol(&ing.formula).unwrap_or_default()),
-                    TextFont { font: fonts.semibold.clone(), font_size: 14.0, ..default() },
+                    TextFont { font: fonts.semibold.clone().into(), font_size: FontSize::Px(14.0), ..default() },
                     TextColor(element_tile_color(&ing.formula)),
                     Pickable::IGNORE,
                 ));
             });
         } else {
             chip.spawn((
+                ChipIcon,
                 ImageNode::new(asset_server.load(format!("structures/{}.png", ing.id))),
                 Node { width: Val::Px(28.0), height: Val::Px(28.0), ..default() },
                 Pickable::IGNORE,
@@ -835,19 +1132,45 @@ pub fn spawn_vessel_chip(
                     crate::components::format_formula(&ing.formula)
                 };
                 col.spawn((
+                    ChipFormulaText,
                     Text::new(formula),
-                    TextFont { font: fonts.semibold.clone(), font_size: 13.0, ..default() },
+                    TextFont { font: fonts.semibold.clone().into(), font_size: FontSize::Px(13.0), ..default() },
                     TextColor(theme::TEXT),
                     Pickable::IGNORE,
                 ));
                 col.spawn((
+                    ChipNameText,
                     Text::new(ing.name.clone()),
-                    TextFont { font: fonts.main.clone(), font_size: theme::XS, ..default() },
+                    TextFont { font: fonts.main.clone().into(), font_size: FontSize::Px(theme::XS), ..default() },
                     TextColor(theme::TEXT),
-                    Node { max_width: Val::Px(150.0), ..default() },
+                    Node { max_width: Val::Px(130.0), ..default() },
                     Pickable::IGNORE,
                 ));
             });
+        // tap the x to take it out (dragging it off the card still works too)
+        chip.spawn((
+            theme::button(
+                theme::Kind::Ghost,
+                Node {
+                    width: Val::Px(24.0),
+                    height: Val::Px(24.0),
+                    flex_shrink: 0.0,
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::Center,
+                    ..default()
+                },
+                99.0,
+            ),
+            VesselChipRemove,
+            crate::ui::onboarding::Tip::Text("Take it out", "Tap the x to take this out of the vessel."),
+        ))
+        .observe(remove_chip_on_click)
+        .observe(keep_drag_start_on_x)
+        .observe(keep_drag_on_x)
+        .observe(keep_drag_end_on_x)
+        .with_children(|x| {
+            x.spawn(theme::icon(asset_server, "close", 11.0, theme::TEXT_2));
+        });
     });
     chip_cmd.id()
 }

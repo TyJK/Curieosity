@@ -3,6 +3,7 @@
 // Player settings: what they are, where they are saved (settings.ron next to the save
 // file), how they are applied to the window and the game, and the Settings dialog (opened
 // from the gear in the header, or Esc).
+use crate::ui::{Button, Interaction};
 use bevy::prelude::*;
 use bevy::window::{MonitorSelection, PresentMode, PrimaryWindow, WindowMode};
 use serde::{Deserialize, Serialize};
@@ -30,8 +31,15 @@ pub struct Settings {
     pub bench_grid: bool,
     /// hover tooltips on tiles, vessels and the parts of a vessel
     pub tooltips: bool,
-    /// the "next step" suggestion on the bench
+    /// the Hint button on the bench (named for the next-step card it replaced, so older
+    /// settings files keep their choice)
     pub next_step: bool,
+    /// while a target is chosen, the shelf shows only its kit
+    pub kit: bool,
+    /// a kit mixes in this many decoys for its biggest recipes...
+    pub decoys_min: u8,
+    /// ...and this many for a one-ingredient recipe (fewer ingredients, more decoys)
+    pub decoys_max: u8,
     /// the first-steps tour has been finished or skipped
     pub tour_done: bool,
     /// sound volume, 0 (off) to 1
@@ -52,6 +60,9 @@ impl Default for Settings {
             bench_grid: true,
             tooltips: true,
             next_step: true,
+            kit: true,
+            decoys_min: 3,
+            decoys_max: 8,
             tour_done: false,
             volume: 0.6,
             ui_sounds: true,
@@ -117,7 +128,10 @@ pub enum Field {
     Notifications,
     BenchGrid,
     Tooltips,
-    NextStep,
+    Hint,
+    Kit,
+    DecoysMin,
+    DecoysMax,
     Volume,
     UiSounds,
 }
@@ -142,8 +156,16 @@ pub struct SettingsAbout;
 const SCALES: [f32; 11] = [0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6];
 const SPEEDS: [f32; 5] = [0.5, 1.0, 2.0, 3.0, 4.0];
 const VOLUMES: [f32; 11] = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0];
+/// The most decoys a kit can be set to mix in.
+pub const MOST_DECOYS: u8 = 12;
 
 impl Settings {
+    /// How many decoys a kit mixes in: (for its biggest recipes, for a one-ingredient one).
+    pub fn decoy_range(&self) -> (usize, usize) {
+        let (a, b) = (self.decoys_min.min(MOST_DECOYS), self.decoys_max.min(MOST_DECOYS));
+        (a.min(b) as usize, a.max(b) as usize)
+    }
+
     fn step(&mut self, f: Field, dir: f32) {
         fn next(list: &[f32], v: f32, dir: f32) -> f32 {
             let i = list.iter().position(|x| (x - v).abs() < 0.01).unwrap_or(list.len() / 2) as i32;
@@ -154,6 +176,15 @@ impl Settings {
             Field::UiScale => self.ui_scale = next(&SCALES, self.ui_scale, dir),
             Field::ReactionSpeed => self.reaction_speed = next(&SPEEDS, self.reaction_speed, dir),
             Field::Volume => self.volume = next(&VOLUMES, self.volume, dir),
+            // the two stay in order: raising the fewest past the most raises the most too
+            Field::DecoysMin => {
+                self.decoys_min = (self.decoys_min as f32 + dir.signum()).clamp(0.0, MOST_DECOYS as f32) as u8;
+                self.decoys_max = self.decoys_max.max(self.decoys_min);
+            }
+            Field::DecoysMax => {
+                self.decoys_max = (self.decoys_max as f32 + dir.signum()).clamp(0.0, MOST_DECOYS as f32) as u8;
+                self.decoys_min = self.decoys_min.min(self.decoys_max);
+            }
             _ => {}
         }
     }
@@ -165,7 +196,8 @@ impl Settings {
             Field::Notifications => self.notifications = !self.notifications,
             Field::BenchGrid => self.bench_grid = !self.bench_grid,
             Field::Tooltips => self.tooltips = !self.tooltips,
-            Field::NextStep => self.next_step = !self.next_step,
+            Field::Hint => self.next_step = !self.next_step,
+            Field::Kit => self.kit = !self.kit,
             Field::UiSounds => self.ui_sounds = !self.ui_sounds,
             _ => {}
         }
@@ -178,7 +210,8 @@ impl Settings {
             Field::Notifications => self.notifications,
             Field::BenchGrid => self.bench_grid,
             Field::Tooltips => self.tooltips,
-            Field::NextStep => self.next_step,
+            Field::Hint => self.next_step,
+            Field::Kit => self.kit,
             Field::UiSounds => self.ui_sounds,
             _ => false,
         }
@@ -197,6 +230,8 @@ impl Settings {
                     format!("{:.0}%", self.volume * 100.0)
                 }
             }
+            Field::DecoysMin => self.decoys_min.to_string(),
+            Field::DecoysMax => self.decoys_max.to_string(),
             _ => String::new(),
         }
     }
@@ -215,7 +250,7 @@ pub fn load_settings(
         .then(|| std::fs::read_to_string(settings_path()).ok())
         .flatten()
         .and_then(|t| ron::from_str::<Settings>(&t).ok());
-    if saved.is_none() && persistence.0 && cfg!(target_os = "android") {
+    if saved.is_none() && persistence.0 && crate::platform::PHONE {
         fit.0 = true;
     }
     let mut settings = saved.unwrap_or_default();
@@ -238,7 +273,7 @@ pub fn apply_settings_system(
     }
     ui_scale.0 = settings.ui_scale;
     // a phone's window is always the whole screen: its mode and vsync are not ours to set
-    if let (false, Ok(mut w)) = (cfg!(target_os = "android"), windows.single_mut()) {
+    if let (false, Ok(mut w)) = (crate::platform::PHONE, windows.single_mut()) {
         let mode = if settings.fullscreen {
             WindowMode::BorderlessFullscreen(MonitorSelection::Current)
         } else {
@@ -309,7 +344,7 @@ pub fn spawn_settings(mut commands: Commands, fonts: Res<UiFonts>, assets: Res<A
             // The dialog never grows past the screen: on a short one (a phone sideways) the
             // title and close button stay put and the rest scrolls.
             root.spawn((
-                Node {
+                Node { border_radius: BorderRadius::all(Val::Px(theme::R_LG)),
                     width: Val::Px(880.0),
                     max_width: Val::Percent(94.0),
                     max_height: Val::Percent(92.0),
@@ -320,7 +355,6 @@ pub fn spawn_settings(mut commands: Commands, fonts: Res<UiFonts>, assets: Res<A
                     overflow: Overflow::clip(),
                     ..default()
                 },
-                BorderRadius::all(Val::Px(theme::R_LG)),
                 BackgroundColor(theme::SURFACE),
                 BorderColor::all(theme::LINE_STRONG),
                 theme::shadow(40.0, 14.0, 0.6),
@@ -359,7 +393,7 @@ pub fn spawn_settings(mut commands: Commands, fonts: Res<UiFonts>, assets: Res<A
                     ))
                     .with_children(|panel| {
 
-                // two columns: Display and Help on the left; Play and Progress on the right
+                // two columns: Display, Help and Sound on the left; Play, Hints and Progress on the right
                 panel
                     .spawn(Node { column_gap: Val::Px(32.0), flex_shrink: 0.0, ..default() })
                     .with_children(|cols| {
@@ -372,12 +406,14 @@ pub fn spawn_settings(mut commands: Commands, fonts: Res<UiFonts>, assets: Res<A
                                 toggle(c, fonts, Field::BenchGrid, "Bench grid", "The faint dot grid on the lab bench.");
                                 theme::spawn_section_title(c, fonts, "Help");
                                 toggle(c, fonts, Field::Tooltips, "Tooltips", "Explain tiles, vessels and ports on hover.");
-                                toggle(c, fonts, Field::NextStep, "Next-step card", "Suggest a step you can make right now.");
                                 c.spawn(Node { justify_content: JustifyContent::SpaceBetween, align_items: AlignItems::Center, column_gap: Val::Px(12.0), min_height: Val::Px(44.0), flex_shrink: 0.0, ..default() })
                                     .with_children(|row| {
                                         row_text(row, fonts, "First-steps tour", "The four coach marks of a new game.");
                                         theme::spawn_button(row, fonts, assets, Kind::Secondary, None, "Show it again", crate::ui::onboarding::TourAgainButton);
                                     });
+                                theme::spawn_section_title(c, fonts, "Sound");
+                                stepper(c, fonts, assets, Field::Volume, "Volume", "Reactions, discoveries and milestones.");
+                                toggle(c, fonts, Field::UiSounds, "Button clicks", "A soft tick when a button is pressed.");
                             });
                         cols.spawn(Node { flex_direction: FlexDirection::Column, flex_basis: Val::Px(0.0), flex_grow: 1.0, row_gap: Val::Px(8.0), ..default() })
                             .with_children(|c| {
@@ -385,9 +421,11 @@ pub fn spawn_settings(mut commands: Commands, fonts: Res<UiFonts>, assets: Res<A
                                 stepper(c, fonts, assets, Field::ReactionSpeed, "Reaction speed", "How fast vessels finish reacting.");
                                 toggle(c, fonts, Field::NamesFirst, "Names before formulas", "Shelf tiles lead with the name.");
                                 toggle(c, fonts, Field::Notifications, "Notifications", "Pop-ups for discoveries and milestones.");
-                                theme::spawn_section_title(c, fonts, "Sound");
-                                stepper(c, fonts, assets, Field::Volume, "Volume", "Reactions, discoveries and milestones.");
-                                toggle(c, fonts, Field::UiSounds, "Button clicks", "A soft tick when a button is pressed.");
+                                theme::spawn_section_title(c, fonts, "Hints");
+                                toggle(c, fonts, Field::Hint, "Hint button", "Pick something to make next; hints come one at a time.");
+                                toggle(c, fonts, Field::Kit, "Target kits", "While you chase a target, the shelf shows only its kit.");
+                                stepper(c, fonts, assets, Field::DecoysMax, "Most decoys", "Items to rule out in a one-ingredient kit.");
+                                stepper(c, fonts, assets, Field::DecoysMin, "Fewest decoys", "One fewer per extra ingredient, down to this.");
                                 theme::spawn_section_title(c, fonts, "Progress");
                                 c.spawn(Node { justify_content: JustifyContent::SpaceBetween, align_items: AlignItems::Center, column_gap: Val::Px(12.0), flex_shrink: 0.0, ..default() })
                                     .with_children(|row| {
@@ -500,6 +538,7 @@ fn toggle(panel: &mut ChildSpawnerCommands, fonts: &UiFonts, f: Field, title: &s
                 Button,
                 SettingToggle(f),
                 Node {
+                    border_radius: BorderRadius::all(Val::Px(99.0)),
                     width: Val::Px(48.0),
                     height: Val::Px(26.0),
                     padding: UiRect::all(Val::Px(3.0)),
@@ -507,15 +546,18 @@ fn toggle(panel: &mut ChildSpawnerCommands, fonts: &UiFonts, f: Field, title: &s
                     align_items: AlignItems::Center,
                     ..default()
                 },
-                BorderRadius::all(Val::Px(99.0)),
                 BackgroundColor(theme::RAISED),
                 BorderColor::all(theme::LINE_STRONG),
             ))
             .with_children(|t| {
                 t.spawn((
                     SettingKnob(f),
-                    Node { width: Val::Px(18.0), height: Val::Px(18.0), ..default() },
-                    BorderRadius::all(Val::Px(99.0)),
+                    Node {
+                        border_radius: BorderRadius::all(Val::Px(99.0)),
+                        width: Val::Px(18.0),
+                        height: Val::Px(18.0),
+                        ..default()
+                    },
                     BackgroundColor(theme::TEXT_2),
                     Pickable::IGNORE,
                 ));

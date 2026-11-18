@@ -269,11 +269,11 @@ pub fn build_recipe_database(
     else {
         return;
     };
-    let Some(substances) = substances_assets.get_mut(&game_data.substances) else {
+    let Some(mut substances) = substances_assets.get_mut(&game_data.substances) else {
         return;
     };
 
-    let (patched, created) = patches.apply_to(substances);
+    let (patched, created) = patches.apply_to(&mut substances);
     info!("Authored substance layer applied: {} entries ({} new).", patched, created);
 
     let db = RecipeDatabase::from_authored(authored);

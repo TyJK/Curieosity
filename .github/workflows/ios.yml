@@ -1,0 +1,118 @@
+# Builds the iOS app: an .ipa to install by hand. CI builds it once its checks pass (ci.yml
+# calls this workflow); it can also be started from the Actions tab ("iOS", then "Run
+# workflow"), and pushing a v* tag builds it too. The .ipa is the run's artifact, kept for
+# 30 days.
+#
+# Without signing secrets the .ipa is unsigned. Sideloadly or AltStore install it, signing it
+# on the way with the installer's own Apple ID (a free Apple ID's apps run for 7 days, then
+# need installing again).
+#
+# With an Apple Developer account, add these repository secrets and every build is signed:
+#   IOS_CERTIFICATE           the signing certificate and its key, a .p12 file, base64-encoded
+#   IOS_CERTIFICATE_PASSWORD  the .p12's password
+#   IOS_PROVISIONING_PROFILE  a .mobileprovision for the app id io.github.tyjk.curieosity (or
+#                             a wildcard), base64-encoded; an ad hoc profile installs on the
+#                             devices it lists
+name: iOS
+
+on:
+  workflow_call:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+
+env:
+  CARGO_TERM_COLOR: always
+  IPHONEOS_DEPLOYMENT_TARGET: "15.0"
+
+jobs:
+  ipa:
+    name: IPA
+    runs-on: macos-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v5
+      # the version rust-toolchain.toml names, and its iOS target
+      - name: Rust
+        shell: bash
+        run: |
+          rustup show active-toolchain || rustup toolchain install
+          rustup target add aarch64-apple-ios
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ios
+      - name: The game
+        run: cargo build --profile dist --target aarch64-apple-ios -p chem_alchemy --bin chem_alchemy
+      # The app is a folder: the program, its Info.plist, the compiled icon and the game's
+      # assets/ (Bevy reads them from beside the program).
+      - name: The app
+        run: |
+          APP=build/Payload/Curieosity.app
+          mkdir -p "$APP"
+          cp target/aarch64-apple-ios/dist/chem_alchemy "$APP/Curieosity"
+          cp ios/Info.plist "$APP/Info.plist"
+          cp -R assets "$APP/assets"
+          VERSION=$(grep -m1 '^version' Cargo.toml | cut -d'"' -f2)
+          /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" "$APP/Info.plist"
+          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion ${{ github.run_number }}" "$APP/Info.plist"
+          ICONS=build/Assets.xcassets/AppIcon.appiconset
+          mkdir -p "$ICONS"
+          cp ios/AppIcon.png "$ICONS/AppIcon.png"
+          echo '{"info":{"author":"xcode","version":1}}' > build/Assets.xcassets/Contents.json
+          echo '{"images":[{"filename":"AppIcon.png","idiom":"universal","platform":"ios","size":"1024x1024"}],"info":{"author":"xcode","version":1}}' > "$ICONS/Contents.json"
+          xcrun actool build/Assets.xcassets --compile "$APP" --platform iphoneos \
+            --minimum-deployment-target "$IPHONEOS_DEPLOYMENT_TARGET" --app-icon AppIcon \
+            --target-device iphone --target-device ipad \
+            --output-partial-info-plist build/icon.plist --output-format human-readable-text
+          /usr/libexec/PlistBuddy -c "Merge build/icon.plist" "$APP/Info.plist"
+          plutil -lint "$APP/Info.plist"
+          echo "APP=$APP" >> "$GITHUB_ENV"
+      - name: Signing
+        env:
+          CERTIFICATE: ${{ secrets.IOS_CERTIFICATE }}
+          CERTIFICATE_PASSWORD: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
+          PROFILE: ${{ secrets.IOS_PROVISIONING_PROFILE }}
+        run: |
+          if [ -z "$CERTIFICATE" ] || [ -z "$PROFILE" ]; then
+            echo "::warning::No IOS_CERTIFICATE / IOS_PROVISIONING_PROFILE secrets: this .ipa is unsigned. Install it with Sideloadly or AltStore."
+            echo "KIND=unsigned" >> "$GITHUB_ENV"
+            exit 0
+          fi
+          KEYCHAIN="$RUNNER_TEMP/signing.keychain-db"
+          security create-keychain -p "" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "" "$KEYCHAIN"
+          echo "$CERTIFICATE" | base64 --decode > "$RUNNER_TEMP/certificate.p12"
+          security import "$RUNNER_TEMP/certificate.p12" -P "$CERTIFICATE_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN"
+          security set-key-partition-list -S apple-tool:,apple: -k "" "$KEYCHAIN" > /dev/null
+          security list-keychains -d user -s "$KEYCHAIN" $(security list-keychains -d user | sed 's/"//g')
+          echo "$PROFILE" | base64 --decode > "$APP/embedded.mobileprovision"
+          security cms -D -i "$APP/embedded.mobileprovision" > "$RUNNER_TEMP/profile.plist"
+          /usr/libexec/PlistBuddy -x -c "Print :Entitlements" "$RUNNER_TEMP/profile.plist" > "$RUNNER_TEMP/entitlements.plist"
+          # the profile names the app id as TEAM.bundle-id (or TEAM.* for any): sign for ours
+          TEAM=$(/usr/libexec/PlistBuddy -c "Print :TeamIdentifier:0" "$RUNNER_TEMP/profile.plist")
+          APP_ID=$(/usr/libexec/PlistBuddy -c "Print :Entitlements:application-identifier" "$RUNNER_TEMP/profile.plist")
+          BUNDLE_ID=$(/usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" "$APP/Info.plist")
+          case "$APP_ID" in
+            *\*) /usr/libexec/PlistBuddy -c "Set :application-identifier $TEAM.$BUNDLE_ID" "$RUNNER_TEMP/entitlements.plist" ;;
+            *) /usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier ${APP_ID#$TEAM.}" "$APP/Info.plist" ;;
+          esac
+          IDENTITY=$(security find-identity -v -p codesigning "$KEYCHAIN" | awk 'NR==1 {print $2}')
+          codesign --force --sign "$IDENTITY" --entitlements "$RUNNER_TEMP/entitlements.plist" --timestamp=none "$APP"
+          codesign --verify --verbose "$APP"
+          echo "Signed for team $TEAM."
+          echo "KIND=signed" >> "$GITHUB_ENV"
+      - name: The IPA
+        run: |
+          cd build
+          zip -qry "../Curieosity-${GITHUB_REF_NAME//\//-}-${{ github.run_number }}-$KIND.ipa" Payload
+          ls -l ../Curieosity-*.ipa
+      - name: Remove the signing keychain
+        if: always()
+        run: security delete-keychain "$RUNNER_TEMP/signing.keychain-db" 2>/dev/null || true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Curieosity-ios-${{ github.run_number }}
+          path: Curieosity-*.ipa
+          compression-level: 0
+          retention-days: 30

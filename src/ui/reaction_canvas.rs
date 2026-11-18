@@ -23,7 +23,10 @@ pub fn spawn_reaction_canvas(mut commands: Commands, ui_camera_res: Option<Res<U
                 top: Val::Px(crate::ui::theme::HEADER_H),
                 right: Val::Px(crate::ui::theme::SIDEBAR_W),
                 bottom: Val::Px(crate::ui::theme::DOCK_H),
-                overflow: Overflow::scroll(),
+                // the bench never scrolls itself: dragging and the wheel both pan the pane
+                // inside it (drag_drop::pan_bench), so the two can't disagree about where
+                // the bench is, and the shading on the bench stays put
+                overflow: Overflow::clip(),
                 ..default()
             },
             BackgroundColor(crate::ui::theme::BENCH),

@@ -18,6 +18,7 @@
 //     (from the earliest step that makes each one), and the detail bar lists each need with
 //     the step it comes from, one tap away.
 //   * The graph pans with the wheel (Shift for sideways) or by dragging the background.
+use crate::ui::{Button, Interaction};
 use bevy::prelude::*;
 use bevy::ui::ScrollPosition;
 use std::collections::HashMap;
@@ -32,6 +33,7 @@ use crate::resources::ui_fonts::UiFonts;
 use crate::ui::process_toolbar::{vessel_art_path, vessel_name, ProcessUnlocks};
 use crate::ui::reaction_library::ReactionLibState;
 use crate::ui::theme::{self, Kind, Skin, Weight};
+use crate::ui::virtual_list::{VirtualCanvas, VirtualList};
 use crate::GameData;
 
 // ---------------------------------------------------------------------------------------
@@ -271,12 +273,12 @@ pub fn spawn_tech_tree(mut commands: Commands, fonts: Res<UiFonts>, assets: Res<
                         // segmented Graph / List
                         r.spawn((
                             Node {
+                                border_radius: BorderRadius::all(Val::Px(99.0)),
                                 padding: UiRect::all(Val::Px(3.0)),
                                 column_gap: Val::Px(2.0),
                                 border: UiRect::all(Val::Px(1.0)),
                                 ..default()
                             },
-                            BorderRadius::all(Val::Px(99.0)),
                             BackgroundColor(theme::BG),
                             BorderColor::all(theme::LINE),
                         ))
@@ -330,6 +332,8 @@ pub fn spawn_tech_tree(mut commands: Commands, fonts: Res<UiFonts>, assets: Res<
                 .with_children(|vp| {
                     vp.spawn((
                         TechGraphContent,
+                        // only what is in sight is built (tech_graph_window_system)
+                        VirtualCanvas::default(),
                         Node {
                             position_type: PositionType::Relative,
                             width: Val::Px(PAD * 2.0),
@@ -359,11 +363,13 @@ pub fn spawn_tech_tree(mut commands: Commands, fonts: Res<UiFonts>, assets: Res<
                 .with_children(|vp| {
                     vp.spawn((
                         TechListContent,
+                        // rows sit in fixed cells; only those in sight are built
+                        VirtualList::new(Vec2::new(0.0, LIST_ROW_H), Vec2::new(0.0, LIST_ROW_GAP)),
                         Node {
+                            position_type: PositionType::Relative,
                             width: Val::Percent(100.0),
                             max_width: Val::Px(980.0),
-                            flex_direction: FlexDirection::Column,
-                            row_gap: Val::Px(4.0),
+                            flex_shrink: 0.0,
                             ..default()
                         },
                     ));
@@ -558,6 +564,13 @@ pub struct TechLinks {
     reveal: Option<u32>,
 }
 
+impl TechLinks {
+    /// Scroll the graph to a step (centring it), as tapping a need does.
+    pub fn reveal(&mut self, step: u32) {
+        self.reveal = Some(step);
+    }
+}
+
 /// The "+N" on a step: how many of its needs have no overview line.
 #[derive(Component)]
 pub struct TechNeedBadge {
@@ -601,6 +614,61 @@ struct NodeInfo {
     col: usize,
     row: usize,
     state: NodeState,
+    /// needs with no overview line: the number on the step's badge
+    undrawn: usize,
+}
+
+/// An era's band behind its columns, with its heading and progress.
+struct Band {
+    epoch: usize,
+    x: f32,
+    w: f32,
+    done: usize,
+    total: usize,
+    current: bool,
+}
+
+/// One overview line: the elbow's three segments (left, top, width, height) and its colour.
+struct Edge {
+    segments: [(f32, f32, f32, f32); 3],
+    color: Color,
+}
+
+/// Something on the graph that is built when it comes near the view.
+#[derive(Clone, Copy, Debug)]
+enum GraphItem {
+    Band(usize),
+    Edge(usize),
+    Node(usize),
+}
+
+/// The list's groups, in order: (title, state).
+const GROUPS: [(&str, NodeState); 3] =
+    [("Ready to make", NodeState::Available), ("Completed", NodeState::Completed), ("Locked", NodeState::Locked)];
+/// A list id at or above this is a group heading (HEADING_BASE + its index in GROUPS).
+const HEADING_BASE: u32 = u32::MAX - 15;
+const LIST_ROW_H: f32 = 52.0;
+const LIST_ROW_GAP: f32 = 4.0;
+
+/// Everything the graph and the list show, worked out from the content and the player's
+/// progress: each step, line and era band with its place, and the list's order. Working it
+/// out is cheap; only what is in sight gets built (tech_graph_window_system and
+/// tech_list_window_system), so the tree opens at once however many steps it holds.
+#[derive(Resource, Default)]
+pub struct TechLayout {
+    nodes: Vec<NodeInfo>,
+    bands: Vec<Band>,
+    edges: Vec<Edge>,
+    items: Vec<GraphItem>,
+    rects: Vec<Rect>,
+    width: f32,
+    height: f32,
+    /// node index by step id
+    index: HashMap<u32, usize>,
+    /// the list: group headings and step ids, in order
+    list: Vec<u32>,
+    /// how many steps each list group holds
+    group_len: [usize; 3],
 }
 
 /// Left x of a global column, accounting for the extra gap at each era boundary.
@@ -612,22 +680,190 @@ fn node_y(row: usize) -> f32 {
     BAND_H + PAD + row as f32 * ROW_H
 }
 
+impl TechLayout {
+    /// Lay out every authored step: eras as columns (split by depth within the era), steps
+    /// down each column, the overview's lines between them, and the list's groups.
+    fn work_out(db: &RecipeDatabase, plan: &LinkPlan, progress: &PlayerProgress, unlocks: &ProcessUnlocks) -> Self {
+        // Authored reactions, already sorted by (epoch, id).
+        let rxns: &[Reaction] = &db.authored;
+        let n_epochs = db.epochs.len().max(1);
+        let epoch_of = |r: &Reaction| (r.epoch as usize).min(n_epochs - 1);
+
+        // Producer map over EARLIER authored reactions only (keeps the depth pass acyclic).
+        // Utility substances that appear everywhere never create depth or edges.
+        let mut producers: HashMap<u32, Vec<usize>> = HashMap::new();
+        let mut depth: Vec<usize> = vec![0; rxns.len()];
+        for (i, r) in rxns.iter().enumerate() {
+            let e = epoch_of(r);
+            let mut d = 0;
+            for sp in &r.reactants {
+                if UTILITY.contains(&sp.substance_id) {
+                    continue;
+                }
+                if let Some(ps) = producers.get(&sp.substance_id) {
+                    for &pi in ps {
+                        if epoch_of(&rxns[pi]) == e {
+                            d = d.max(depth[pi] + 1);
+                        }
+                    }
+                }
+            }
+            depth[i] = d.min(5); // cap so a long chain doesn't stretch one era forever
+            for p in &r.products {
+                producers.entry(p.substance_id).or_default().push(i);
+            }
+        }
+
+        // Columns: each era gets (max depth + 1) sub-columns, laid out left to right.
+        let mut epoch_cols = vec![1usize; n_epochs];
+        for (i, r) in rxns.iter().enumerate() {
+            let e = epoch_of(r);
+            epoch_cols[e] = epoch_cols[e].max(depth[i] + 1);
+        }
+        let mut epoch_first_col = vec![0usize; n_epochs];
+        for e in 1..n_epochs {
+            epoch_first_col[e] = epoch_first_col[e - 1] + epoch_cols[e - 1];
+        }
+        let total_cols: usize = epoch_cols.iter().sum();
+
+        let mut out = TechLayout::default();
+        let mut rows_in_col: HashMap<usize, usize> = HashMap::new();
+        for (i, r) in rxns.iter().enumerate() {
+            let e = epoch_of(r);
+            let col = epoch_first_col[e] + depth[i];
+            let row = *rows_in_col.get(&col).unwrap_or(&0);
+            rows_in_col.insert(col, row + 1);
+            out.index.insert(r.id, out.nodes.len());
+            out.nodes.push(NodeInfo {
+                id: r.id,
+                name: r.name.clone(),
+                epoch: e,
+                col,
+                row,
+                state: node_state(r, progress, unlocks),
+                undrawn: plan.undrawn(r.id),
+            });
+        }
+        let max_rows = rows_in_col.values().copied().max().unwrap_or(1);
+        out.height = BAND_H + PAD * 2.0 + max_rows as f32 * ROW_H;
+        out.width = col_x(total_cols, n_epochs) + PAD;
+
+        // era bands: a faint column per era, with its header and a progress bar
+        for e in 0..n_epochs {
+            let in_epoch = out.nodes.iter().filter(|n| n.epoch == e);
+            let (mut done, mut total, mut current) = (0, 0, false);
+            for n in in_epoch {
+                total += 1;
+                done += usize::from(n.state == NodeState::Completed);
+                current |= n.state == NodeState::Available;
+            }
+            out.bands.push(Band {
+                epoch: e,
+                x: col_x(epoch_first_col[e], e) - EPOCH_GAP * 0.4,
+                w: epoch_cols[e] as f32 * COL_W - (COL_W - NODE_W) + EPOCH_GAP * 0.8,
+                done,
+                total,
+                current,
+            });
+        }
+
+        // the overview's lines, coloured by how far along each end is
+        for (src, dst) in &plan.overview {
+            let (Some(&si), Some(&di)) = (out.index.get(src), out.index.get(dst)) else { continue };
+            let (s, d) = (&out.nodes[si], &out.nodes[di]);
+            let color = match (s.state, d.state) {
+                (_, NodeState::Completed) => theme::GREEN.with_alpha(0.45),
+                (NodeState::Completed, NodeState::Available) => theme::GOLD.with_alpha(0.6),
+                _ => theme::LINE.with_alpha(0.9),
+            };
+            let segments = elbow((s.epoch, s.col, s.row), (d.epoch, d.col, d.row), 2.0)
+                .map(|(l, t, w, h)| (l, t, w.max(2.0), h.max(2.0)));
+            out.edges.push(Edge { segments, color });
+        }
+
+        // what the window places: bands, lines, steps (each with the rect it covers)
+        for (i, b) in out.bands.iter().enumerate() {
+            out.items.push(GraphItem::Band(i));
+            out.rects.push(Rect::new(b.x, 8.0, b.x + b.w, out.height - 8.0));
+        }
+        for (i, e) in out.edges.iter().enumerate() {
+            out.items.push(GraphItem::Edge(i));
+            out.rects.push(edge_bounds(&e.segments));
+        }
+        for (i, n) in out.nodes.iter().enumerate() {
+            let (x, y) = (col_x(n.col, n.epoch), node_y(n.row));
+            out.items.push(GraphItem::Node(i));
+            // the badge pokes out to the left
+            out.rects.push(Rect::new(x - 12.0, y, x + NODE_W, y + NODE_H));
+        }
+
+        // the list: each group under its heading
+        for (g, (_, want)) in GROUPS.iter().enumerate() {
+            let ids: Vec<u32> = out.nodes.iter().filter(|n| n.state == *want).map(|n| n.id).collect();
+            out.group_len[g] = ids.len();
+            if !ids.is_empty() {
+                out.list.push(HEADING_BASE + g as u32);
+                out.list.extend(ids);
+            }
+        }
+        out
+    }
+
+    /// Where a step sits: (era, column, row).
+    fn at(&self) -> HashMap<u32, (usize, usize, usize)> {
+        self.nodes.iter().map(|n| (n.id, (n.epoch, n.col, n.row))).collect()
+    }
+
+    /// How many steps are laid out (for the checks).
+    pub fn steps(&self) -> usize {
+        self.nodes.len()
+    }
+
+    /// The steps whose place overlaps `view` (content pixels): all of them must be built
+    /// while it is in sight (for the checks).
+    pub fn steps_in(&self, view: Rect) -> Vec<u32> {
+        self.nodes
+            .iter()
+            .filter(|n| {
+                let (x, y) = (col_x(n.col, n.epoch), node_y(n.row));
+                x < view.max.x && view.min.x < x + NODE_W && y < view.max.y && view.min.y < y + NODE_H
+            })
+            .map(|n| n.id)
+            .collect()
+    }
+
+    /// The graph's full size (for the checks).
+    pub fn size(&self) -> Vec2 {
+        Vec2::new(self.width, self.height)
+    }
+}
+
+/// The rect an elbow's segments cover.
+fn edge_bounds(segments: &[(f32, f32, f32, f32); 3]) -> Rect {
+    let mut r = Rect::new(segments[0].0, segments[0].1, segments[0].0 + segments[0].2, segments[0].1 + segments[0].3);
+    for &(l, t, w, h) in &segments[1..] {
+        r = r.union(Rect::new(l, t, l + w, t + h));
+    }
+    r
+}
+
+/// Works the layout out again when the tree opens and when progress changes while it is
+/// open; the window systems then build what is in sight.
+#[allow(clippy::too_many_arguments)]
 pub fn populate_tech_views_system(
     mut commands: Commands,
     state: Res<TechTreeState>,
-    game_data: Res<GameData>,
-    substances_assets: Res<Assets<Substances>>,
     recipe_db: Option<Res<RecipeDatabase>>,
     progress: Res<PlayerProgress>,
     unlocks: Res<ProcessUnlocks>,
-    mut graph_q: Query<(Entity, &mut Node), With<TechGraphContent>>,
-    list_q: Query<Entity, With<TechListContent>>,
-    mut scroll_q: Query<(&TechScrollable, &mut ScrollPosition)>,
+    mut graph_q: Query<(&mut Node, &mut VirtualCanvas), With<TechGraphContent>>,
+    graph_e: Query<Entity, With<TechGraphContent>>,
+    mut list_q: Query<&mut VirtualList, With<TechListContent>>,
+    mut scroll_q: Query<(&TechScrollable, &mut ScrollPosition, &ComputedNode)>,
     mut summary_q: Query<&mut Text, With<TechSummaryText>>,
-    fonts: Res<UiFonts>,
-    assets: Res<AssetServer>,
     mut prev_open: Local<bool>,
     mut links: ResMut<TechLinks>,
+    mut layout: ResMut<TechLayout>,
 ) {
     let just_opened = state.open && !*prev_open;
     let should = state.open && (just_opened || progress.is_changed() || unlocks.is_changed());
@@ -635,437 +871,523 @@ pub fn populate_tech_views_system(
     if !should {
         return;
     }
-    let (Some(db), Some(subs)) = (recipe_db.as_ref(), substances_assets.get(&game_data.substances)) else {
+    let Some(db) = recipe_db.as_ref() else {
         return;
     };
-    let fonts = &*fonts;
-    let assets = &*assets;
-
-    // Authored reactions, already sorted by (epoch, id).
-    let rxns: Vec<&Reaction> = db.authored.iter().collect();
-    let n_epochs = db.epochs.len().max(1);
-    let epoch_of = |r: &Reaction| (r.epoch as usize).min(n_epochs - 1);
-
-    // Producer map over EARLIER authored reactions only (keeps the depth pass acyclic).
-    // Utility substances that appear everywhere never create depth or edges.
-    let mut producers: HashMap<u32, Vec<usize>> = HashMap::new();
-    let mut depth: Vec<usize> = vec![0; rxns.len()];
-    for (i, r) in rxns.iter().enumerate() {
-        let e = epoch_of(r);
-        let mut d = 0;
-        for sp in &r.reactants {
-            if UTILITY.contains(&sp.substance_id) {
-                continue;
-            }
-            if let Some(ps) = producers.get(&sp.substance_id) {
-                for &pi in ps {
-                    if epoch_of(rxns[pi]) == e {
-                        d = d.max(depth[pi] + 1);
-                    }
-                }
-            }
-        }
-        depth[i] = d.min(5); // cap so a long chain doesn't stretch one era forever
-        for p in &r.products {
-            producers.entry(p.substance_id).or_default().push(i);
-        }
-    }
-
-    // Columns: each era gets (max depth + 1) sub-columns, laid out left to right.
-    let mut epoch_cols = vec![1usize; n_epochs];
-    for (i, r) in rxns.iter().enumerate() {
-        let e = epoch_of(r);
-        epoch_cols[e] = epoch_cols[e].max(depth[i] + 1);
-    }
-    let mut epoch_first_col = vec![0usize; n_epochs];
-    for e in 1..n_epochs {
-        epoch_first_col[e] = epoch_first_col[e - 1] + epoch_cols[e - 1];
-    }
-    let total_cols: usize = epoch_cols.iter().sum();
-
-    let mut rows_in_col: HashMap<usize, usize> = HashMap::new();
-    let mut nodes: Vec<NodeInfo> = Vec::new();
-    let mut pos: HashMap<u32, (usize, usize, usize)> = HashMap::new(); // id -> (epoch, col, row)
-    for (i, r) in rxns.iter().enumerate() {
-        let e = epoch_of(r);
-        let col = epoch_first_col[e] + depth[i];
-        let row = *rows_in_col.get(&col).unwrap_or(&0);
-        rows_in_col.insert(col, row + 1);
-        pos.insert(r.id, (e, col, row));
-        nodes.push(NodeInfo {
-            id: r.id,
-            name: r.name.clone(),
-            epoch: e,
-            col,
-            row,
-            state: node_state(r, &progress, &unlocks),
-        });
-    }
-    let max_rows = rows_in_col.values().copied().max().unwrap_or(1);
-    let done_total = nodes.iter().filter(|n| n.state == NodeState::Completed).count();
-    let avail_total = nodes.iter().filter(|n| n.state == NodeState::Available).count();
-    if let Ok(mut t) = summary_q.single_mut() {
-        t.0 = format!("{} of {} steps done  ·  {} ready to make", done_total, nodes.len(), avail_total);
-    }
 
     // Links: the overview's lines, and everything each step needs (plan_links).
     let plan = plan_links(db);
-    let edges = plan.overview.clone();
-    let undrawn: HashMap<u32, usize> = plan.needs.keys().map(|&k| (k, plan.undrawn(k))).collect();
+    *layout = TechLayout::work_out(db, &plan, &progress, &unlocks);
+    let done = layout.nodes.iter().filter(|n| n.state == NodeState::Completed).count();
+    let ready = layout.nodes.iter().filter(|n| n.state == NodeState::Available).count();
+    if let Ok(mut t) = summary_q.single_mut() {
+        t.0 = format!("{} of {} steps done  ·  {} ready to make", done, layout.nodes.len(), ready);
+    }
     links.all = plan.links();
     links.needs = plan.needs;
-    links.at = pos.clone();
-    links.graph = graph_q.single().ok().map(|(e, _)| e);
+    links.at = layout.at();
+    links.graph = graph_e.single().ok();
 
-    // ---- build the GRAPH ----
-    let content_h = BAND_H + PAD * 2.0 + max_rows as f32 * ROW_H;
-    if let Ok((graph, mut graph_node)) = graph_q.single_mut() {
-        graph_node.width = Val::Px(col_x(total_cols, n_epochs) + PAD);
-        graph_node.min_height = Val::Px(content_h);
-        graph_node.height = Val::Px(content_h);
-        commands.entity(graph).despawn_children();
-        let state_by_id: HashMap<u32, NodeState> = nodes.iter().map(|n| (n.id, n.state)).collect();
-        commands.entity(graph).with_children(|parent| {
-            // era bands: a faint column per era, with its header and a progress bar
-            for e in 0..n_epochs {
-                let in_epoch: Vec<&NodeInfo> = nodes.iter().filter(|n| n.epoch == e).collect();
-                let done = in_epoch.iter().filter(|n| n.state == NodeState::Completed).count();
-                let x = col_x(epoch_first_col[e], e) - EPOCH_GAP * 0.4;
-                let w = epoch_cols[e] as f32 * COL_W - (COL_W - NODE_W) + EPOCH_GAP * 0.8;
-                let current = in_epoch.iter().any(|n| n.state == NodeState::Available);
-                parent
-                    .spawn((
-                        Node {
-                            position_type: PositionType::Absolute,
-                            left: Val::Px(x),
-                            top: Val::Px(8.0),
-                            width: Val::Px(w),
-                            height: Val::Px(content_h - 16.0),
-                            flex_direction: FlexDirection::Column,
-                            row_gap: Val::Px(3.0),
-                            padding: UiRect::new(Val::Px(14.0), Val::Px(14.0), Val::Px(10.0), Val::Px(0.0)),
-                            border: UiRect::all(Val::Px(1.0)),
-                            ..default()
-                        },
-                        BorderRadius::all(Val::Px(theme::R_LG)),
-                        BackgroundColor(if e % 2 == 0 {
-                            theme::SURFACE.with_alpha(0.45)
-                        } else {
-                            theme::SURFACE.with_alpha(0.25)
-                        }),
-                        BorderColor::all(if current {
-                            theme::GOLD.with_alpha(0.35)
-                        } else {
-                            theme::LINE.with_alpha(0.6)
-                        }),
-                        Pickable::IGNORE,
-                    ))
-                    .with_children(|h| {
-                        let era = db.epochs.get(e).map(|d| d.era.clone()).unwrap_or_default();
-                        h.spawn((
-                            Node { align_items: AlignItems::Baseline, column_gap: Val::Px(8.0), ..default() },
-                            Pickable::IGNORE,
-                        ))
-                        .with_children(|row| {
-                            row.spawn((
-                                theme::label(
-                                    fonts,
-                                    era_tag(e, n_epochs),
-                                    10.0,
-                                    Weight::Bold,
-                                    if current { theme::GOLD } else { theme::TEXT_3 },
-                                ),
-                                Pickable::IGNORE,
-                            ));
-                            row.spawn((
-                                theme::label(fonts, db.epoch_name(e as u8), theme::MD, Weight::Semibold, theme::TEXT),
-                                Pickable::IGNORE,
-                            ));
-                            row.spawn((
-                                theme::label(
-                                    fonts,
-                                    format!("{}/{}", done, in_epoch.len()),
-                                    theme::XS,
-                                    Weight::Regular,
-                                    theme::TEXT_3,
-                                ),
-                                Pickable::IGNORE,
-                            ));
-                        });
-                        h.spawn((
-                            theme::label(fonts, era, theme::XS, Weight::Regular, theme::TEXT_3),
-                            Pickable::IGNORE,
-                        ));
-                        let frac = if in_epoch.is_empty() { 0.0 } else { done as f32 / in_epoch.len() as f32 };
-                        h.spawn((
-                            Node {
-                                width: Val::Percent(100.0),
-                                height: Val::Px(3.0),
-                                margin: UiRect::top(Val::Px(3.0)),
-                                ..default()
-                            },
-                            BorderRadius::all(Val::Px(99.0)),
-                            BackgroundColor(theme::LINE.with_alpha(0.7)),
-                            Pickable::IGNORE,
-                        ))
-                        .with_children(|b| {
-                            b.spawn((
-                                Node { width: Val::Percent(frac * 100.0), height: Val::Percent(100.0), ..default() },
-                                BorderRadius::all(Val::Px(99.0)),
-                                BackgroundColor(theme::GREEN),
-                                Pickable::IGNORE,
-                            ));
-                        });
-                    });
-            }
-
-            // connectors first (so nodes paint on top)
-            for (src, dst) in &edges {
-                let (Some(&(se, sc, sr)), Some(&(te, tc, tr))) = (pos.get(src), pos.get(dst)) else {
-                    continue;
-                };
-                let s_state = state_by_id.get(src).copied();
-                let d_state = state_by_id.get(dst).copied();
-                let line = match (s_state, d_state) {
-                    (_, Some(NodeState::Completed)) => theme::GREEN.with_alpha(0.45),
-                    (Some(NodeState::Completed), Some(NodeState::Available)) => theme::GOLD.with_alpha(0.6),
-                    _ => theme::LINE.with_alpha(0.9),
-                };
-                // Elbow: source-right -> midx, midx to target row, midx -> target-left.
-                for (left, top, w, h) in elbow((se, sc, sr), (te, tc, tr), 2.0) {
-                    parent.spawn((
-                        Node {
-                            position_type: PositionType::Absolute,
-                            left: Val::Px(left),
-                            top: Val::Px(top),
-                            width: Val::Px(w.max(2.0)),
-                            height: Val::Px(h.max(2.0)),
-                            ..default()
-                        },
-                        BackgroundColor(line),
-                        Pickable::IGNORE,
-                    ));
-                }
-            }
-
-            // nodes
-            for n in &nodes {
-                let Some(r) = rxns.iter().find(|x| x.id == n.id) else {
-                    continue;
-                };
-                let sel = state.selected == Some(n.id);
-                let (bg, border) = node_look(n.state, sel, false);
-                let accent = theme::process_color(&r.process);
-                let mut node = parent.spawn((
-                    Button,
-                    TechNodeButton(n.id, n.state),
-                    // over every line, including a selection's
-                    ZIndex(2),
-                    Node {
-                        position_type: PositionType::Absolute,
-                        left: Val::Px(col_x(n.col, n.epoch)),
-                        top: Val::Px(node_y(n.row)),
-                        width: Val::Px(NODE_W),
-                        height: Val::Px(NODE_H),
-                        padding: UiRect::axes(Val::Px(8.0), Val::Px(6.0)),
-                        column_gap: Val::Px(8.0),
-                        align_items: AlignItems::Center,
-                        border: UiRect::all(Val::Px(if n.state == NodeState::Available { 1.5 } else { 1.0 })),
-                        ..default()
-                    },
-                    BorderRadius::all(Val::Px(theme::R_MD)),
-                    BackgroundColor(bg),
-                    BorderColor::all(border),
-                ));
-                if n.state == NodeState::Available {
-                    node.insert(theme::glow(theme::GOLD.with_alpha(0.35), 14.0));
-                }
-                node.with_children(|b| {
-                    let icon_c = if n.state == NodeState::Locked { theme::TEXT_3.with_alpha(0.6) } else { accent };
-                    b.spawn((
-                        ImageNode::new(assets.load(vessel_art_path(&r.process, "outline"))).with_color(icon_c),
-                        Node { width: Val::Px(30.0), height: Val::Px(30.0), flex_shrink: 0.0, ..default() },
-                        Pickable::IGNORE,
-                    ));
-                    b.spawn((
-                        Node { flex_direction: FlexDirection::Column, flex_grow: 1.0, flex_shrink: 1.0, ..default() },
-                        Pickable::IGNORE,
-                    ))
-                    .with_children(|c| {
-                        let tc = if n.state == NodeState::Locked { theme::TEXT_3 } else { theme::TEXT };
-                        c.spawn((
-                            Text::new(n.name.clone()),
-                            TextFont { font: fonts.semibold.clone(), font_size: 12.0, ..default() },
-                            TextColor(tc),
-                            Node { max_width: Val::Px(NODE_W - 72.0), ..default() },
-                            Pickable::IGNORE,
-                        ));
-                        c.spawn((
-                            theme::label(fonts, vessel_name(&r.process), 10.0, Weight::Regular, theme::TEXT_3),
-                            Pickable::IGNORE,
-                        ));
-                    });
-                    b.spawn(theme::icon(assets, state_icon(n.state), 12.0, state_accent(n.state)));
-                    // needs with no line here: select the step to see them all
-                    if let Some(&count) = undrawn.get(&n.id).filter(|&&c| c > 0) {
-                        b.spawn((
-                            TechNeedBadge { step: n.id, count },
-                            Node {
-                                position_type: PositionType::Absolute,
-                                left: Val::Px(-11.0),
-                                top: Val::Px(NODE_H / 2.0 - 10.0),
-                                min_width: Val::Px(20.0),
-                                height: Val::Px(20.0),
-                                padding: UiRect::horizontal(Val::Px(4.0)),
-                                align_items: AlignItems::Center,
-                                justify_content: JustifyContent::Center,
-                                border: UiRect::all(Val::Px(1.0)),
-                                ..default()
-                            },
-                            BorderRadius::all(Val::Px(10.0)),
-                            BackgroundColor(theme::mix(theme::BG, theme::CYAN, 0.25)),
-                            BorderColor::all(theme::CYAN),
-                            Pickable::IGNORE,
-                        ))
-                        .with_children(|t| {
-                            t.spawn((
-                                theme::label(fonts, format!("+{count}"), 10.0, Weight::Bold, theme::TEXT),
-                                Pickable::IGNORE,
-                            ));
-                        });
-                    }
-                });
-            }
-        });
+    // the graph: full size (so it scrolls as before), nothing built until it is in sight
+    if let Ok((mut node, mut canvas)) = graph_q.single_mut() {
+        node.width = Val::Px(layout.width);
+        node.min_height = Val::Px(layout.height);
+        node.height = Val::Px(layout.height);
+        for e in canvas.set(layout.rects.clone()) {
+            commands.entity(e).try_despawn();
+        }
+    }
+    // the list: rebuilt rows (a step's group and look follow its state)
+    if let Ok(mut list) = list_q.single_mut() {
+        for e in list.clear() {
+            commands.entity(e).try_despawn();
+        }
+        list.set(layout.list.clone(), []);
     }
 
-    // On opening, bring the frontier (the first step that is ready to make) into view.
+    // On opening, bring the selected step (opened from a hint) or else the frontier (the
+    // first step that is ready to make) into view.
     if just_opened {
-        if let Some(n) = nodes.iter().find(|n| n.state == NodeState::Available) {
-            for (marker, mut sp) in &mut scroll_q {
+        let selected = state.selected.and_then(|id| layout.index.get(&id)).map(|&i| &layout.nodes[i]);
+        if let Some(n) = selected.or_else(|| layout.nodes.iter().find(|n| n.state == NodeState::Available)) {
+            let centred = selected.is_some();
+            for (marker, mut sp, cn) in &mut scroll_q {
                 if marker.graph {
-                    sp.0.x = (col_x(n.col, n.epoch) - 260.0).max(0.0);
-                    sp.0.y = (node_y(n.row) + NODE_H - 380.0).max(0.0);
+                    if centred {
+                        let view = cn.size * cn.inverse_scale_factor();
+                        let centre = Vec2::new(col_x(n.col, n.epoch) + NODE_W / 2.0, node_y(n.row) + NODE_H / 2.0);
+                        sp.0 = (centre - view / 2.0).max(Vec2::ZERO);
+                    } else {
+                        sp.0.x = (col_x(n.col, n.epoch) - 260.0).max(0.0);
+                        sp.0.y = (node_y(n.row) + NODE_H - 380.0).max(0.0);
+                    }
                 }
             }
         }
     }
+}
 
-    // ---- build the LIST ----
-    if let Ok(list) = list_q.single() {
-        commands.entity(list).despawn_children();
-        commands.entity(list).with_children(|parent| {
-            for (title, want) in [
-                ("Ready to make", NodeState::Available),
-                ("Completed", NodeState::Completed),
-                ("Locked", NodeState::Locked),
-            ] {
-                let group: Vec<&NodeInfo> = nodes.iter().filter(|n| n.state == want).collect();
-                if group.is_empty() {
-                    continue;
-                }
-                parent
-                    .spawn(Node {
-                        align_items: AlignItems::Center,
-                        column_gap: Val::Px(8.0),
-                        margin: UiRect::new(Val::Px(4.0), Val::Px(0.0), Val::Px(14.0), Val::Px(4.0)),
-                        ..default()
-                    })
-                    .with_children(|h| {
-                        h.spawn(theme::icon(assets, state_icon(want), 14.0, state_accent(want)));
-                        h.spawn(theme::label(fonts, title.to_uppercase(), theme::XS, Weight::Bold, theme::TEXT_2));
-                        h.spawn(theme::label(
-                            fonts,
-                            group.len().to_string(),
-                            theme::XS,
-                            Weight::Regular,
-                            theme::TEXT_3,
-                        ));
-                    });
-                for n in group {
-                    let Some(r) = rxns.iter().find(|x| x.id == n.id).copied() else {
-                        continue;
-                    };
-                    let accent = theme::process_color(&r.process);
-                    let sub =
-                        if n.state == NodeState::Available { hint_string(r, subs) } else { equation_string(r, subs) };
-                    let mut row = parent.spawn((
-                        theme::button(
-                            Kind::Row,
-                            Node {
-                                width: Val::Percent(100.0),
-                                align_items: AlignItems::Center,
-                                column_gap: Val::Px(12.0),
-                                padding: UiRect::axes(Val::Px(10.0), Val::Px(7.0)),
-                                ..default()
-                            },
-                            theme::R_MD,
-                        ),
-                        TechListEntry(n.id),
-                    ));
-                    if state.selected == Some(n.id) {
-                        row.insert(Skin::active(Kind::Row, true));
-                    }
-                    row.with_children(|row| {
-                        row.spawn((
-                            ImageNode::new(assets.load(vessel_art_path(&r.process, "outline")))
-                                .with_color(if n.state == NodeState::Locked { theme::TEXT_3 } else { accent }),
-                            Node { width: Val::Px(30.0), height: Val::Px(30.0), flex_shrink: 0.0, ..default() },
-                            Pickable::IGNORE,
-                        ));
-                        row.spawn((
-                            Node {
-                                flex_direction: FlexDirection::Column,
-                                flex_grow: 1.0,
-                                flex_shrink: 1.0,
-                                ..default()
-                            },
-                            Pickable::IGNORE,
-                        ))
-                        .with_children(|c| {
-                            c.spawn((
-                                Node { column_gap: Val::Px(8.0), align_items: AlignItems::Baseline, ..default() },
-                                Pickable::IGNORE,
-                            ))
-                            .with_children(|t| {
-                                t.spawn((
-                                    theme::label(
-                                        fonts,
-                                        n.name.clone(),
-                                        theme::SM,
-                                        Weight::Semibold,
-                                        if n.state == NodeState::Locked { theme::TEXT_2 } else { theme::TEXT },
-                                    ),
-                                    Pickable::IGNORE,
-                                ));
-                                t.spawn((
-                                    theme::label(
-                                        fonts,
-                                        db.epoch_name(n.epoch as u8),
-                                        theme::XS,
-                                        Weight::Regular,
-                                        theme::TEXT_3,
-                                    ),
-                                    Pickable::IGNORE,
-                                ));
-                            });
-                            c.spawn((
-                                Text::new(sub),
-                                TextFont { font: fonts.symbols.clone(), font_size: 11.5, ..default() },
-                                TextColor(if n.state == NodeState::Available {
-                                    theme::mix(theme::GOLD, theme::TEXT, 0.4)
-                                } else {
-                                    theme::TEXT_2
-                                }),
-                                Pickable::IGNORE,
-                            ));
-                        });
-                        row.spawn(theme::icon(assets, state_icon(n.state), 14.0, state_accent(n.state)));
-                    });
-                }
-            }
-        });
+/// Builds the graph's bands, lines and steps within a screen of the view, and drops those
+/// more than two screens away; a closed tree, or the list showing, builds none.
+#[allow(clippy::too_many_arguments)]
+pub fn tech_graph_window_system(
+    mut commands: Commands,
+    state: Res<TechTreeState>,
+    layout: Res<TechLayout>,
+    recipe_db: Option<Res<RecipeDatabase>>,
+    focus: Option<Res<crate::ui::focus::KeyFocus>>,
+    mut graph_q: Query<(Entity, &mut VirtualCanvas), With<TechGraphContent>>,
+    view_q: Query<(&TechScrollable, &ComputedNode, &ScrollPosition)>,
+    pressed: Query<&Interaction, With<TechNodeButton>>,
+    fonts: Res<UiFonts>,
+    assets: Res<AssetServer>,
+) {
+    let Ok((graph, mut canvas)) = graph_q.single_mut() else {
+        return;
+    };
+    let view = if state.open && state.mode == TechMode::Graph {
+        view_q
+            .iter()
+            .find(|(m, _, _)| m.graph)
+            .map(|(_, cn, sp)| Rect::from_corners(sp.0, sp.0 + cn.size * cn.inverse_scale_factor()))
+            .unwrap_or_default()
+    } else {
+        Rect::default()
+    };
+    let focused = focus.and_then(|f| f.entity);
+    let keep = |e: Entity| Some(e) == focused || pressed.get(e).is_ok_and(|i| *i == Interaction::Pressed);
+    let Some(pass) = canvas.plan(view, keep) else {
+        return;
+    };
+    for e in pass.drop {
+        commands.entity(e).try_despawn();
     }
+    let Some(db) = recipe_db.as_ref() else {
+        return;
+    };
+    for i in pass.build {
+        let Some(&item) = layout.items.get(i) else { continue };
+        let e = match item {
+            GraphItem::Band(b) => spawn_band(&mut commands, &fonts, db, &layout.bands[b], layout.height),
+            GraphItem::Edge(k) => spawn_edge(&mut commands, &layout.edges[k]),
+            GraphItem::Node(n) => {
+                let info = &layout.nodes[n];
+                let Some(r) = db.authored.get(n).filter(|r| r.id == info.id) else { continue };
+                spawn_node(&mut commands, &fonts, &assets, info, r, state.selected == Some(info.id))
+            }
+        };
+        commands.entity(graph).add_child(e);
+        canvas.record(i, e);
+    }
+}
+
+/// An era's band: a faint column with the era's name, its done/total and a progress bar.
+fn spawn_band(commands: &mut Commands, fonts: &UiFonts, db: &RecipeDatabase, b: &Band, height: f32) -> Entity {
+    let n_epochs = db.epochs.len().max(1);
+    let era = db.epochs.get(b.epoch).map(|d| d.era.clone()).unwrap_or_default();
+    commands
+        .spawn((
+            Node {
+                border_radius: BorderRadius::all(Val::Px(theme::R_LG)),
+                position_type: PositionType::Absolute,
+                left: Val::Px(b.x),
+                top: Val::Px(8.0),
+                width: Val::Px(b.w),
+                height: Val::Px(height - 16.0),
+                flex_direction: FlexDirection::Column,
+                row_gap: Val::Px(3.0),
+                padding: UiRect::new(Val::Px(14.0), Val::Px(14.0), Val::Px(10.0), Val::Px(0.0)),
+                border: UiRect::all(Val::Px(1.0)),
+                ..default()
+            },
+            // under the lines and the steps
+            ZIndex(-1),
+            BackgroundColor(if b.epoch.is_multiple_of(2) {
+                theme::SURFACE.with_alpha(0.45)
+            } else {
+                theme::SURFACE.with_alpha(0.25)
+            }),
+            BorderColor::all(if b.current { theme::GOLD.with_alpha(0.35) } else { theme::LINE.with_alpha(0.6) }),
+            Pickable::IGNORE,
+        ))
+        .with_children(|h| {
+            h.spawn((
+                Node { align_items: AlignItems::Baseline, column_gap: Val::Px(8.0), ..default() },
+                Pickable::IGNORE,
+            ))
+            .with_children(|row| {
+                row.spawn((
+                    theme::label(
+                        fonts,
+                        era_tag(b.epoch, n_epochs),
+                        10.0,
+                        Weight::Bold,
+                        if b.current { theme::GOLD } else { theme::TEXT_3 },
+                    ),
+                    Pickable::IGNORE,
+                ));
+                row.spawn((
+                    theme::label(fonts, db.epoch_name(b.epoch as u8), theme::MD, Weight::Semibold, theme::TEXT),
+                    Pickable::IGNORE,
+                ));
+                row.spawn((
+                    theme::label(fonts, format!("{}/{}", b.done, b.total), theme::XS, Weight::Regular, theme::TEXT_3),
+                    Pickable::IGNORE,
+                ));
+            });
+            h.spawn((theme::label(fonts, era, theme::XS, Weight::Regular, theme::TEXT_3), Pickable::IGNORE));
+            let frac = if b.total == 0 { 0.0 } else { b.done as f32 / b.total as f32 };
+            h.spawn((
+                Node {
+                    border_radius: BorderRadius::all(Val::Px(99.0)),
+                    width: Val::Percent(100.0),
+                    height: Val::Px(3.0),
+                    margin: UiRect::top(Val::Px(3.0)),
+                    ..default()
+                },
+                BackgroundColor(theme::LINE.with_alpha(0.7)),
+                Pickable::IGNORE,
+            ))
+            .with_children(|bar| {
+                bar.spawn((
+                    Node {
+                        border_radius: BorderRadius::all(Val::Px(99.0)),
+                        width: Val::Percent(frac * 100.0),
+                        height: Val::Percent(100.0),
+                        ..default()
+                    },
+                    BackgroundColor(theme::GREEN),
+                    Pickable::IGNORE,
+                ));
+            });
+        })
+        .id()
+}
+
+/// One overview line: its three segments inside a box that covers them.
+fn spawn_edge(commands: &mut Commands, edge: &Edge) -> Entity {
+    let r = edge_bounds(&edge.segments);
+    commands
+        .spawn((
+            Node {
+                position_type: PositionType::Absolute,
+                left: Val::Px(r.min.x),
+                top: Val::Px(r.min.y),
+                width: Val::Px(r.width()),
+                height: Val::Px(r.height()),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .with_children(|e| {
+            for (left, top, w, h) in edge.segments {
+                e.spawn((
+                    Node {
+                        position_type: PositionType::Absolute,
+                        left: Val::Px(left - r.min.x),
+                        top: Val::Px(top - r.min.y),
+                        width: Val::Px(w),
+                        height: Val::Px(h),
+                        ..default()
+                    },
+                    BackgroundColor(edge.color),
+                    Pickable::IGNORE,
+                ));
+            }
+        })
+        .id()
+}
+
+/// One step on the graph: its vessel, name, state and the "+N" badge for needs drawn
+/// without a line.
+fn spawn_node(
+    commands: &mut Commands,
+    fonts: &UiFonts,
+    assets: &AssetServer,
+    n: &NodeInfo,
+    r: &Reaction,
+    selected: bool,
+) -> Entity {
+    let (bg, border) = node_look(n.state, selected, false);
+    let accent = theme::process_color(&r.process);
+    let mut node = commands.spawn((
+        Button,
+        TechNodeButton(n.id, n.state),
+        // over every line, including a selection's
+        ZIndex(2),
+        Node {
+            border_radius: BorderRadius::all(Val::Px(theme::R_MD)),
+            position_type: PositionType::Absolute,
+            left: Val::Px(col_x(n.col, n.epoch)),
+            top: Val::Px(node_y(n.row)),
+            width: Val::Px(NODE_W),
+            height: Val::Px(NODE_H),
+            padding: UiRect::axes(Val::Px(8.0), Val::Px(6.0)),
+            column_gap: Val::Px(8.0),
+            align_items: AlignItems::Center,
+            border: UiRect::all(Val::Px(if n.state == NodeState::Available { 1.5 } else { 1.0 })),
+            ..default()
+        },
+        BackgroundColor(bg),
+        BorderColor::all(border),
+    ));
+    if n.state == NodeState::Available {
+        node.insert(theme::glow(theme::GOLD.with_alpha(0.35), 14.0));
+    }
+    node.with_children(|b| {
+        let icon_c = if n.state == NodeState::Locked { theme::TEXT_3.with_alpha(0.6) } else { accent };
+        b.spawn((
+            ImageNode::new(assets.load(vessel_art_path(&r.process, "outline"))).with_color(icon_c),
+            Node { width: Val::Px(30.0), height: Val::Px(30.0), flex_shrink: 0.0, ..default() },
+            Pickable::IGNORE,
+        ));
+        b.spawn((
+            Node { flex_direction: FlexDirection::Column, flex_grow: 1.0, flex_shrink: 1.0, ..default() },
+            Pickable::IGNORE,
+        ))
+        .with_children(|c| {
+            let tc = if n.state == NodeState::Locked { theme::TEXT_3 } else { theme::TEXT };
+            c.spawn((
+                Text::new(n.name.clone()),
+                TextFont { font: fonts.semibold.clone().into(), font_size: FontSize::Px(12.0), ..default() },
+                TextColor(tc),
+                Node { max_width: Val::Px(NODE_W - 72.0), ..default() },
+                Pickable::IGNORE,
+            ));
+            c.spawn((
+                theme::label(fonts, vessel_name(&r.process), 10.0, Weight::Regular, theme::TEXT_3),
+                Pickable::IGNORE,
+            ));
+        });
+        b.spawn(theme::icon(assets, state_icon(n.state), 12.0, state_accent(n.state)));
+        // needs with no line here: select the step to see them all
+        if n.undrawn > 0 {
+            b.spawn((
+                TechNeedBadge { step: n.id, count: n.undrawn },
+                Node {
+                    border_radius: BorderRadius::all(Val::Px(10.0)),
+                    position_type: PositionType::Absolute,
+                    left: Val::Px(-11.0),
+                    top: Val::Px(NODE_H / 2.0 - 10.0),
+                    min_width: Val::Px(20.0),
+                    height: Val::Px(20.0),
+                    padding: UiRect::horizontal(Val::Px(4.0)),
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::Center,
+                    border: UiRect::all(Val::Px(1.0)),
+                    ..default()
+                },
+                BackgroundColor(theme::mix(theme::BG, theme::CYAN, 0.25)),
+                BorderColor::all(theme::CYAN),
+                Pickable::IGNORE,
+            ))
+            .with_children(|t| {
+                t.spawn((
+                    theme::label(fonts, format!("+{}", n.undrawn), 10.0, Weight::Bold, theme::TEXT),
+                    Pickable::IGNORE,
+                ));
+            });
+        }
+    });
+    node.id()
+}
+
+/// A group heading in the list ("READY TO MAKE  12").
+#[derive(Component)]
+pub struct TechListHeading;
+
+/// Builds the list rows in sight (and a screen either side) and drops the rest; a closed
+/// tree, or the graph showing, builds none.
+#[allow(clippy::too_many_arguments, clippy::type_complexity)]
+pub fn tech_list_window_system(
+    mut commands: Commands,
+    state: Res<TechTreeState>,
+    layout: Res<TechLayout>,
+    game_data: Res<GameData>,
+    substances_assets: Res<Assets<Substances>>,
+    recipe_db: Option<Res<RecipeDatabase>>,
+    focus: Option<Res<crate::ui::focus::KeyFocus>>,
+    mut content_q: Query<(Entity, &mut VirtualList, &mut Node, &ComputedNode), With<TechListContent>>,
+    view_q: Query<(&TechScrollable, &ComputedNode, &ScrollPosition)>,
+    mut cells: Query<&mut Node, (Or<(With<TechListEntry>, With<TechListHeading>)>, Without<TechListContent>)>,
+    pressed: Query<&Interaction, With<TechListEntry>>,
+    fonts: Res<UiFonts>,
+    assets: Res<AssetServer>,
+) {
+    let Ok((content, mut list, mut node, cn)) = content_q.single_mut() else {
+        return;
+    };
+    let Some((_, view, scroll)) = view_q.iter().find(|(m, _, _)| !m.graph) else {
+        return;
+    };
+    let focused = focus.and_then(|f| f.entity);
+    let keep = |e: Entity| Some(e) == focused || pressed.get(e).is_ok_and(|i| *i == Interaction::Pressed);
+    let (width, view_h) = if state.open && state.mode == TechMode::List {
+        (cn.size.x * cn.inverse_scale_factor(), view.size.y * view.inverse_scale_factor())
+    } else {
+        (0.0, 0.0)
+    };
+    let Some(pass) = list.plan(width, view_h, scroll.0.y, keep) else {
+        return;
+    };
+    if width > 0.0 && node.height != Val::Px(pass.height) {
+        node.height = Val::Px(pass.height);
+    }
+    for e in &pass.drop {
+        commands.entity(*e).try_despawn();
+    }
+    for (e, at) in &pass.moves {
+        if let Ok(mut n) = cells.get_mut(*e) {
+            n.top = Val::Px(at.y);
+        }
+    }
+    let (Some(db), Some(subs)) = (recipe_db.as_ref(), substances_assets.get(&game_data.substances)) else {
+        return;
+    };
+    for (id, at, _) in &pass.build {
+        let e = if *id >= HEADING_BASE {
+            let g = (*id - HEADING_BASE) as usize;
+            spawn_list_heading(&mut commands, &fonts, &assets, g, layout.group_len.get(g).copied().unwrap_or(0), at.y)
+        } else {
+            let Some(&i) = layout.index.get(id) else { continue };
+            let n = &layout.nodes[i];
+            let Some(r) = db.authored.get(i).filter(|r| r.id == n.id) else { continue };
+            spawn_list_row(&mut commands, &fonts, &assets, db, subs, n, r, state.selected == Some(n.id), at.y)
+        };
+        list.record(*id, e, *at);
+    }
+    if !pass.build.is_empty() || !pass.drop.is_empty() {
+        commands.entity(content).replace_children(&list.order());
+    }
+}
+
+/// A list group's heading, `top` pixels down the list.
+fn spawn_list_heading(
+    commands: &mut Commands,
+    fonts: &UiFonts,
+    assets: &AssetServer,
+    g: usize,
+    count: usize,
+    top: f32,
+) -> Entity {
+    let (title, want) = GROUPS[g.min(GROUPS.len() - 1)];
+    commands
+        .spawn((
+            TechListHeading,
+            Node {
+                position_type: PositionType::Absolute,
+                left: Val::Px(4.0),
+                right: Val::Px(0.0),
+                top: Val::Px(top),
+                height: Val::Px(LIST_ROW_H),
+                align_items: AlignItems::FlexEnd,
+                column_gap: Val::Px(8.0),
+                padding: UiRect::bottom(Val::Px(6.0)),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .with_children(|h| {
+            h.spawn(theme::icon(assets, state_icon(want), 14.0, state_accent(want)));
+            h.spawn(theme::label(fonts, title.to_uppercase(), theme::XS, Weight::Bold, theme::TEXT_2));
+            h.spawn(theme::label(fonts, count.to_string(), theme::XS, Weight::Regular, theme::TEXT_3));
+        })
+        .id()
+}
+
+/// One step in a list cell, `top` pixels down the list: vessel, name and era, then what it
+/// takes (ready steps) or its equation (one line each, so every row is the same height).
+#[allow(clippy::too_many_arguments)]
+fn spawn_list_row(
+    commands: &mut Commands,
+    fonts: &UiFonts,
+    assets: &AssetServer,
+    db: &RecipeDatabase,
+    subs: &Substances,
+    n: &NodeInfo,
+    r: &Reaction,
+    selected: bool,
+    top: f32,
+) -> Entity {
+    let accent = theme::process_color(&r.process);
+    let sub = if n.state == NodeState::Available { hint_string(r, subs) } else { equation_string(r, subs) };
+    let mut row = commands.spawn((
+        theme::button(
+            Kind::Row,
+            Node {
+                position_type: PositionType::Absolute,
+                left: Val::Px(0.0),
+                right: Val::Px(0.0),
+                top: Val::Px(top),
+                height: Val::Px(LIST_ROW_H),
+                align_items: AlignItems::Center,
+                column_gap: Val::Px(12.0),
+                padding: UiRect::axes(Val::Px(10.0), Val::Px(6.0)),
+                ..default()
+            },
+            theme::R_MD,
+        ),
+        TechListEntry(n.id),
+    ));
+    if selected {
+        row.insert(Skin::active(Kind::Row, true));
+    }
+    row.with_children(|row| {
+        row.spawn((
+            ImageNode::new(assets.load(vessel_art_path(&r.process, "outline")))
+                .with_color(if n.state == NodeState::Locked { theme::TEXT_3 } else { accent }),
+            Node { width: Val::Px(30.0), height: Val::Px(30.0), flex_shrink: 0.0, ..default() },
+            Pickable::IGNORE,
+        ));
+        row.spawn((
+            Node {
+                flex_direction: FlexDirection::Column,
+                flex_grow: 1.0,
+                flex_shrink: 1.0,
+                min_width: Val::Px(0.0),
+                overflow: Overflow::clip(),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .with_children(|c| {
+            c.spawn((
+                Node { column_gap: Val::Px(8.0), align_items: AlignItems::Baseline, ..default() },
+                Pickable::IGNORE,
+            ))
+            .with_children(|t| {
+                t.spawn((
+                    theme::label(
+                        fonts,
+                        n.name.clone(),
+                        theme::SM,
+                        Weight::Semibold,
+                        if n.state == NodeState::Locked { theme::TEXT_2 } else { theme::TEXT },
+                    ),
+                    TextLayout::no_wrap(),
+                    Pickable::IGNORE,
+                ));
+                t.spawn((
+                    theme::label(fonts, db.epoch_name(n.epoch as u8), theme::XS, Weight::Regular, theme::TEXT_3),
+                    TextLayout::no_wrap(),
+                    Pickable::IGNORE,
+                ));
+            });
+            c.spawn((
+                Text::new(sub),
+                TextFont { font: fonts.symbols.clone().into(), font_size: FontSize::Px(11.5), ..default() },
+                TextColor(if n.state == NodeState::Available {
+                    theme::mix(theme::GOLD, theme::TEXT, 0.4)
+                } else {
+                    theme::TEXT_2
+                }),
+                TextLayout::no_wrap(),
+                Pickable::IGNORE,
+            ));
+        });
+        row.spawn(theme::icon(assets, state_icon(n.state), 14.0, state_accent(n.state)));
+    });
+    row.id()
 }
 
 // ---------------------------------------------------------------------------------------
@@ -1237,6 +1559,7 @@ pub fn update_tech_detail_system(
     commands.entity(bar).with_children(|p| {
         p.spawn((
             Node {
+                border_radius: BorderRadius::all(Val::Px(theme::R_LG)),
                 width: Val::Px(92.0),
                 height: Val::Px(92.0),
                 flex_shrink: 0.0,
@@ -1244,7 +1567,6 @@ pub fn update_tech_detail_system(
                 border: UiRect::all(Val::Px(1.0)),
                 ..default()
             },
-            BorderRadius::all(Val::Px(theme::R_LG)),
             BackgroundColor(theme::mix(theme::BG, accent, 0.12)),
             BorderColor::all(accent.with_alpha(0.5)),
         ))
@@ -1278,7 +1600,7 @@ pub fn update_tech_detail_system(
             c.spawn(theme::label(fonts, r.name.clone(), theme::LG, Weight::Bold, theme::TEXT));
             c.spawn((
                 Text::new(equation_string(r, subs)),
-                TextFont { font: fonts.symbols.clone(), font_size: 14.0, ..default() },
+                TextFont { font: fonts.symbols.clone().into(), font_size: FontSize::Px(14.0), ..default() },
                 TextColor(theme::mix(accent, theme::TEXT, 0.55)),
             ));
             let warm = Color::srgb(1.0, 0.72, 0.55);
@@ -1326,11 +1648,11 @@ pub fn update_tech_detail_system(
                             Button,
                             TechNeedButton(n.from),
                             Node {
+                                border_radius: BorderRadius::all(Val::Px(10.0)),
                                 padding: UiRect::axes(Val::Px(8.0), Val::Px(3.0)),
                                 border: UiRect::all(Val::Px(1.0)),
                                 ..default()
                             },
-                            BorderRadius::all(Val::Px(10.0)),
                             BackgroundColor(theme::mix(theme::BG, accent, 0.14)),
                             BorderColor::all(accent.with_alpha(0.7)),
                         ))

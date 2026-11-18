@@ -5,6 +5,7 @@
 // discovery that unlocks them, so the player can see what they are working towards.
 // Also: the data-driven milestones, and the New Game button's two-click logic (the button
 // itself lives in Settings).
+use crate::ui::{Button, Interaction};
 use bevy::platform::collections::HashSet;
 use bevy::prelude::*;
 
@@ -28,7 +29,7 @@ pub struct ProcessButton {
     pub name: String,
 }
 
-/// The "Unlocks with ..." line on a locked vessel button.
+/// The "Needs ... · why?" line on a locked vessel button (a tap says why).
 #[derive(Component)]
 pub struct VesselLockText(pub ProcessType);
 
@@ -40,7 +41,12 @@ pub struct VesselButtonArt(pub ProcessType);
 #[derive(Component)]
 pub struct VesselLockIcon(pub ProcessType);
 
-/// The New Game button (in Settings): asks for a second click before wiping progress.
+/// Sent once a new game has wiped the progress (the main menu closes on it).
+#[derive(Message, Clone, Copy, Debug)]
+pub struct NewGameStarted;
+
+/// The New Game button (in Settings and the main menu): asks for a second click before
+/// wiping progress.
 #[derive(Component, Default)]
 pub struct NewGameButton {
     armed_for: f32,
@@ -129,7 +135,7 @@ pub fn spawn_process_toolbar(mut commands: Commands, fonts: Res<UiFonts>, assets
                 })
                 .with_children(|h| {
                     h.spawn(theme::label(&fonts, "VESSELS", theme::XS, Weight::Bold, theme::TEXT_3));
-                    h.spawn(theme::label(&fonts, "click to place", theme::XS, Weight::Regular, theme::TEXT_3));
+                    h.spawn(theme::label(&fonts, "tap to place", theme::XS, Weight::Regular, theme::TEXT_3));
                 });
             for v in VESSELS {
                 let accent = theme::process_color(&v.process);
@@ -229,7 +235,7 @@ pub fn milestone_system(
             let mut new_vessels = Vec::new();
             for p in &m.unlock {
                 if unlocks.0.insert(p.clone()) {
-                    new_vessels.push(vessel_name(p));
+                    new_vessels.push((vessel_name(p), p.why()));
                 }
             }
             let mut new_materials = Vec::new();
@@ -245,8 +251,8 @@ pub fn milestone_system(
             if let Some(msg) = &m.message {
                 toasts.push(ToastKind::Milestone, msg.clone());
             }
-            for v in new_vessels {
-                toasts.push(ToastKind::Milestone, format!("New vessel unlocked: {}", v));
+            for (v, why) in new_vessels {
+                toasts.push(ToastKind::Milestone, format!("New vessel unlocked: {v}. {why}"));
             }
             if !new_materials.is_empty() {
                 // a long grant reads better as a count than as a wall of names
@@ -310,7 +316,7 @@ pub fn gate_process_buttons_system(
         node.display = if open { Display::None } else { Display::Flex };
         if !open {
             text.0 = match unlocked_by(&lt.0) {
-                Some(n) => format!("Unlocks with {}", n),
+                Some(n) => format!("Needs {} · why?", n),
                 None => "Locked".to_string(),
             };
         }
@@ -321,6 +327,62 @@ pub fn gate_process_buttons_system(
     }
     for (li, mut node) in &mut lock_icons {
         node.display = if unlocks.0.contains(&li.0) { Display::None } else { Display::Flex };
+    }
+}
+
+/// What unlocks a vessel, and why, in a sentence ("The Bloomery unlocks with Copper: ...").
+pub fn unlock_reason(p: &ProcessType, db: &RecipeDatabase, subs: Option<&Substances>) -> String {
+    let by = db
+        .milestones
+        .iter()
+        .find(|m| m.unlock.contains(p))
+        .map(|m| subs.and_then(|s| s.0.get(&m.on)).map(|s| s.name.clone()).unwrap_or_else(|| format!("#{}", m.on)));
+    match by {
+        Some(n) => format!("The {} unlocks with {}. {}", vessel_name(p), n, p.why()),
+        None => format!("The {} is locked.", vessel_name(p)),
+    }
+}
+
+/// Tapping a locked vessel says what unlocks it and why (a phone has no hover tooltip).
+pub fn locked_vessel_tap_system(
+    buttons: Query<(&Interaction, &ProcessButton), Changed<Interaction>>,
+    unlocks: Res<ProcessUnlocks>,
+    db: Option<Res<RecipeDatabase>>,
+    game_data: Res<GameData>,
+    substances: Res<Assets<Substances>>,
+    mut toasts: ResMut<Toasts>,
+) {
+    let Some(db) = db else { return };
+    for (i, b) in &buttons {
+        if *i == Interaction::Pressed && !unlocks.0.contains(&b.process) {
+            toasts.push(ToastKind::Hint, unlock_reason(&b.process, &db, substances.get(&game_data.substances)));
+        }
+    }
+}
+
+/// A short bench (a phone held sideways) packs the vessel list tighter, so more of it shows.
+pub fn sidebar_fit_system(
+    dock: Res<crate::ui::inventory::Dock>,
+    new_buttons: Query<(), Added<ProcessButton>>,
+    mut buttons: Query<&mut Node, With<ProcessButton>>,
+    mut arts: Query<&mut Node, (With<VesselButtonArt>, Without<ProcessButton>)>,
+) {
+    if !(dock.is_changed() || !new_buttons.is_empty()) {
+        return;
+    }
+    let compact = dock.bench < crate::systems::reaction_check::COMPACT_BENCH;
+    let (min_h, pad_y, art) = if compact { (40.0, 3.0, 26.0) } else { (50.0, 6.0, 36.0) };
+    for mut n in &mut buttons {
+        if n.min_height != Val::Px(min_h) {
+            n.min_height = Val::Px(min_h);
+            n.padding = UiRect::axes(Val::Px(8.0), Val::Px(pad_y));
+        }
+    }
+    for mut n in &mut arts {
+        if n.width != Val::Px(art) {
+            n.width = Val::Px(art);
+            n.height = Val::Px(art);
+        }
     }
 }
 
@@ -339,6 +401,8 @@ pub fn new_game_button_system(
     mut texts: Query<&mut Text>,
     vessels: Query<Entity, With<crate::components::VesselCard>>,
     links: Query<Entity, With<crate::components::ReactionLink>>,
+    mut journal: ResMut<crate::ui::toasts::Journal>,
+    mut started: MessageWriter<NewGameStarted>,
 ) {
     for (interaction, mut btn, children) in &mut buttons {
         let was_armed = btn.armed_for > 0.0;
@@ -351,6 +415,7 @@ pub fn new_game_button_system(
                         keep_copy_before_new_game();
                     }
                     reset_progress(&mut progress, &mut unlocks, &mut fired, db);
+                    journal.0.clear();
                     for v in &vessels {
                         commands.entity(v).despawn();
                     }
@@ -358,12 +423,13 @@ pub fn new_game_button_system(
                         commands.entity(l).despawn();
                     }
                     toasts.push(ToastKind::Milestone, "A fresh start: back to fire and ore.");
+                    started.write(NewGameStarted);
                 }
                 btn.armed_for = 0.0;
                 label = Some("Start a new game");
             } else {
                 btn.armed_for = 3.0;
-                label = Some("Click again to wipe your progress");
+                label = Some("Again to wipe your progress");
             }
         } else if was_armed && btn.armed_for == 0.0 {
             label = Some("Start a new game");

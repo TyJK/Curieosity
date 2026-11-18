@@ -28,8 +28,12 @@ jobs:
           - { name: windows, os: windows-latest, exe: chem_alchemy.exe, steam: true }
           - { name: linux, os: ubuntu-latest, exe: chem_alchemy, steam: true }
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/checkout@v5
+      # the version rust-toolchain.toml names, with its components (rustup >= 1.28 no
+      # longer installs it on first use; older rustup does, so either way it is there)
+      - name: Rust
+        shell: bash
+        run: rustup show active-toolchain || rustup toolchain install
       - name: Libraries Bevy builds against
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libasound2-dev libudev-dev libwayland-dev libxkbcommon-dev

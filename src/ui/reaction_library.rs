@@ -4,6 +4,7 @@
 // discovered), grouped by era, searchable. The page on the right shows the vessel, the
 // balanced equation, the conditions, the reactants and products (click one to open it in
 // the Substance Library), the history blurb and the references.
+use crate::ui::{Button, Interaction};
 use bevy::prelude::*;
 use bevy::ui::ScrollPosition;
 
@@ -51,6 +52,18 @@ pub struct ReactionLibRefLink(pub String);
 pub struct ReactionLibSubstanceLink(pub u32);
 #[derive(Component)]
 pub struct ReactionLibSearchText;
+/// The search field (a tap brings up a phone's keyboard).
+#[derive(Component)]
+pub struct ReactionLibSearchBox;
+
+/// What the empty search field says.
+fn search_prompt() -> &'static str {
+    if crate::platform::SOFT_KEYBOARD {
+        "Tap to search reactions and vessels"
+    } else {
+        "Type to search reactions and vessels"
+    }
+}
 #[derive(Component)]
 pub struct ReactionLibCountText;
 /// An era heading in the list.
@@ -135,30 +148,25 @@ pub fn spawn_reaction_library(mut commands: Commands, fonts: Res<UiFonts>, asset
                     theme::spawn_icon_button(hdr, assets, "close", 32.0, theme::TEXT_2, ReactionLibCloseButton);
                 });
                 col.spawn((
-                    Node {
-                        height: Val::Px(38.0),
-                        flex_shrink: 0.0,
-                        align_items: AlignItems::Center,
-                        column_gap: Val::Px(9.0),
-                        padding: UiRect::horizontal(Val::Px(11.0)),
-                        border: UiRect::all(Val::Px(1.0)),
-                        ..default()
-                    },
-                    BorderRadius::all(Val::Px(theme::R_MD)),
-                    BackgroundColor(theme::BG),
-                    BorderColor::all(theme::LINE_STRONG),
+                    theme::button(
+                        Kind::Secondary,
+                        Node {
+                            height: Val::Px(38.0),
+                            flex_shrink: 0.0,
+                            align_items: AlignItems::Center,
+                            column_gap: Val::Px(9.0),
+                            padding: UiRect::horizontal(Val::Px(11.0)),
+                            ..default()
+                        },
+                        theme::R_MD,
+                    ),
+                    ReactionLibSearchBox,
                 ))
                 .with_children(|s| {
                     s.spawn(theme::icon(assets, "search", 16.0, theme::TEXT_3));
                     s.spawn((
                         ReactionLibSearchText,
-                        theme::label(
-                            fonts,
-                            "Type to search reactions and vessels",
-                            theme::SM,
-                            Weight::Regular,
-                            theme::TEXT_3,
-                        ),
+                        theme::label(fonts, search_prompt(), theme::SM, Weight::Regular, theme::TEXT_3),
                     ));
                 });
                 col.spawn((
@@ -231,16 +239,35 @@ pub fn reaction_lib_button_system(
     }
 }
 
-/// While the library is open, typing edits the search (Backspace deletes).
+/// While the library is open, typing edits the search (Backspace deletes). On a phone a tap
+/// on the field brings up the keyboard, whose text becomes the search.
 pub fn reaction_lib_search_system(
     keys: Res<ButtonInput<KeyCode>>,
     mut state: ResMut<ReactionLibState>,
     mut text_q: Query<(&mut Text, &mut TextColor), With<ReactionLibSearchText>>,
+    boxes: Query<&Interaction, (Changed<Interaction>, With<ReactionLibSearchBox>)>,
+    mut typing: ResMut<crate::ui::inventory::TypingBox>,
 ) {
+    use crate::ui::inventory::TypingBox;
     if !state.open {
+        if *typing == TypingBox::Reactions {
+            *typing = TypingBox::None;
+            crate::platform::keyboard_hide();
+        }
         return;
     }
     let mut search = state.search.clone();
+    for i in &boxes {
+        if *i == Interaction::Pressed {
+            *typing = TypingBox::Reactions;
+            crate::platform::keyboard_show(&state.search);
+        }
+    }
+    if *typing == TypingBox::Reactions {
+        if let Some(t) = crate::platform::keyboard_text() {
+            search = t;
+        }
+    }
     for k in keys.get_just_pressed() {
         match k {
             KeyCode::Backspace | KeyCode::Delete => {
@@ -257,7 +284,7 @@ pub fn reaction_lib_search_system(
         state.search = search;
         if let Ok((mut text, mut color)) = text_q.single_mut() {
             if state.search.is_empty() {
-                text.0 = "Type to search reactions and vessels".to_string();
+                text.0 = search_prompt().to_string();
                 color.0 = theme::TEXT_3;
             } else {
                 text.0 = format!("{}|", state.search);
@@ -473,13 +500,13 @@ fn spawn_list_row(
     row.with_children(|row| {
         row.spawn((
             Node {
+                border_radius: BorderRadius::all(Val::Px(theme::R_SM)),
                 width: Val::Px(36.0),
                 height: Val::Px(36.0),
                 flex_shrink: 0.0,
                 padding: UiRect::all(Val::Px(3.0)),
                 ..default()
             },
-            BorderRadius::all(Val::Px(theme::R_SM)),
             BackgroundColor(accent.with_alpha(0.12)),
             Pickable::IGNORE,
         ))
@@ -503,14 +530,14 @@ fn spawn_list_row(
         .with_children(|c| {
             c.spawn((
                 theme::label(fonts, r.name.clone(), theme::SM, Weight::Semibold, theme::TEXT),
-                TextLayout::new_with_no_wrap(),
+                TextLayout::no_wrap(),
                 Pickable::IGNORE,
             ));
             c.spawn((
                 Text::new(equation_text(r, subs)),
-                TextFont { font: fonts.symbols.clone(), font_size: 11.0, ..default() },
+                TextFont { font: fonts.symbols.clone().into(), font_size: FontSize::Px(11.0), ..default() },
                 TextColor(theme::mix(accent, theme::TEXT, 0.55)),
-                TextLayout::new_with_no_wrap(),
+                TextLayout::no_wrap(),
                 Pickable::IGNORE,
             ));
         });
@@ -593,6 +620,7 @@ pub fn update_reaction_detail_system(
             |hero| {
                 hero.spawn((
                     Node {
+                        border_radius: BorderRadius::all(Val::Px(theme::R_LG)),
                         width: Val::Px(180.0),
                         height: Val::Px(180.0),
                         flex_shrink: 0.0,
@@ -600,7 +628,6 @@ pub fn update_reaction_detail_system(
                         border: UiRect::all(Val::Px(1.0)),
                         ..default()
                     },
-                    BorderRadius::all(Val::Px(theme::R_LG)),
                     BackgroundGradient::from(RadialGradient {
                         color_space: default(),
                         position: UiPosition::CENTER,
@@ -694,18 +721,18 @@ pub fn update_reaction_detail_system(
         // --- the equation, big ---
         p.spawn((
             Node {
+                border_radius: BorderRadius::all(Val::Px(theme::R_MD)),
                 padding: UiRect::axes(Val::Px(20.0), Val::Px(16.0)),
                 border: UiRect::left(Val::Px(3.0)),
                 ..default()
             },
-            BorderRadius::all(Val::Px(theme::R_MD)),
             BackgroundColor(theme::SURFACE),
             BorderColor::all(accent),
         ))
         .with_children(|eq| {
             eq.spawn((
                 Text::new(equation_text(r, subs)),
-                TextFont { font: fonts.symbols.clone(), font_size: 24.0, ..default() },
+                TextFont { font: fonts.symbols.clone().into(), font_size: FontSize::Px(24.0), ..default() },
                 TextColor(theme::TEXT),
             ));
         });
@@ -832,9 +859,9 @@ fn substance_card(
             c.spawn((theme::label(fonts, f, theme::SM, Weight::Semibold, theme::CYAN), Pickable::IGNORE));
             c.spawn((
                 Text::new(s.name.clone()),
-                TextFont { font: fonts.main.clone(), font_size: theme::XS, ..default() },
+                TextFont { font: fonts.main.clone().into(), font_size: FontSize::Px(theme::XS), ..default() },
                 TextColor(theme::TEXT_2),
-                TextLayout::new_with_justify(Justify::Center),
+                TextLayout::justify(Justify::Center),
                 Node { max_width: Val::Px(108.0), ..default() },
                 Pickable::IGNORE,
             ));

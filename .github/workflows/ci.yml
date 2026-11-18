@@ -3,6 +3,10 @@
 # display). The whole tech tree is played weekly, or on demand from the Actions tab
 # ("Run workflow", tick "full"). Each review uploads its report and screenshots; any
 # failed check or step fails the run.
+#
+# Once the checks and the review pass, the Android and iOS apps are built (android.yml and
+# ios.yml, called from here), for a pull request, a push to main or a run started by hand;
+# their APK and IPA are this run's artifacts. The weekly run builds nothing: nothing changed.
 name: CI
 
 on:
@@ -26,10 +30,12 @@ jobs:
     name: Format, lints and tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          components: rustfmt, clippy
+      - uses: actions/checkout@v5
+      # the version rust-toolchain.toml names, with its components (rustup >= 1.28 no
+      # longer installs it on first use; older rustup does, so either way it is there)
+      - name: Rust
+        shell: bash
+        run: rustup show active-toolchain || rustup toolchain install
       - name: Libraries Bevy builds against
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libasound2-dev libudev-dev libwayland-dev libxkbcommon-dev
       - uses: Swatinem/rust-cache@v2
@@ -44,10 +50,16 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 240
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/checkout@v5
+      # the version rust-toolchain.toml names, with its components (rustup >= 1.28 no
+      # longer installs it on first use; older rustup does, so either way it is there)
+      - name: Rust
+        shell: bash
+        run: rustup show active-toolchain || rustup toolchain install
+      # the game's window loads the X11 libraries (the keyboard's among them) when it starts,
+      # so the runtime ones are needed as well as those it builds against
       - name: Libraries, a virtual display and a software Vulkan renderer
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libasound2-dev libudev-dev libwayland-dev libxkbcommon-dev xvfb mesa-vulkan-drivers libvulkan1
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libasound2-dev libudev-dev libwayland-dev libxkbcommon-dev libxkbcommon-x11-0 libx11-xcb1 libxcursor1 libxrandr2 libxi6 xvfb mesa-vulkan-drivers libvulkan1
       - uses: Swatinem/rust-cache@v2
       - run: cargo build --release
       - name: Play
@@ -65,3 +77,17 @@ jobs:
           name: review-${{ github.run_number }}
           path: review/
           retention-days: 30
+
+  android:
+    name: Android
+    needs: [check, review]
+    if: github.event_name != 'schedule'
+    uses: ./.github/workflows/android.yml
+    secrets: inherit
+
+  ios:
+    name: iOS
+    needs: [check, review]
+    if: github.event_name != 'schedule'
+    uses: ./.github/workflows/ios.yml
+    secrets: inherit
