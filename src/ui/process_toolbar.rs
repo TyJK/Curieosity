@@ -5,9 +5,11 @@
 // discovery that unlocks them, so the player can see what they are working towards.
 // Also: the data-driven milestones, and the New Game button's two-click logic (the button
 // itself lives in Settings).
-use crate::ui::{Button, Interaction};
+use crate::ui::{Button, Clicked, Look};
+use bevy::picking::hover::Hovered;
 use bevy::platform::collections::HashSet;
 use bevy::prelude::*;
+use bevy::ui::Pressed;
 
 use crate::data::common::ProcessType;
 use crate::data::substances::Substances;
@@ -103,6 +105,10 @@ impl Default for ProcessUnlocks {
 #[derive(Component)]
 pub struct VesselSidebar;
 
+/// The list's "VESSELS · tap to place" line (left out when the list is a strip, upright).
+#[derive(Component)]
+pub struct VesselSidebarHead;
+
 pub fn spawn_process_toolbar(mut commands: Commands, fonts: Res<UiFonts>, assets: Res<AssetServer>) {
     commands
         .spawn((
@@ -127,12 +133,15 @@ pub fn spawn_process_toolbar(mut commands: Commands, fonts: Res<UiFonts>, assets
         ))
         .with_children(|parent| {
             parent
-                .spawn(Node {
-                    justify_content: JustifyContent::SpaceBetween,
-                    align_items: AlignItems::Center,
-                    margin: UiRect::bottom(Val::Px(4.0)),
-                    ..default()
-                })
+                .spawn((
+                    VesselSidebarHead,
+                    Node {
+                        justify_content: JustifyContent::SpaceBetween,
+                        align_items: AlignItems::Center,
+                        margin: UiRect::bottom(Val::Px(4.0)),
+                        ..default()
+                    },
+                ))
                 .with_children(|h| {
                     h.spawn(theme::label(&fonts, "VESSELS", theme::XS, Weight::Bold, theme::TEXT_3));
                     h.spawn(theme::label(&fonts, "tap to place", theme::XS, Weight::Regular, theme::TEXT_3));
@@ -284,7 +293,7 @@ pub fn gate_process_buttons_system(
     game_data: Res<GameData>,
     substances: Res<Assets<Substances>>,
     progress: Res<PlayerProgress>,
-    mut buttons: Query<(&ProcessButton, &mut Skin, &Interaction, &mut BackgroundColor, &mut BorderColor)>,
+    mut buttons: Query<(&ProcessButton, &mut Skin, &Hovered, Has<Pressed>, &mut BackgroundColor, &mut BorderColor)>,
     mut lock_texts: Query<(&VesselLockText, &mut Text, &mut Node), Without<VesselLockIcon>>,
     mut lock_icons: Query<(&VesselLockIcon, &mut Node), Without<VesselLockText>>,
     mut arts: Query<(&VesselButtonArt, &mut ImageNode)>,
@@ -300,13 +309,13 @@ pub fn gate_process_buttons_system(
         let m = db.milestones.iter().find(|m| m.unlock.contains(p))?;
         Some(subs.and_then(|s| s.0.get(&m.on)).map(|s| s.name.clone()).unwrap_or_else(|| format!("#{}", m.on)))
     };
-    for (btn, mut skin, interaction, mut bg, mut border) in &mut buttons {
+    for (btn, mut skin, hovered, pressed, mut bg, mut border) in &mut buttons {
         let open = unlocks.0.contains(&btn.process);
         let accent = theme::process_color(&btn.process);
         let kind = if open { Kind::Accent(accent) } else { Kind::Disabled };
         if skin.kind != kind {
             skin.kind = kind;
-            let (b, l) = skin.colors(*interaction);
+            let (b, l) = skin.colors(Look::of(hovered, pressed));
             bg.0 = b;
             *border = BorderColor::all(l);
         }
@@ -345,7 +354,7 @@ pub fn unlock_reason(p: &ProcessType, db: &RecipeDatabase, subs: Option<&Substan
 
 /// Tapping a locked vessel says what unlocks it and why (a phone has no hover tooltip).
 pub fn locked_vessel_tap_system(
-    buttons: Query<(&Interaction, &ProcessButton), Changed<Interaction>>,
+    buttons: Query<&ProcessButton, With<Clicked>>,
     unlocks: Res<ProcessUnlocks>,
     db: Option<Res<RecipeDatabase>>,
     game_data: Res<GameData>,
@@ -353,8 +362,8 @@ pub fn locked_vessel_tap_system(
     mut toasts: ResMut<Toasts>,
 ) {
     let Some(db) = db else { return };
-    for (i, b) in &buttons {
-        if *i == Interaction::Pressed && !unlocks.0.contains(&b.process) {
+    for b in &buttons {
+        if !unlocks.0.contains(&b.process) {
             toasts.push(ToastKind::Hint, unlock_reason(&b.process, &db, substances.get(&game_data.substances)));
         }
     }
@@ -397,18 +406,18 @@ pub fn new_game_button_system(
     mut fired: ResMut<FiredMilestones>,
     mut toasts: ResMut<Toasts>,
     persistence: Res<Persistence>,
-    mut buttons: Query<(Ref<Interaction>, &mut NewGameButton, &Children), With<Button>>,
+    mut buttons: Query<(Has<Clicked>, &mut NewGameButton, &Children), With<Button>>,
     mut texts: Query<&mut Text>,
     vessels: Query<Entity, With<crate::components::VesselCard>>,
     links: Query<Entity, With<crate::components::ReactionLink>>,
     mut journal: ResMut<crate::ui::toasts::Journal>,
     mut started: MessageWriter<NewGameStarted>,
 ) {
-    for (interaction, mut btn, children) in &mut buttons {
+    for (clicked, mut btn, children) in &mut buttons {
         let was_armed = btn.armed_for > 0.0;
         btn.armed_for = (btn.armed_for - time.delta_secs()).max(0.0);
         let mut label = None;
-        if interaction.is_changed() && *interaction == Interaction::Pressed {
+        if clicked {
             if btn.armed_for > 0.0 {
                 if let Some(db) = db.as_ref() {
                     if persistence.0 {

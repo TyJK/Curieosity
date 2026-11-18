@@ -62,6 +62,8 @@ pub struct RecipeDatabase {
     /// Every substance the authored game can reach: the start kit, the milestone grants,
     /// and everything the authored reactions use or make (catalysts included).
     pub canon: HashSet<u32>,
+    /// The substances in play that are made and used at once, never kept (note_transients).
+    pub transient: HashSet<u32>,
 }
 
 impl RecipeDatabase {
@@ -147,7 +149,19 @@ impl RecipeDatabase {
             start: authored.start.clone(),
             milestones: authored.milestones.clone(),
             canon,
+            transient: HashSet::new(),
         }
+    }
+
+    /// Records which substances in play are transients (Property::IsTransient).
+    pub fn note_transients(&mut self, substances: &Substances) {
+        self.transient =
+            self.canon.iter().copied().filter(|id| substances.0.get(id).is_some_and(|s| s.is_transient())).collect();
+    }
+
+    /// The step that makes a substance (the first in tech-tree order).
+    pub fn maker_of(&self, id: u32) -> Option<&Reaction> {
+        self.authored.iter().find(|r| r.products.iter().any(|p| p.substance_id == id))
     }
 
     /// One order in which a player could perform every authored reaction, following the
@@ -276,7 +290,8 @@ pub fn build_recipe_database(
     let (patched, created) = patches.apply_to(&mut substances);
     info!("Authored substance layer applied: {} entries ({} new).", patched, created);
 
-    let db = RecipeDatabase::from_authored(authored);
+    let mut db = RecipeDatabase::from_authored(authored);
+    db.note_transients(&substances);
     info!(
         "Recipe database built: {} entries ({} authored, {} milestones, {} epochs, {} substances in play).",
         db.map.len(),

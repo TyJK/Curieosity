@@ -23,6 +23,10 @@ Values the library only estimates (authored_facts.ESTIMATED: Joback group-contri
 melting and boiling points and enthalpies of formation) are left out of the packed file, so
 a page shows measured values or none.
 
+Slips in the scraped text (TEXT_FIXES: "a inhalational anesthetic") are corrected as it is
+packed; --check lists any article that looks wrong ("a" before a vowel, "an" before a
+consonant) so a new scrape's can be added there.
+
 The library's line endings are kept, so the packed file diffs cleanly.
 """
 import argparse
@@ -37,6 +41,41 @@ DATA = ROOT / "assets" / "data"
 STRUCTURES = ROOT / "assets" / "structures"
 
 SUB_ENTRY = re.compile(r"\n    (\d+): \(")
+
+# id -> [(as scraped, as shown)]
+TEXT_FIXES = {
+    2758: [("identified as a inhibitor", "identified as an inhibitor")],
+    3205: [("takes on an helimagnetic", "takes on a helimagnetic")],
+    3299: [("appears as an clear aqueous", "appears as a clear aqueous")],
+    3764: [("as a aliphatic", "as an aliphatic")],
+    3768: [("given as an drops in the eye", "given as drops in the eye")],
+    4904: [("is a inhalational", "is an inhalational")],
+    6358: [("as a antiherbivore", "as an antiherbivore")],
+    7368: [("Vitamin a appears", "Vitamin A appears")],
+    8836: [("is an naphthoquinone", "is a naphthoquinone")],
+}
+
+# an article that doesn't suit the word after it; a capital, a symbol or a letter's name
+# after it ("a II-V semiconductor", "factor Xa", "vitamin A and") is not looked at
+SUSPECT_ARTICLE = re.compile(
+    r"(?<![\w-])(a (?!uni|use|usu|uti|ure|uri|uro|ubiq|eu|one|once)[aeiou][a-z]+"
+    r"|an (?!hour|honest|hono|heir|herb)[b-df-hj-np-tv-z][a-z]+)"
+)
+
+
+def fix_text(sid, block):
+    for old, new in TEXT_FIXES.get(sid, []):
+        block = block.replace(old, new)
+    return block
+
+
+def suspect_articles(blocks):
+    """(id, phrase) for each article in the packed text that looks wrong."""
+    out = []
+    for sid, b in blocks:
+        for m in SUSPECT_ARTICLE.finditer(b):
+            out.append((sid, b[max(0, m.start() - 30): m.end() + 20].replace("\n", " ")))
+    return out
 
 
 def read_text(path):
@@ -108,7 +147,8 @@ def pack(check=False):
     in_play = authored_ids()
     keep = in_play & {sid for sid, _ in subs}
     estimated = estimated_values()
-    sub_out = s_head + "".join(drop_estimates(sid, b, estimated) for sid, b in subs if sid in keep) + s_tail
+    packed = [(sid, fix_text(sid, drop_estimates(sid, b, estimated))) for sid, b in subs if sid in keep]
+    sub_out = s_head + "".join(b for _, b in packed) + s_tail
     pictures = sorted(i for i in in_play if (LIBRARY / "structures" / f"{i}.png").exists())
     retired = DATA / "reactions.ron"  # the library reactions the game used to load
 
@@ -116,6 +156,8 @@ def pack(check=False):
     print(f"in play   {len(in_play):>7} substances ({len(keep)} from the library, the rest authored)")
     print(f"pictures  {len(pictures):>7} of {len(in_play)} in play have one in library/structures")
     if check:
+        for sid, phrase in suspect_articles(packed):
+            print(f"article?  {sid}: ...{phrase}...")
         if retired.exists():
             print(f"would remove {retired.relative_to(ROOT)}: the game no longer loads library reactions")
         return

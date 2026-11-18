@@ -1,8 +1,13 @@
-# Push a tag like v0.1.0 and this builds the game for Windows, macOS and Linux, packs each
-# with its assets, licences and the third-party notices, builds the Android and iOS apps
-# (android.yml and ios.yml), and publishes a GitHub release of them all, marked latest. The
-# phone apps get fixed names, Curieosity-android.apk and Curieosity-ios.ipa, so the README's
+# Every merge to main publishes a release by itself: the game for Windows, macOS and Linux,
+# each packed with its assets, licences and the third-party notices, and the Android and iOS
+# apps (android.yml and ios.yml), as a GitHub release marked latest. The phone apps get fixed
+# names, Curieosity-android.apk and Curieosity-ios.ipa, so the README's
 # releases/latest/download/<name> links always fetch the newest.
+#
+# Nobody makes tags. A release is numbered from Cargo.toml's version, its last number
+# counting up past the releases already made: version = "0.2.0" gives v0.2.0, then v0.2.1,
+# v0.2.2 and so on. To start a new series, change the version there (to 0.3.0, say). Two
+# merges close together publish only the newer.
 # Steam builds (with achievements) are made too, as workflow artifacts rather than public
 # downloads: they are uploaded to Steam, not handed out. Set the repository variable
 # STEAM_APP_ID once the game has its own Steam app; until then they use 480, Valve's test
@@ -11,15 +16,37 @@ name: Release
 
 on:
   push:
-    tags: ["v*"]
+    branches: [main]
   workflow_dispatch:
+
+concurrency:
+  group: release
+  cancel-in-progress: true
 
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  version:
+    name: Number the release
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.next.outputs.version }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0 # with the tags of the releases already made
+      - id: next
+        run: |
+          BASE=$(grep -m1 '^version' Cargo.toml | cut -d'"' -f2)
+          SERIES="${BASE%.*}"; N="${BASE##*.}"
+          while git rev-parse -q --verify "refs/tags/v$SERIES.$N" > /dev/null; do N=$((N + 1)); done
+          echo "version=$SERIES.$N" >> "$GITHUB_OUTPUT"
+          echo "This release is v$SERIES.$N"
+
   build:
     name: ${{ matrix.name }}${{ matrix.steam && ' (Steam)' || '' }}
+    needs: version
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -61,7 +88,7 @@ jobs:
       - name: Pack
         shell: bash
         run: |
-          VERSION="${GITHUB_REF_NAME#v}"
+          VERSION="${{ needs.version.outputs.version }}"
           SUFFIX="${{ matrix.name }}"; [ "${{ matrix.steam }}" = "true" ] && SUFFIX="steam-${{ matrix.name }}"
           DIR="Curieosity"
           mkdir -p "$DIR"
@@ -98,8 +125,7 @@ jobs:
 
   publish:
     name: Publish the release
-    needs: [build, android, ios]
-    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [version, build, android, ios]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -115,6 +141,9 @@ jobs:
           ls -l dist/*.apk dist/*.ipa
       - uses: softprops/action-gh-release@v2
         with:
+          tag_name: v${{ needs.version.outputs.version }}
+          name: Curieosity ${{ needs.version.outputs.version }}
+          target_commitish: ${{ github.sha }}
           draft: false
           make_latest: true
           generate_release_notes: true

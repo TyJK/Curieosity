@@ -128,6 +128,33 @@ impl ProcessType {
     }
 }
 
+/// "a" or "an" for a word as it is said: an Ice Bath, a Unit, an Hour, an NMR tube.
+pub fn article(word: &str) -> &'static str {
+    let w = word.trim_start();
+    let lower = w.to_lowercase();
+    // spoken as letters (NMR, X-ray): the letter's name decides
+    let mut chars = w.chars();
+    let acronym = matches!((chars.next(), chars.next()), (Some(a), Some(b))
+        if a.is_ascii_uppercase() && (b.is_ascii_uppercase() || b.is_ascii_digit() || b == '-'));
+    let vowel = if acronym {
+        lower.starts_with(['a', 'e', 'f', 'h', 'i', 'l', 'm', 'n', 'o', 'r', 's', 'x'])
+    } else if ["hour", "honest", "honou", "honor", "heir"].iter().any(|p| lower.starts_with(p)) {
+        true
+    } else if ["uni", "use", "usu", "uti", "ure", "uri", "uro", "ubiq", "eu", "one", "once"]
+        .iter()
+        .any(|p| lower.starts_with(p))
+    {
+        false
+    } else {
+        lower.starts_with(['a', 'e', 'i', 'o', 'u'])
+    };
+    if vowel {
+        "an"
+    } else {
+        "a"
+    }
+}
+
 /// The reference a page leads with: its Wikipedia article if it has one, else its first
 /// reference (PubChem, for compounds without an article of their own).
 pub fn primary_reference(refs: &[(String, String)]) -> Option<&(String, String)> {
@@ -164,6 +191,9 @@ pub enum Property {
     IsMedicine,
     /// A family of closely related compounds treated as one; its formula is a typical member's.
     IsClass,
+    /// Made and used at once, never kept (a diazonium salt, ozone): it isn't put on the shelf,
+    /// and it breaks down in its vessel unless a link carries it straight into the next.
+    IsTransient,
 }
 
 /// A commercial grade: how pure buyers of that grade expect it to be. Everything is sold at
@@ -269,4 +299,28 @@ pub struct StoichPoint {
     pub substance_id: u32,
     /// The stoichiometric coefficient (molar ratio).
     pub moles: u32,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::article;
+
+    #[test]
+    fn articles_follow_the_sound() {
+        for (w, a) in [
+            ("Ice Bath", "an"),
+            ("Electrolyzer", "an"),
+            ("Autoclave", "an"),
+            ("Fire", "a"),
+            ("Mortar", "a"),
+            ("Unit", "a"),
+            ("hour", "an"),
+            ("NMR tube", "an"),
+            ("X-ray", "an"),
+            ("UV lamp", "a"),
+            ("one-pot", "a"),
+        ] {
+            assert_eq!(article(w), a, "{w}");
+        }
+    }
 }

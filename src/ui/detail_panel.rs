@@ -5,8 +5,9 @@
 // open its page in the Substance Library. While something is selected, clicking a vessel
 // puts it in (see drag_drop.rs); dragging works as always. A double-tap on a tile puts it
 // straight into the vessel used last.
-use crate::ui::Interaction;
+use crate::ui::Clicked;
 use bevy::ecs::system::entity_command::observe;
+use bevy::picking::hover::Hovered;
 use bevy::prelude::*;
 
 use crate::components::{format_formula, Draggable, Ingredient};
@@ -162,7 +163,7 @@ pub fn selection_view_system(
     thumb: Query<Entity, With<SelectionThumb>>,
     mut name: Query<&mut Text, (With<SelectionName>, Without<SelectionFormula>)>,
     mut formula: Query<&mut Text, (With<SelectionFormula>, Without<SelectionName>)>,
-    mut tiles: Query<(&Ingredient, &ShelfTile, &Interaction, &mut BorderColor, &mut BackgroundColor)>,
+    mut tiles: Query<(&Ingredient, &ShelfTile, &Hovered, &mut BorderColor, &mut BackgroundColor)>,
     new_tiles: Query<(), Added<ShelfTile>>,
 ) {
     // a new game can take the selected substance away
@@ -177,8 +178,8 @@ pub fn selection_view_system(
         return;
     }
     let sel = selected.0;
-    for (ing, tile, i, mut border, mut bg) in &mut tiles {
-        let (b, c) = tile.look(*i != Interaction::None, Some(ing.id) == sel);
+    for (ing, tile, h, mut border, mut bg) in &mut tiles {
+        let (b, c) = tile.look(h.get(), Some(ing.id) == sel);
         bg.0 = b;
         *border = BorderColor::all(c);
     }
@@ -216,22 +217,18 @@ pub fn selection_view_system(
 
 /// The readout's buttons: open the selection in the Substance Library, or let it go.
 pub fn selection_button_system(
-    open: Query<&Interaction, (Changed<Interaction>, With<SelectionOpenButton>)>,
-    clear: Query<&Interaction, (Changed<Interaction>, With<SelectionClearButton>)>,
+    open: Query<(), (With<Clicked>, With<SelectionOpenButton>)>,
+    clear: Query<(), (With<Clicked>, With<SelectionClearButton>)>,
     mut selected: ResMut<SelectedSubstance>,
     mut codex: ResMut<CodexState>,
 ) {
-    for i in &open {
-        if *i == Interaction::Pressed {
-            if let Some(id) = selected.0 {
-                codex.open = true;
-                codex.selected = Some(id);
-            }
+    if !open.is_empty() {
+        if let Some(id) = selected.0 {
+            codex.open = true;
+            codex.selected = Some(id);
         }
     }
-    for i in &clear {
-        if *i == Interaction::Pressed {
-            selected.0 = None;
-        }
+    if !clear.is_empty() {
+        selected.0 = None;
     }
 }

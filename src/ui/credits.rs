@@ -4,7 +4,7 @@
 // The same list is the in-game Credits screen (Settings > About), the per-page "Text:"
 // line in the Substance Library, and CREDITS.md in the repository; a content test keeps
 // CREDITS.md in step with it.
-use crate::ui::{Button, Interaction};
+use crate::ui::{Button, Clicked};
 use bevy::prelude::*;
 
 use crate::resources::ui_fonts::UiFonts;
@@ -216,7 +216,6 @@ pub fn spawn_credits(mut commands: Commands, fonts: Res<UiFonts>, assets: Res<As
                 theme::shadow(40.0, 14.0, 0.6),
                 ScrollPosition::default(),
                 Pickable::default(),
-                bevy::ui::FocusPolicy::Block,
             ))
             .with_children(|panel| {
                 panel
@@ -292,20 +291,18 @@ fn credit_row(panel: &mut ChildSpawnerCommands, fonts: &UiFonts, assets: &AssetS
 pub fn credits_system(
     mut ui: ResMut<CreditsUi>,
     mut root: Query<&mut Node, With<CreditsRoot>>,
-    opens: Query<&Interaction, (Changed<Interaction>, With<CreditsButton>)>,
-    closes: Query<&Interaction, (Changed<Interaction>, Or<(With<CreditsClose>, With<CreditsBackdrop>)>)>,
-    links: Query<(&Interaction, &CreditLink), Changed<Interaction>>,
+    opens: Query<(), (With<Clicked>, With<CreditsButton>)>,
+    closes: Query<(), (With<Clicked>, Or<(With<CreditsClose>, With<CreditsBackdrop>)>)>,
+    links: Query<&CreditLink, With<Clicked>>,
 ) {
-    if opens.iter().any(|i| *i == Interaction::Pressed) {
+    if !opens.is_empty() {
         ui.open = true;
     }
-    if closes.iter().any(|i| *i == Interaction::Pressed) {
+    if !closes.is_empty() {
         ui.open = false;
     }
-    for (i, l) in &links {
-        if *i == Interaction::Pressed {
-            open_url(l.0);
-        }
+    for l in &links {
+        open_url(l.0);
     }
     if let Ok(mut n) = root.single_mut() {
         let d = if ui.open { Display::Flex } else { Display::None };

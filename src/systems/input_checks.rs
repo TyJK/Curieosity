@@ -5,11 +5,13 @@
 // run (`--steps 0` runs only these), each from a clean bench, and land in the review
 // report with a screenshot of anything that failed.
 //
-// A virtual mouse and keyboard drive the game through its real input paths: bevy_ui's
-// buttons see the window cursor and mouse-button state; bevy_picking (tile clicks, drags,
-// drops, links) sees a pointer of its own, so the real mouse cannot interfere with it; the
-// game's wheel and key handling see ordinary wheel and key messages. While the checks run
-// the window moves the system cursor around, so leave the mouse alone for a minute or two.
+// A virtual mouse and keyboard drive the game through its real input paths: bevy_picking
+// (buttons, tile clicks, drags, drops, links) sees the mouse's pointer, moved by the checks
+// with the real mouse's own input to it switched off, so a hand on the mouse cannot
+// interfere; code that reads the cursor or the mouse buttons directly sees the window cursor
+// and mouse-button state; the wheel and keys send ordinary wheel and key messages. While the
+// checks run the window moves the system cursor around, so leave the mouse alone for a
+// minute or two.
 //
 // Besides one check per interaction there are three data-driven groups, built from the
 // authored content when the checks start: reactions from every era (covering every
@@ -19,14 +21,16 @@
 use std::collections::{HashMap, VecDeque};
 use std::path::PathBuf;
 
-use bevy::asset::uuid::Uuid;
 use bevy::camera::NormalizedRenderTarget;
 use bevy::ecs::world::CommandQueue;
 use bevy::input::keyboard::{Key, KeyboardInput, NativeKey};
 use bevy::input::mouse::{MouseButtonInput, MouseScrollUnit, MouseWheel};
 use bevy::input::touch::TouchPhase;
 use bevy::input::ButtonState;
-use bevy::picking::pointer::{Location, PointerAction, PointerButton as PickButton, PointerId, PointerInput};
+use bevy::picking::input::PointerInputSettings;
+use bevy::picking::pointer::{
+    Location, PointerAction, PointerButton as PickButton, PointerId, PointerInput, PointerLocation,
+};
 use bevy::prelude::*;
 use bevy::render::view::window::screenshot::{save_to_disk, Screenshot};
 use bevy::window::{CursorMoved, PresentMode, PrimaryWindow, WindowRef};
@@ -45,7 +49,7 @@ use crate::resources::recipe_database::Lookup;
 use crate::resources::recipe_database::RecipeDatabase;
 use crate::resources::ui_fonts::UiFonts;
 use crate::systems::drag_drop::{DragGhostNode, LinkDragState};
-use crate::systems::reaction_check::{spawn_vessel_card, EquationText, VesselArtBig, VesselArtSmall, VESSEL_W};
+use crate::systems::reaction_check::{spawn_vessel_card, EquationText, VesselArtBig, VesselArtSmall};
 use crate::ui::codex::{
     CodexCategoryTab, CodexDetail, CodexEntry, CodexFilter, CodexIndustryCard, CodexListContent, CodexReactionLink,
     CodexRefLink, CodexScrollable, CodexState, URL_SINK,
@@ -77,8 +81,10 @@ use crate::GameData;
 // Sound, keyboard and controller, hover states, saves, credits and achievements.
 mod polish;
 
-/// The checks' own picking pointer (the real mouse keeps PointerId::Mouse).
-const CHECK_POINTER: PointerId = PointerId::Custom(Uuid::from_u128(0x000c_0ffe_e0c4_ec4b_5a9d_3e5c_u128));
+/// The checks drive the mouse's own picking pointer, so hover works as it does for a player.
+/// The real mouse's input to picking is off while they run: a hand on the mouse can't move
+/// the pointer out from under a check.
+const CHECK_POINTER: PointerId = PointerId::Mouse;
 
 type Probe = Box<dyn Fn(&mut World) -> Option<Vec2> + Send + Sync>;
 type Verify = Box<dyn Fn(&mut World) -> Result<(), String> + Send + Sync>;
@@ -196,7 +202,7 @@ pub fn input_checks_system(world: &mut World) {
 fn step(world: &mut World, st: &mut InputChecks) {
     if !st.started {
         st.started = true;
-        world.spawn((CHECK_POINTER, Name::new("CheckPointer")));
+        world.resource_mut::<PointerInputSettings>().is_mouse_enabled = false;
         st.checks = all_checks(world);
         // `--only a,b` runs just the checks whose area or name contains one of those words
         let args: Vec<String> = std::env::args().collect();
@@ -229,17 +235,14 @@ fn step(world: &mut World, st: &mut InputChecks) {
     if st.i >= st.checks.len() {
         fresh(world);
         new_game(world);
-        // the checks' pointer leaves with them (a pointer parked over a button would keep
-        // its tooltip up through the rest of the run)
-        let pointers: Vec<Entity> = world
-            .query::<(Entity, &PointerId)>()
-            .iter(world)
-            .filter(|(_, id)| **id == CHECK_POINTER)
-            .map(|(e, _)| e)
-            .collect();
-        for e in pointers {
-            world.despawn(e);
+        // the pointer leaves the window with the checks (one parked over a button would keep
+        // its tooltip up through the rest of the run), and the real mouse has it back
+        for (id, mut at) in world.query::<(&PointerId, &mut PointerLocation)>().iter_mut(world) {
+            if *id == CHECK_POINTER {
+                at.location = None;
+            }
         }
+        world.resource_mut::<PointerInputSettings>().is_mouse_enabled = true;
         if let Ok(mut sink) = URL_SINK.lock() {
             *sink = None;
         }
@@ -250,6 +253,10 @@ fn step(world: &mut World, st: &mut InputChecks) {
     }
     let checks = std::mem::take(&mut st.checks);
     let check = &checks[st.i];
+    if st.op == 0 && st.polls == 0 && st.prims.is_empty() {
+        // a line per check, so a warning in the log can be put down to the check that caused it
+        info!("Check {}/{}: {} / {}", st.i + 1, checks.len(), check.area, check.name);
+    }
     if st.op >= check.ops.len() {
         st.results.push(CheckResult { area: check.area, name: check.name, ok: true, note: String::new(), shot: None });
         next_check(st);
@@ -859,10 +866,22 @@ fn fresh(world: &mut World) {
         f.search.clear();
     }
     // the tour and the next-step card stay out of the way unless a check wants them
-    *world.resource_mut::<Settings>() =
-        Settings { reaction_speed: 4.0, tour_done: true, next_step: false, ..Settings::default() };
+    // discovery cards would sit over the bench in every check: their own check turns them on
+    *world.resource_mut::<Settings>() = Settings {
+        reaction_speed: 4.0,
+        tour_done: true,
+        next_step: false,
+        discovery_cards: false,
+        ..Settings::default()
+    };
+    // a run at a phone's size fits the interface to it, as a phone's first run does: a
+    // check that picks a size ends that, and the next check starts fitted again
+    let fit = world.get_resource::<crate::systems::autoplay::AutoplayConfig>().is_some_and(|c| c.fit_screen);
+    world.resource_mut::<crate::ui::settings::FitInterface>().0 = fit;
     world.resource_mut::<Coach>().step = CoachStep::Off;
     world.resource_mut::<LinkDragState>().0 = None;
+    world.resource_mut::<crate::systems::drag_drop::LinkPick>().0 = None;
+    *world.resource_mut::<crate::platform::SoftKeyboard>() = crate::platform::SoftKeyboard(false);
     let cards: Vec<Entity> = world.query_filtered::<Entity, With<VesselCard>>().iter(world).collect();
     for c in cards {
         world.despawn(c);
@@ -903,10 +922,17 @@ fn place(world: &mut World, p: ProcessType, slot: usize) {
     let Some(pane) = world.query_filtered::<Entity, With<CanvasScrollingPane>>().iter(world).next() else { return };
     let fonts = world.resource::<UiFonts>().clone();
     let assets = world.resource::<AssetServer>().clone();
+    let view = world
+        .query_filtered::<&ComputedNode, With<ReactionCanvasRoot>>()
+        .iter(world)
+        .next()
+        .map(|c| c.size * c.inverse_scale_factor())
+        .unwrap_or(Vec2::new(1000.0, 500.0));
     let mut queue = CommandQueue::default();
     {
         let mut commands = Commands::new(&mut queue, world);
-        let pos = Vec2::new(24.0 + slot as f32 * (VESSEL_W + 28.0), 24.0);
+        // where a tap on the vessel list would put the `slot`th vessel on a fresh bench
+        let pos = crate::systems::reaction_check::vessel_slot(slot, Vec2::ZERO, view, 24.0);
         spawn_vessel_card(&mut commands, pane, &p, vessel_name(&p), pos, &fonts, &assets);
     }
     queue.apply(world);
@@ -1120,9 +1146,12 @@ fn coach_at(want: CoachStep) -> Verify {
 /// Scroll a list far past its end, then back a notch: it must move at once (no dead zone
 /// left over from the overshoot) and never sit past its limit.
 fn overscroll_check<M: Component>(area: &'static str, name: &'static str, list: &'static str, prep: Vec<Op>) -> Check {
+    // along the way the list runs: down, or across for a list that only scrolls sideways
+    // (the vessel strip, upright)
     let read = |w: &mut World| -> Option<(f32, f32)> {
-        let (cn, sp) = w.query_filtered::<(&ComputedNode, &ScrollPosition), With<M>>().iter(w).next()?;
-        Some((sp.0.y, scroll_max(cn).y))
+        let (node, cn, sp) = w.query_filtered::<(&Node, &ComputedNode, &ScrollPosition), With<M>>().iter(w).next()?;
+        let across = node.overflow.x == OverflowAxis::Scroll && node.overflow.y != OverflowAxis::Scroll;
+        Some(if across { (sp.0.x, scroll_max(cn).x) } else { (sp.0.y, scroll_max(cn).y) })
     };
     let mut ops = prep;
     // far past the end whatever the list's length: 4,000 lines is about 190,000 px, ten times
@@ -1228,13 +1257,14 @@ pub fn all_checks(world: &mut World) -> Vec<Check> {
             Op::Wheel(marked::<VesselSidebar>("the vessel list"), -3.0),
             Op::Until(
                 verify(|w| {
-                    let y = w
+                    // down the list, or across it upright, where it is a strip
+                    let moved = w
                         .query_filtered::<&ScrollPosition, With<VesselSidebar>>()
                         .iter(w)
                         .next()
-                        .map(|s| s.0.y)
+                        .map(|s| s.0.x.max(s.0.y))
                         .unwrap_or(0.0);
-                    if y > 0.0 {
+                    if moved > 0.0 {
                         Ok(())
                     } else {
                         Err("the vessel list did not scroll".into())
@@ -1730,10 +1760,11 @@ pub fn all_checks(world: &mut World) -> Vec<Check> {
                     let pane =
                         w.query_filtered::<Entity, With<CanvasScrollingPane>>().iter(w).next().ok_or("no pane")?;
                     let p = left_top(w, pane).ok_or("no position")?;
-                    if (p - Vec2::new(-200.0, -100.0)).abs().max_element() <= 2.0 {
+                    let want = Vec2::new(-200.0, -100.0) / w.resource::<UiScale>().0;
+                    if (p - want).abs().max_element() <= 2.0 {
                         Ok(())
                     } else {
-                        Err(format!("bench offset {p}, expected (-200, -100)"))
+                        Err(format!("bench offset {p}, expected {want}"))
                     }
                 }),
                 30,
@@ -1762,10 +1793,12 @@ pub fn all_checks(world: &mut World) -> Vec<Check> {
                     let p = left_top(w, c).ok_or("no position")?;
                     let s = w.resource::<Scratch>().0.clone();
                     let d = p.x - s["x"];
-                    if (d - 200.0).abs() <= 20.0 {
+                    // 200 at 125%; a phone's fitted size wins over the setting
+                    let want = 250.0 / w.resource::<UiScale>().0;
+                    if (d - want).abs() <= 20.0 {
                         Ok(())
                     } else {
-                        Err(format!("a 250 px drag moved it {d} UI px, expected 200"))
+                        Err(format!("a 250 px drag moved it {d} UI px, expected {want}"))
                     }
                 }),
                 30,
@@ -1927,7 +1960,16 @@ pub fn all_checks(world: &mut World) -> Vec<Check> {
             Op::Click(marked::<SettingsAbout>("the About line")),
             Op::Wait(3),
             Op::Expect(state("settings still open", |w| w.resource::<SettingsUi>().open)),
-            Op::Click(target("the backdrop", |_| Some(Vec2::new(24.0, 300.0)))),
+            // the widest margin the dialog leaves (beside it sideways, above it upright)
+            Op::Click(target("the backdrop", |w| {
+                let root = first::<crate::ui::settings::SettingsRoot>(w, |_| true)?;
+                let dialog = w.get::<Children>(root)?.iter().nth(1)?;
+                let (cn, gt) = (w.get::<ComputedNode>(dialog)?, w.get::<UiGlobalTransform>(dialog)?);
+                let k = cn.inverse_scale_factor() * w.resource::<UiScale>().0;
+                let (mid, half) = (gt.translation * k, cn.size * k / 2.0);
+                let (left, top) = (mid.x - half.x, mid.y - half.y);
+                Some(if left >= top { Vec2::new(left / 2.0, mid.y) } else { Vec2::new(mid.x, top / 2.0) })
+            })),
             Op::Until(state("settings closed", |w| !w.resource::<SettingsUi>().open), 30),
         ],
     ));
@@ -1949,14 +1991,21 @@ pub fn all_checks(world: &mut World) -> Vec<Check> {
         vec![
             setup(|w| w.resource_mut::<SettingsUi>().open = true),
             Op::Wait(5),
+            // from wherever it starts (100%, or fitted to a phone's screen): a step up, and
+            // back to the start
+            setup(|w| {
+                let u = w.resource::<UiScale>().0;
+                w.resource_mut::<Scratch>().0.insert("ui", u);
+            }),
             Op::Click(step(Field::UiScale, 1.0, "interface size +")),
             Op::Until(
                 verify(|w| {
+                    let start = w.resource::<Scratch>().0.get("ui").copied().unwrap_or(1.0);
                     let (s, u) = (w.resource::<Settings>().ui_scale, w.resource::<UiScale>().0);
-                    if (s - 1.1).abs() < 0.01 && (u - 1.1).abs() < 0.01 {
+                    if (s - (start + 0.1)).abs() < 0.01 && (u - s).abs() < 0.01 {
                         Ok(())
                     } else {
-                        Err(format!("setting {s}, applied {u}"))
+                        Err(format!("from {start}: setting {s}, applied {u}"))
                     }
                 }),
                 30,
@@ -1964,11 +2013,12 @@ pub fn all_checks(world: &mut World) -> Vec<Check> {
             Op::Click(step(Field::UiScale, -1.0, "interface size -")),
             Op::Until(
                 verify(|w| {
+                    let start = w.resource::<Scratch>().0.get("ui").copied().unwrap_or(1.0);
                     let u = w.resource::<UiScale>().0;
-                    if (u - 1.0).abs() < 0.01 {
+                    if (u - start).abs() < 0.01 {
                         Ok(())
                     } else {
-                        Err(format!("applied {u}"))
+                        Err(format!("applied {u}, expected {start} again"))
                     }
                 }),
                 30,
@@ -3115,6 +3165,7 @@ pub fn all_checks(world: &mut World) -> Vec<Check> {
     v.extend(tier_checks(world));
     v.extend(era_checks(world));
     v.extend(chain_checks(world));
+    v.extend(polish::transient_checks(world));
     v
 }
 
@@ -3136,10 +3187,12 @@ fn sub_name(world: &World, id: u32) -> String {
 
 /// The product a vessel passes down a link: the largest amount, first listed on a tie
 /// (the order reaction_check sorts its products into).
-fn first_product(r: &Reaction) -> u32 {
+/// The product a link carries on: a transient first, else the most plentiful (as
+/// reaction_check::propagate_products_system picks it).
+fn first_product(r: &Reaction, transient: &std::collections::HashSet<u32>) -> u32 {
     let mut ps: Vec<(u32, u32)> = r.products.iter().map(|p| (p.substance_id, p.moles)).collect();
     ps.sort_by_key(|p| std::cmp::Reverse(p.1));
-    ps[0].0
+    ps.iter().find(|p| transient.contains(&p.0)).unwrap_or(&ps[0]).0
 }
 
 /// Everything a hand-run reaction needs: a clean bench, every substance on the shelf and
@@ -3296,9 +3349,12 @@ fn era_checks(world: &mut World) -> Vec<Check> {
     let Some(db) = world.get_resource::<RecipeDatabase>() else { return vec![] };
     let authored = db.authored.clone();
     let epochs: Vec<String> = db.epochs.iter().map(|e| e.name.clone()).collect();
+    // a step that takes a transient can't be loaded from the shelf: transient_checks has those
+    let transient = db.transient.clone();
+    let takes_transient = |r: &Reaction| r.reactants.iter().any(|s| transient.contains(&s.substance_id));
     let mut picked: Vec<Reaction> = Vec::new();
     for e in 0..epochs.len() {
-        let era: Vec<&Reaction> = authored.iter().filter(|r| r.epoch == e as u8).collect();
+        let era: Vec<&Reaction> = authored.iter().filter(|r| r.epoch == e as u8 && !takes_transient(r)).collect();
         if era.is_empty() {
             continue;
         }
@@ -3312,7 +3368,7 @@ fn era_checks(world: &mut World) -> Vec<Check> {
     }
     for v in VESSELS {
         if !picked.iter().any(|r| r.process == v.process) {
-            if let Some(r) = authored.iter().rev().find(|r| r.process == v.process) {
+            if let Some(r) = authored.iter().rev().find(|r| r.process == v.process && !takes_transient(r)) {
                 picked.push(r.clone());
             }
         }
@@ -3355,19 +3411,23 @@ fn era_checks(world: &mut World) -> Vec<Check> {
 fn chain_checks(world: &mut World) -> Vec<Check> {
     let Some(db) = world.get_resource::<RecipeDatabase>() else { return vec![] };
     let authored = db.authored.clone();
-    // r -> the reactions that can take r's passed-on product, in another vessel
+    let transient = db.transient.clone();
+    // r -> the reactions that can take r's passed-on product, in another vessel (and no
+    // transient it doesn't bring itself: the shelf can't supply one)
     let next = |r: &Reaction| -> Vec<&Reaction> {
-        let fp = first_product(r);
+        let fp = first_product(r, &transient);
         authored
             .iter()
             .filter(|s| s.process != r.process && s.id != r.id)
             .filter(|s| s.reactants.iter().filter(|x| x.substance_id == fp).count() == 1)
             .filter(|s| s.required_catalyst() != Some(fp))
+            .filter(|s| s.reactants.iter().all(|x| x.substance_id == fp || !transient.contains(&x.substance_id)))
             .take(4)
             .collect()
     };
     let mut chains: Vec<Vec<Reaction>> = Vec::new();
-    let mut starts: Vec<&Reaction> = authored.iter().collect();
+    let mut starts: Vec<&Reaction> =
+        authored.iter().filter(|r| r.reactants.iter().all(|x| !transient.contains(&x.substance_id))).collect();
     starts.sort_by_key(|r| std::cmp::Reverse((r.epoch, r.id)));
     for len in [4usize, 3, 2] {
         let want = match len {
@@ -3434,7 +3494,7 @@ fn chain_checks(world: &mut World) -> Vec<Check> {
         }
         // preload everything but the ingredient that will arrive down the link
         for i in 1..chain.len() {
-            ops.extend(load(world, &chain[i], Some(first_product(&chain[i - 1]))));
+            ops.extend(load(world, &chain[i], Some(first_product(&chain[i - 1], &transient))));
         }
         // link them
         for i in 0..chain.len() - 1 {

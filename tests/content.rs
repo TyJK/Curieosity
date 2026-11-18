@@ -46,7 +46,8 @@ fn content() -> &'static Content {
         let patches: SubstancePatches = load("authored_substances.ron");
         patches.apply_to(&mut subs);
         let authored: Reactions = load("authored_reactions.ron");
-        let db = RecipeDatabase::from_authored(&authored);
+        let mut db = RecipeDatabase::from_authored(&authored);
+        db.note_transients(&subs);
         Content { subs, authored, db }
     })
 }
@@ -312,6 +313,8 @@ fn every_hint_target_has_a_kit_that_makes_it() {
                     bad.push(format!("step {n}: {} steps to {}", kit.steps.len(), name(c, t.product)));
                 } else if kit.intermediates.iter().any(|i| shelf.contains(i)) || shelf.contains(&t.product) {
                     bad.push(format!("step {n}: the kit for {} gives away a step", name(c, t.product)));
+                } else if kit.shelf().any(|id| db.transient.contains(&id)) {
+                    bad.push(format!("step {n}: the kit for {} puts a transient on the shelf", name(c, t.product)));
                 } else if kit.shelf().any(|id| !known.contains(&id)) {
                     bad.push(format!("step {n}: the kit for {} holds something not yet found", name(c, t.product)));
                 } else if kit.decoys.iter().any(|d| kit.items.contains(d)) {
@@ -330,6 +333,60 @@ fn every_hint_target_has_a_kit_that_makes_it() {
     assert!(checked > 100 && multi * 4 > checked, "only {multi} of {checked} kits take more than one step");
     // decoys come from the raw materials found so far: the very first targets may run short
     assert!(short * 10 < checked, "{short} of {checked} kits had fewer decoys than the setting asks for");
+}
+
+/// Transients (IsTransient) are made and used at once: each has a step that makes it, none
+/// is handed out or sits in a catalyst slot, a step takes at most one (one link in), and
+/// the step that makes one doesn't need another (one link deep).
+#[test]
+fn transients_are_made_and_used_at_once() {
+    let c = content();
+    let db = &c.db;
+    assert!(!db.transient.is_empty(), "no transients in play");
+    let base = base_materials(db);
+    let mut bad = Vec::new();
+    for &t in &db.transient {
+        if base.contains(&t) {
+            bad.push(format!("{} is handed out, but doesn't keep", name(c, t)));
+        }
+        match db.maker_of(t) {
+            None => bad.push(format!("nothing makes {}", name(c, t))),
+            Some(m) if m.reactants.iter().any(|s| db.transient.contains(&s.substance_id)) => {
+                bad.push(format!("{} is made from another transient", name(c, t)))
+            }
+            Some(_) => {}
+        }
+    }
+    for r in &db.authored {
+        let ins = r.reactants.iter().filter(|s| db.transient.contains(&s.substance_id)).count();
+        if ins > 1 {
+            bad.push(format!("{} takes {ins} transients", r.name));
+        }
+        if r.required_catalyst().is_some_and(|x| db.transient.contains(&x)) {
+            bad.push(format!("{} has a transient catalyst", r.name));
+        }
+    }
+    assert!(bad.is_empty(), "{}", bad.join("\n"));
+    let marked = c.subs.0.values().filter(|s| s.properties.contains(&Property::IsTransient)).count();
+    assert!(marked >= db.transient.len(), "{marked} substances marked, {} in play", db.transient.len());
+}
+
+/// Every step has a lesson (systems::lessons), and they say different things: the kinds of
+/// change are told apart, not one line for everything.
+#[test]
+fn steps_teach_more_than_one_lesson() {
+    let c = content();
+    let mut counts: HashMap<String, usize> = HashMap::new();
+    for r in &c.db.authored {
+        let l = chem_alchemy::systems::lessons::lesson(r, &c.subs);
+        assert!(!l.is_empty(), "no lesson for {}", r.name);
+        *counts.entry(l).or_default() += 1;
+    }
+    let most = counts.values().copied().max().unwrap_or(0);
+    let mut by: Vec<(usize, String)> = counts.iter().map(|(k, v)| (*v, k.chars().take(40).collect())).collect();
+    by.sort();
+    assert!(counts.len() >= 15, "only {} different lessons: {by:?}", counts.len());
+    assert!(most * 4 < c.db.authored.len(), "one lesson covers {most} of {} steps: {by:?}", c.db.authored.len());
 }
 
 #[test]

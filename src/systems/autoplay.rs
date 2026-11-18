@@ -13,7 +13,9 @@
 // wheel a player uses, driven through the real input stack and checked for its effect
 // (`--steps 0` runs only these). Then the playthrough: it puts each vessel on the bench,
 // drops the reactants (and any catalyst) in, presses React, and waits for the products, in
-// the order `RecipeDatabase::playthrough` finds. It never reads or writes the player's save
+// the order `RecipeDatabase::playthrough` finds. A step that takes a transient (made and
+// used at once) gets a second vessel making it, linked into the first, and that one is
+// reacted: the transient flows across and sets the step off, as a player has to do it. It never reads or writes the player's save
 // or settings. Everything it sees goes to `target/review/run_<time>/`:
 //     report.md     summary, interaction checks, failures, pacing, milestones, eras, frame
 //                   times, screenshots
@@ -31,6 +33,7 @@ use std::collections::HashMap;
 use std::io::Write;
 use std::path::PathBuf;
 
+use crate::components::ui_markers::{InputPort, OutputPort, ReactionLink};
 use crate::components::{
     CanvasScrollingPane, InCatalystZone, InVessel, Ingredient, VesselCard, VesselCatalystZone, VesselIngredientZone,
 };
@@ -244,6 +247,16 @@ pub struct Autoplay {
     eras: Vec<(u8, usize)>,
     /// frame times (ms) during the playthrough
     frame_ms: Vec<f32>,
+    /// the vessel making this step's transient, linked into the step's vessel
+    feeder: Option<Feeder>,
+}
+
+/// A vessel set up to make a transient and feed it along a link (see the header).
+#[derive(Clone, Copy, Debug)]
+struct Feeder {
+    maker: u32,
+    card: Entity,
+    link: Option<Entity>,
 }
 
 // ---------------------------------------------------------------------------------------
@@ -299,6 +312,24 @@ pub struct Game<'w, 's> {
     ingredient_zones: Query<'w, 's, (), With<VesselIngredientZone>>,
     catalyst_zones: Query<'w, 's, (), With<VesselCatalystZone>>,
     chips: Query<'w, 's, (Entity, Option<&'static InVessel>, Option<&'static InCatalystZone>), With<Ingredient>>,
+    children: Query<'w, 's, &'static Children>,
+    ports: Query<'w, 's, Has<OutputPort>, Or<(With<InputPort>, With<OutputPort>)>>,
+}
+
+impl Game<'_, '_> {
+    /// A vessel card's output or input port.
+    fn port(&self, card: Entity, output: bool) -> Option<Entity> {
+        let mut todo = vec![card];
+        while let Some(e) = todo.pop() {
+            if self.ports.get(e).is_ok_and(|o| o == output) {
+                return Some(e);
+            }
+            if let Ok(c) = self.children.get(e) {
+                todo.extend(c.iter());
+            }
+        }
+        None
+    }
 }
 
 #[derive(SystemParam)]
@@ -437,6 +468,10 @@ fn autoplay_drive_system(
             }
             let _ = std::fs::create_dir_all(cfg.out_dir.join("shots"));
             ap.log = std::fs::File::create(cfg.out_dir.join("events.jsonl")).ok().map(std::io::BufWriter::new);
+            // thousands of discoveries: as toasts, not cards waiting to be read over the bench
+            if let Some(s) = game.settings.as_mut() {
+                s.discovery_cards = false;
+            }
             ap.started = now;
             let pt = game.db.as_ref().unwrap().playthrough();
             ap.steps = pt.steps;
@@ -503,6 +538,13 @@ fn autoplay_drive_system(
                 ap.phase = Phase::Tour;
                 return;
             }
+            // the last step's feeder goes
+            if let Some(f) = ap.feeder.take() {
+                commands.entity(f.card).try_despawn();
+                if let Some(l) = f.link {
+                    commands.entity(l).try_despawn();
+                }
+            }
             let rid = ap.steps[ap.idx];
             let Some(r) = game.db.as_ref().unwrap().authored.iter().find(|r| r.id == rid).cloned() else {
                 fail(&mut ap, rid, "", 0, "reaction id not found");
@@ -526,7 +568,7 @@ fn autoplay_drive_system(
             } else {
                 let slot = if ap.bench.len() >= 4 {
                     let (_, old, slot) = ap.bench.remove(0);
-                    commands.entity(old).despawn();
+                    commands.entity(old).try_despawn();
                     slot
                 } else {
                     ap.bench.len()
@@ -547,6 +589,28 @@ fn autoplay_drive_system(
                 e
             };
             ap.vessel = Some(vessel);
+            // a transient comes from a vessel of its own, below the bench's row
+            let db = game.db.as_ref().unwrap();
+            let transient = r.reactants.iter().find(|s| db.transient.contains(&s.substance_id));
+            if let Some(maker) = transient.and_then(|t| db.maker_of(t.substance_id)).cloned() {
+                if !game.unlocks.0.contains(&maker.process) {
+                    let note = format!("{} (for {}) is still locked", vessel_name(&maker.process), maker.name);
+                    fail(&mut ap, rid, &r.name, r.epoch, &note);
+                    return;
+                }
+                let pane = game.pane.single().unwrap();
+                let card = spawn_vessel_card(
+                    &mut commands,
+                    pane,
+                    &maker.process,
+                    vessel_name(&maker.process),
+                    Vec2::new(24.0, 420.0),
+                    game.fonts.as_ref().unwrap(),
+                    &game.assets,
+                );
+                ap.feeder = Some(Feeder { maker: maker.id, card, link: None });
+                ap.wait = 2;
+            }
             ap.phase = Phase::Fill;
         }
 
@@ -566,10 +630,11 @@ fn autoplay_drive_system(
                 fail(&mut ap, rid, &r.name, r.epoch, "vessel has no ingredient zone");
                 return;
             };
-            // empty the vessel (last step's products stay in it otherwise)
+            // empty the vessel (last step's products stay in it otherwise; a transient among
+            // them may be breaking down this same frame)
             for (e, iv, ic) in &game.chips {
                 if iv.is_some_and(|v| v.0 == vessel) || ic.is_some_and(|v| v.0 == vessel) {
-                    commands.entity(e).despawn();
+                    commands.entity(e).try_despawn();
                 }
             }
             let missing: Vec<String> = r
@@ -594,13 +659,48 @@ fn autoplay_drive_system(
                     amount: amount.max(1),
                 })
             };
-            let reactants: Vec<Ingredient> =
-                r.reactants.iter().filter_map(|s| ingredient(s.substance_id, s.moles)).collect();
+            // a transient arrives along the feeder's link
+            let reactants: Vec<Ingredient> = r
+                .reactants
+                .iter()
+                .filter(|s| !db.transient.contains(&s.substance_id))
+                .filter_map(|s| ingredient(s.substance_id, s.moles))
+                .collect();
             commands.entity(zone).with_children(|z| {
                 for ing in &reactants {
                     spawn_vessel_chip(z, ing, ChipRole::Ingredient(vessel), fonts, &game.assets);
                 }
             });
+            if let Some(f) = ap.feeder {
+                let Some(maker) = db.authored.iter().find(|x| x.id == f.maker).cloned() else { return };
+                let feed_zones = game.cards.get(f.card).ok().map(|c| {
+                    (
+                        c.iter().find(|x| game.ingredient_zones.contains(*x)),
+                        c.iter().find(|x| game.catalyst_zones.contains(*x)),
+                    )
+                });
+                let (Some((Some(fz), fcz)), Some(from_port), Some(to_port)) =
+                    (feed_zones, game.port(f.card, true), game.port(vessel, false))
+                else {
+                    fail(&mut ap, rid, &r.name, r.epoch, "the feeder vessel isn't ready");
+                    return;
+                };
+                let ins: Vec<Ingredient> =
+                    maker.reactants.iter().filter_map(|s| ingredient(s.substance_id, s.moles)).collect();
+                commands.entity(fz).with_children(|z| {
+                    for ing in &ins {
+                        spawn_vessel_chip(z, ing, ChipRole::Ingredient(f.card), fonts, &game.assets);
+                    }
+                });
+                if let (Some(c), Some(cz)) = (maker.required_catalyst().and_then(|c| ingredient(c, 1)), fcz) {
+                    commands.entity(cz).with_children(|z| {
+                        spawn_vessel_chip(z, &c, ChipRole::Catalyst(f.card), fonts, &game.assets);
+                    });
+                }
+                let link =
+                    commands.spawn(ReactionLink { from_vessel: f.card, from_port, to_vessel: vessel, to_port }).id();
+                ap.feeder = Some(Feeder { link: Some(link), ..f });
+            }
             if let Some(cat) = r.required_catalyst() {
                 match (cat_zone, ingredient(cat, 1)) {
                     (Some(cz), Some(ing)) => {
@@ -619,7 +719,8 @@ fn autoplay_drive_system(
         }
 
         Phase::Fire => {
-            if let Some(v) = ap.vessel {
+            // with a feeder, its reaction sets the step off
+            if let Some(v) = ap.feeder.map(|f| f.card).or(ap.vessel) {
                 check.write(CheckVesselReaction(v));
             }
             ap.phase = Phase::Await;
@@ -633,6 +734,10 @@ fn autoplay_drive_system(
             if let Some(reason) = ap.fizzle.take() {
                 fail(&mut ap, rid, &r.name, epoch, &format!("fizzled: {reason}"));
                 return;
+            }
+            // the feeder reacting is the way in, not the step
+            if ap.reacted.is_some() && ap.reacted == ap.feeder.map(|f| f.maker) {
+                ap.reacted = None;
             }
             if let Some(got) = ap.reacted {
                 if got != rid {

@@ -3,8 +3,10 @@
 // Player settings: what they are, where they are saved (settings.ron next to the save
 // file), how they are applied to the window and the game, and the Settings dialog (opened
 // from the gear in the header, or Esc).
-use crate::ui::{Button, Interaction};
+use crate::ui::{Button, Clicked, Look};
+use bevy::picking::hover::Hovered;
 use bevy::prelude::*;
+use bevy::ui::Pressed;
 use bevy::window::{MonitorSelection, PresentMode, PrimaryWindow, WindowMode};
 use serde::{Deserialize, Serialize};
 
@@ -46,6 +48,13 @@ pub struct Settings {
     pub volume: f32,
     /// the soft tick when a button is pressed
     pub ui_sounds: bool,
+    /// a new discovery arrives as a card to tap and read (ui::discovery_card), not a toast
+    pub discovery_cards: bool,
+    /// an unread discovery card goes by itself after a while
+    pub cards_close_themselves: bool,
+    /// amounts count: reactants go in as many times as the equation says, and a wrong ratio
+    /// is a dud (half the yield, the excess handed back); a short one doesn't react
+    pub balanced_amounts: bool,
 }
 
 impl Default for Settings {
@@ -66,6 +75,9 @@ impl Default for Settings {
             tour_done: false,
             volume: 0.6,
             ui_sounds: true,
+            discovery_cards: true,
+            cards_close_themselves: false,
+            balanced_amounts: false,
         }
     }
 }
@@ -84,14 +96,17 @@ pub struct FitInterface(pub bool);
 #[derive(Resource, Default)]
 pub struct ScaleOverride(pub Option<f32>);
 
-/// The smallest screen, in interface pixels, the layout is made for.
+/// The smallest screen, in interface pixels, the layout is made for (and held upright).
 const FIT_W: f32 = 1100.0;
 const FIT_H: f32 = 500.0;
+const FIT_W_UPRIGHT: f32 = 560.0;
+const FIT_H_UPRIGHT: f32 = 860.0;
 
 /// The largest interface size (one of the dialog's steps, never above 100%) at which a
 /// window of this logical size still holds the layout.
 pub fn fit_scale(window: Vec2) -> f32 {
-    let want = (window.x / FIT_W).min(window.y / FIT_H);
+    let (w, h) = if window.y > window.x * 1.05 { (FIT_W_UPRIGHT, FIT_H_UPRIGHT) } else { (FIT_W, FIT_H) };
+    let want = (window.x / w).min(window.y / h);
     SCALES.iter().copied().rfind(|s| *s <= want + 0.001 && *s <= 1.0).unwrap_or(SCALES[0])
 }
 
@@ -134,6 +149,9 @@ pub enum Field {
     DecoysMax,
     Volume,
     UiSounds,
+    DiscoveryCards,
+    CardsCloseThemselves,
+    BalancedAmounts,
 }
 
 #[derive(Component)]
@@ -199,6 +217,9 @@ impl Settings {
             Field::Hint => self.next_step = !self.next_step,
             Field::Kit => self.kit = !self.kit,
             Field::UiSounds => self.ui_sounds = !self.ui_sounds,
+            Field::DiscoveryCards => self.discovery_cards = !self.discovery_cards,
+            Field::CardsCloseThemselves => self.cards_close_themselves = !self.cards_close_themselves,
+            Field::BalancedAmounts => self.balanced_amounts = !self.balanced_amounts,
             _ => {}
         }
     }
@@ -213,6 +234,9 @@ impl Settings {
             Field::Hint => self.next_step,
             Field::Kit => self.kit,
             Field::UiSounds => self.ui_sounds,
+            Field::DiscoveryCards => self.discovery_cards,
+            Field::CardsCloseThemselves => self.cards_close_themselves,
+            Field::BalancedAmounts => self.balanced_amounts,
             _ => false,
         }
     }
@@ -358,9 +382,8 @@ pub fn spawn_settings(mut commands: Commands, fonts: Res<UiFonts>, assets: Res<A
                 BackgroundColor(theme::SURFACE),
                 BorderColor::all(theme::LINE_STRONG),
                 theme::shadow(40.0, 14.0, 0.6),
-                Pickable::default(),
                 // clicks inside the dialog stay in it (the backdrop behind closes it)
-                bevy::ui::FocusPolicy::Block,
+                Pickable::default(),
             ))
             .with_children(|dialog| {
                 dialog
@@ -406,6 +429,8 @@ pub fn spawn_settings(mut commands: Commands, fonts: Res<UiFonts>, assets: Res<A
                                 toggle(c, fonts, Field::BenchGrid, "Bench grid", "The faint dot grid on the lab bench.");
                                 theme::spawn_section_title(c, fonts, "Help");
                                 toggle(c, fonts, Field::Tooltips, "Tooltips", "Explain tiles, vessels and ports on hover.");
+                                toggle(c, fonts, Field::DiscoveryCards, "Discovery cards", "Each new substance comes as a card to tap and read.");
+                                toggle(c, fonts, Field::CardsCloseThemselves, "Cards close by themselves", "An unread card goes after 15 seconds.");
                                 c.spawn(Node { justify_content: JustifyContent::SpaceBetween, align_items: AlignItems::Center, column_gap: Val::Px(12.0), min_height: Val::Px(44.0), flex_shrink: 0.0, ..default() })
                                     .with_children(|row| {
                                         row_text(row, fonts, "First-steps tour", "The four coach marks of a new game.");
@@ -420,6 +445,7 @@ pub fn spawn_settings(mut commands: Commands, fonts: Res<UiFonts>, assets: Res<A
                                 theme::spawn_section_title(c, fonts, "Play");
                                 stepper(c, fonts, assets, Field::ReactionSpeed, "Reaction speed", "How fast vessels finish reacting.");
                                 toggle(c, fonts, Field::NamesFirst, "Names before formulas", "Shelf tiles lead with the name.");
+                                toggle(c, fonts, Field::BalancedAmounts, "Balanced amounts", "Put each in as often as the equation says; wrong ratios waste half.");
                                 toggle(c, fonts, Field::Notifications, "Notifications", "Pop-ups for discoveries and milestones.");
                                 theme::spawn_section_title(c, fonts, "Hints");
                                 toggle(c, fonts, Field::Hint, "Hint button", "Pick something to make next; hints come one at a time.");
@@ -580,28 +606,22 @@ pub fn settings_input_system(
     mut ui: ResMut<SettingsUi>,
     mut settings: ResMut<Settings>,
     mut fit: ResMut<FitInterface>,
-    steps: Query<(&Interaction, &SettingStep), Changed<Interaction>>,
-    toggles: Query<(&Interaction, &SettingToggle), Changed<Interaction>>,
-    closers: Query<&Interaction, (Changed<Interaction>, Or<(With<SettingsClose>, With<SettingsBackdrop>)>)>,
+    steps: Query<&SettingStep, With<Clicked>>,
+    toggles: Query<&SettingToggle, With<Clicked>>,
+    closers: Query<(), (With<Clicked>, Or<(With<SettingsClose>, With<SettingsBackdrop>)>)>,
 ) {
-    for (i, s) in &steps {
-        if *i == Interaction::Pressed {
-            settings.step(s.0, s.1);
-            // a size chosen by hand stays
-            if s.0 == Field::UiScale {
-                fit.0 = false;
-            }
+    for s in &steps {
+        settings.step(s.0, s.1);
+        // a size chosen by hand stays
+        if s.0 == Field::UiScale {
+            fit.0 = false;
         }
     }
-    for (i, t) in &toggles {
-        if *i == Interaction::Pressed {
-            settings.toggle(t.0);
-        }
+    for t in &toggles {
+        settings.toggle(t.0);
     }
-    for i in &closers {
-        if *i == Interaction::Pressed {
-            ui.open = false;
-        }
+    if !closers.is_empty() {
+        ui.open = false;
     }
 }
 
@@ -613,12 +633,12 @@ pub fn settings_view_system(
     mut root: Query<&mut Node, With<SettingsRoot>>,
     mut values: Query<(&SettingValue, &mut Text), Without<SettingsAbout>>,
     mut switches: Query<
-        (&SettingToggle, &Interaction, &mut BackgroundColor, &mut BorderColor, &mut Node),
+        (&SettingToggle, &Hovered, Has<Pressed>, &mut BackgroundColor, &mut BorderColor, &mut Node),
         Without<SettingsRoot>,
     >,
     mut knobs: Query<(&SettingKnob, &mut BackgroundColor), Without<SettingToggle>>,
     mut about: Query<&mut Text, With<SettingsAbout>>,
-    hovered: Query<(), (Changed<Interaction>, With<SettingToggle>)>,
+    hovered: Query<(), (Changed<Hovered>, With<SettingToggle>)>,
 ) {
     if let Ok(mut n) = root.single_mut() {
         let d = if ui.open { Display::Flex } else { Display::None };
@@ -632,9 +652,9 @@ pub fn settings_view_system(
     for (v, mut t) in &mut values {
         t.0 = settings.value_text(v.0);
     }
-    for (s, i, mut bg, mut border, mut node) in &mut switches {
+    for (s, h, pressed, mut bg, mut border, mut node) in &mut switches {
         let on = settings.flag(s.0);
-        let (b, l) = toggle_look(on, *i != Interaction::None);
+        let (b, l) = toggle_look(on, Look::of(h, pressed).lit());
         bg.0 = b;
         *border = BorderColor::all(l);
         let j = if on { JustifyContent::FlexEnd } else { JustifyContent::FlexStart };
@@ -647,7 +667,7 @@ pub fn settings_view_system(
     }
     if let (Some(db), Ok(mut t)) = (db, about.single_mut()) {
         t.0 = format!(
-            "Curieosity · {} reactions across {} eras · {} substances to discover · built with Bevy 0.17",
+            "Curieosity · {} reactions across {} eras · {} substances to discover · built with Bevy 0.20",
             db.authored.len(),
             db.epochs.len(),
             db.canon.len()

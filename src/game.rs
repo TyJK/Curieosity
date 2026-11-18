@@ -93,6 +93,8 @@ pub fn run() -> AppExit {
             OnboardingPlugin,
             SoundPlugin,
             FocusPlugin,
+            crate::ui::ButtonPlugin,
+            crate::ui::discovery_card::DiscoveryCardPlugin,
             CreditsPlugin,
             AchievementsPlugin,
         ))
@@ -130,6 +132,8 @@ pub fn run() -> AppExit {
         .init_resource::<crate::ui::hint::HintState>()
         .init_resource::<crate::ui::inventory::ShelfSearch>()
         .init_resource::<crate::ui::inventory::TypingBox>()
+        .init_resource::<crate::platform::SoftKeyboard>()
+        .init_resource::<crate::ui::shell::Portrait>()
         .init_resource::<crate::ui::inventory::Dock>()
         .add_message::<CheckVesselReaction>()
         .add_message::<GameEvent>()
@@ -178,7 +182,7 @@ pub fn run() -> AppExit {
             Update,
             (
                 (populate_inventory_system, crate::ui::inventory::shelf_window_system).chain(),
-                crate::ui::inventory::fit_dock_system,
+                (crate::ui::inventory::fit_dock_system, crate::ui::inventory::shelf_head_fit_system),
                 category_tab_system,
                 crate::ui::inventory::shelf_search_system,
                 shelf_hover_system,
@@ -200,7 +204,11 @@ pub fn run() -> AppExit {
                     ApplyDeferred,
                 )
                     .chain(),
-                fizzle_system,
+                (
+                    fizzle_system,
+                    crate::systems::reaction_check::decay_system,
+                    crate::systems::reaction_check::merge_chips_system,
+                ),
                 vessel_art_system,
                 crate::systems::reaction_check::vessel_fit_system,
                 crate::systems::reaction_check::vessel_chain_button_system,
@@ -237,6 +245,7 @@ pub fn run() -> AppExit {
                 tech_selection_links_system,
                 update_tech_detail_system,
                 tech_pan_system,
+                crate::ui::tech_tree::tech_toolbar_fit_system,
             )
                 .chain(),
         )
@@ -280,6 +289,7 @@ pub fn run() -> AppExit {
                 shell::wheel_scroll_system,
                 shell::touch_scroll_system,
                 shell::clamp_scroll_system,
+                (shell::portrait_system, shell::portrait_layout_system).chain(),
                 settings::settings_input_system,
                 settings::fit_interface_system,
                 settings::settings_view_system,

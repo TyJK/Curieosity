@@ -10,7 +10,7 @@
 //
 // Everything here reads the game; nothing else depends on it except Settings (its
 // switches) and the review run's checks.
-use crate::ui::Interaction;
+use crate::ui::Clicked;
 use bevy::ecs::system::SystemParam;
 use bevy::picking::hover::HoverMap;
 use bevy::picking::pointer::{PointerId, PointerLocation, PointerPressState};
@@ -78,16 +78,6 @@ pub struct TooltipBody;
 /// Hover this long before a tooltip appears.
 pub const TIP_DELAY: f64 = 0.45;
 const TIP_W: f32 = 270.0;
-
-/// The pointer a tooltip follows: the review run's virtual pointer while it has something
-/// under it, otherwise the mouse.
-fn tip_pointer(hover: &HoverMap) -> PointerId {
-    hover
-        .iter()
-        .find(|(id, hits)| matches!(id, PointerId::Custom(_)) && !hits.is_empty())
-        .map(|(id, _)| *id)
-        .unwrap_or(PointerId::Mouse)
-}
 
 /// The topmost entity under a pointer that carries a Tip (or has an ancestor that does).
 pub fn tip_under(
@@ -192,7 +182,7 @@ pub fn tooltip_system(
     // the tour does the explaining while it runs
     let enabled = settings.as_ref().is_none_or(|s| s.tooltips) && coach.step == CoachStep::Off;
     let pressing = pointers.iter().any(|(_, _, p)| p.is_primary_pressed());
-    let pointer = tip_pointer(&hover);
+    let pointer = PointerId::Mouse;
     let target = if enabled && !pressing { tip_under(&hover, pointer, &parents, &tips) } else { None };
     if target != state.target {
         state.target = target;
@@ -301,15 +291,9 @@ pub fn coach_input_system(
     mut coach: ResMut<Coach>,
     mut settings: Option<ResMut<Settings>>,
     mut settings_ui: ResMut<SettingsUi>,
-    buttons: Query<
-        (&Interaction, Option<&CoachSkip>, Option<&CoachNext>, Option<&TourAgainButton>),
-        Changed<Interaction>,
-    >,
+    buttons: Query<(Option<&CoachSkip>, Option<&CoachNext>, Option<&TourAgainButton>), With<Clicked>>,
 ) {
-    for (i, skip, next, again) in &buttons {
-        if *i != Interaction::Pressed {
-            continue;
-        }
+    for (skip, next, again) in &buttons {
         if skip.is_some() || next.is_some() {
             coach.step = CoachStep::Off;
             if let Some(s) = settings.as_mut() {
@@ -805,7 +789,6 @@ pub fn spawn_onboarding_ui(
             BackgroundColor(theme::mix(theme::SURFACE, theme::CYAN, 0.10)),
             BorderColor::all(theme::CYAN),
             theme::shadow(26.0, 8.0, 0.6),
-            bevy::ui::FocusPolicy::Block,
             Name::new("CoachBubble"),
         ))
         .with_children(|b| {

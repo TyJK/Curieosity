@@ -14,7 +14,7 @@
 //     cover or above it (the header stays reachable from a view; nothing behind Settings);
 //   * a long list or grid (`FocusGroup`: the shelf, the vessel list, the library lists,
 //     the tech tree) is one Tab stop; the arrow keys move inside it.
-use crate::ui::{Button, Interaction};
+use crate::ui::{Button, Clicked};
 use bevy::camera::NormalizedRenderTarget;
 use bevy::picking::backend::HitData;
 use bevy::picking::events::{Pointer, PointerClick};
@@ -40,8 +40,6 @@ pub struct KeyFocus {
     pub entity: Option<Entity>,
     /// the ring shows (the keyboard was used since the last click)
     pub visible: bool,
-    /// the control pressed from the keyboard last frame (released this frame)
-    pressed: Option<Entity>,
     /// the member each group had focused last, so Tab returns to it
     remembered: HashMap<Entity, Entity>,
 }
@@ -385,7 +383,7 @@ fn key_focus_system(
     mouse: Res<ButtonInput<MouseButton>>,
     mut focus: ResMut<KeyFocus>,
     tree: FocusTree,
-    mut interactions: Query<&mut Interaction>,
+    buttons: Query<(), With<Button>>,
     draggable: Query<(), With<Draggable>>,
     typing: (Res<CodexState>, Res<ReactionLibState>, Res<crate::ui::inventory::ShelfSearch>),
     mut scrollers: Query<(&Node, &ComputedNode, &UiGlobalTransform, &mut ScrollPosition)>,
@@ -394,13 +392,6 @@ fn key_focus_system(
     time: Res<Time>,
     mut stick: Local<StickRepeat>,
 ) {
-    if let Some(e) = focus.pressed.take() {
-        if let Ok(mut i) = interactions.get_mut(e) {
-            if *i == Interaction::Pressed {
-                *i = Interaction::None;
-            }
-        }
-    }
     if mouse.get_just_pressed().next().is_some() && focus.visible {
         focus.visible = false;
     }
@@ -501,9 +492,8 @@ fn key_focus_system(
                 duration: std::time::Duration::ZERO,
                 count: 1,
             });
-        } else if let Ok(mut i) = interactions.get_mut(c) {
-            *i = Interaction::Pressed;
-            focus.pressed = Some(c);
+        } else if buttons.contains(c) {
+            commands.entity(c).insert(Clicked);
         }
     }
 }

@@ -186,6 +186,11 @@ impl Substance {
         }
     }
 
+    /// Made and used at once, never kept (Property::IsTransient).
+    pub fn is_transient(&self) -> bool {
+        self.properties.contains(&Property::IsTransient)
+    }
+
     /// Its UN transport class: radioactive substances travel as class 7 whatever else they are.
     pub fn transport_class(&self) -> Option<&str> {
         if self.properties.contains(&Property::IsRadioactive) {

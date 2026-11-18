@@ -167,7 +167,7 @@ S("1634-04-4", "MTBE", "Methyl tert-butyl ether", "C5H12O", "Liquid", 391568,
   lib=4014)
 S("10049-04-4", "ClO2", "Chlorine dioxide", "ClO2", "Gas", 458673,
   "A yellow-green gas too explosive to ship, so it is made where it is used. It bleaches most of the world's wood pulp without the dioxins chlorine left behind, and disinfects drinking water.",
-  lib=2077)
+  lib=2077, props=("IsTransient",))
 S("141-32-2", "ButylAcrylate", "Butyl acrylate", "C7H12O2", "Liquid", 48823927,
   "The soft partner in acrylic paints, adhesives and caulks: copolymerised with methyl methacrylate, it decides how flexible the film is.",
   lib=3623)

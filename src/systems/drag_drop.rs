@@ -7,22 +7,24 @@
 //     cards takes it back out
 //   * a vessel card -> moves it (snapping to a 20 px grid)
 //   * the empty bench -> pans it
-//   * a vessel's output port onto another vessel's input port -> links them
-// and the click that goes with a selection: with a substance selected on the shelf,
-// clicking a vessel puts it in. The vessel last placed, tapped, moved or filled is the
-// active one: a double-tap on a shelf tile puts that substance straight into it.
+//   * a vessel's output port onto another vessel (its input port or anywhere on the card)
+//     -> links them
+// and the taps that go with them: with a substance selected on the shelf, tapping a vessel
+// puts it in; tapping an output port and then another vessel links the two (a tap on the
+// bench, the same port or Esc lets go). The vessel last placed, tapped, moved or filled is
+// the active one: a double-tap on a shelf tile puts that substance straight into it.
 //
 // On a touch screen a finger swiping across the shelf scrolls it; holding a tile for a
 // moment first lifts it instead (tapping it and then a vessel works too).
 //
 // Where a drop lands is read from bevy_picking's hover map for the pointer that did the
 // dragging, walking up from whatever is under it to the card. That makes the whole card a
-// drop target, and it works the same for the mouse and for the review run's virtual
-// pointer. Positions from the pointer are window pixels; nodes are UI pixels, so every
+// drop target, and it works the same for the mouse, a finger and the review run. Positions from the pointer are window pixels; nodes are UI pixels, so every
 // distance is divided by the interface size (UiScale).
-use crate::ui::Button;
+use crate::ui::{Button, Presses};
 use bevy::ecs::system::entity_command::observe;
 use bevy::ecs::system::SystemParam;
+use bevy::picking::events::PointerClick as ClickMessage;
 use bevy::picking::hover::{HoverMap, PreviousHoverMap};
 use bevy::picking::pointer::{PointerId, PointerPressState};
 use bevy::prelude::*;
@@ -47,6 +49,10 @@ pub struct DragDropPlugin;
 #[derive(Resource, Default)]
 pub struct LinkDragState(pub Option<Entity>);
 
+/// An output port that was tapped: the next vessel tapped is fed from it.
+#[derive(Resource, Default, Debug)]
+pub struct LinkPick(pub Option<Entity>);
+
 /// The vessel last placed, tapped, moved or filled: where a double-tapped shelf tile goes.
 #[derive(Resource, Default, Debug)]
 pub struct ActiveVessel(pub Option<Entity>);
@@ -58,13 +64,17 @@ pub struct AddToActive(pub u32);
 impl Plugin for DragDropPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<LinkDragState>()
+            .init_resource::<LinkPick>()
             .init_resource::<ActiveVessel>()
             .init_resource::<BenchZoom>()
             .add_message::<AddToActive>()
             // PreUpdate: its commands land before Update can despawn a freshly spawned tile
             // (the shelf rebuilds itself when a milestone grants new substances).
             .add_systems(PreUpdate, attach_drag_observers_to_draggables)
-            .add_systems(Update, (sweep_drags_system, add_to_active_system, active_vessel_system, bench_zoom_system));
+            .add_systems(
+                Update,
+                (sweep_drags_system, add_to_active_system, active_vessel_system, bench_zoom_system, link_pick_system),
+            );
     }
 }
 
@@ -159,7 +169,11 @@ fn attach_drag_observers_to_draggables(
             .queue_silenced(observe(stop_pan_canvas));
     }
     for entity in &new_output_ports {
-        commands.entity(entity).queue_silenced(observe(start_draw_link)).queue_silenced(observe(stop_draw_link));
+        commands
+            .entity(entity)
+            .queue_silenced(observe(start_draw_link))
+            .queue_silenced(observe(stop_draw_link))
+            .queue_silenced(observe(tap_output_port));
     }
 }
 
@@ -264,6 +278,29 @@ impl DropProbe<'_, '_> {
             |x| self.part(x),
             |card| self.children.get(card).ok().and_then(|c| c.iter().find(|ch| self.ingredient_zones.contains(*ch))),
         )
+    }
+
+    /// The vessel the card part `e` belongs to.
+    pub fn vessel_of(&self, e: Entity) -> Option<Entity> {
+        match self.classify(e).0? {
+            DropSpot::Ingredients { vessel, .. }
+            | DropSpot::Catalyst { vessel, .. }
+            | DropSpot::InputPort { vessel, .. } => Some(vessel),
+        }
+    }
+
+    /// A vessel card's input port.
+    pub fn input_port_of(&self, card: Entity) -> Option<Entity> {
+        let mut todo = vec![card];
+        while let Some(e) = todo.pop() {
+            if self.input_ports.contains(e) {
+                return Some(e);
+            }
+            if let Ok(c) = self.children.get(e) {
+                todo.extend(c.iter());
+            }
+        }
+        None
     }
 
     /// The drop spot under a pointer right now (topmost hit first). A finger is gone by
@@ -604,6 +641,7 @@ fn click_card(
     fonts: Res<UiFonts>,
     assets: Res<AssetServer>,
     mut active: ResMut<ActiveVessel>,
+    links: (ResMut<LinkPick>, Query<&ReactionLink>),
 ) {
     trigger.propagate(false);
     if trigger.button != PointerButton::Primary
@@ -611,6 +649,16 @@ fn click_card(
         || moved.contains(trigger.original_event_target())
     {
         return;
+    }
+    // an output port was tapped first: this card is the one it feeds (a tap on the port's
+    // own card lets go of it; the card's buttons still do their own thing)
+    let (mut pick, links) = links;
+    if let Some(port) = pick.0 {
+        if !probe.classify(trigger.original_event_target()).1 {
+            pick.0 = None;
+            link(&mut commands, &probe, &links, port, trigger.entity);
+            return;
+        }
     }
     // any tap on a card makes it the one a double-tap fills
     active.0 = Some(trigger.entity);
@@ -813,9 +861,15 @@ impl BenchZoom {
 /// Applies a zoom change: the pane is scaled about its top-left corner (bevy_ui scales a
 /// node about its middle, so it is moved back by what that shifts), and panned so the
 /// middle of the bench stays on the same spot.
+///
+/// That spot is kept from one zoom to the next while nothing pans the bench in between. A
+/// zoom that runs into the bench's edge can't put the spot in the middle, and working it
+/// out again from where the edge left the pane would drift: out to 45% and back to 100%
+/// used to carry vessels near the top-left right off the screen.
 pub fn bench_zoom_system(
     zoom: Res<BenchZoom>,
     mut last: Local<Option<f32>>,
+    mut focus: Local<Option<(Vec2, Vec2)>>,
     mut panes: Query<(&mut Node, &mut UiTransform), With<CanvasScrollingPane>>,
     bench: Query<&ComputedNode, With<ReactionCanvasRoot>>,
 ) {
@@ -831,8 +885,14 @@ pub fn bench_zoom_system(
     tf.translation = Val2::px(-(1.0 - z) * size.x / 2.0, -(1.0 - z) * size.y / 2.0);
     let view = bench_view(&bench);
     let middle = view / 2.0;
-    let spot = (middle - pane_offset(&node)) / old;
+    let offset = pane_offset(&node);
+    // (the spot in unzoomed bench px, and where the last zoom left the pane)
+    let spot = match *focus {
+        Some((spot, left)) if left.distance(offset) < 0.5 => spot,
+        _ => (middle - offset) / old,
+    };
     pan_bench(&mut node, view, middle - spot * z, z);
+    *focus = Some((spot, pane_offset(&node)));
 }
 
 /// The pane's size, unscaled (UI px).
@@ -880,6 +940,32 @@ fn start_draw_link(mut trigger: On<PointerDragStart>, mut state: ResMut<LinkDrag
     state.0 = Some(trigger.entity);
 }
 
+/// Feed `to_vessel` from the output port `from_port`. False if that can't be (a vessel
+/// can't feed itself) or is already so.
+fn link(
+    commands: &mut Commands,
+    probe: &DropProbe,
+    links: &Query<&ReactionLink>,
+    from_port: Entity,
+    to_vessel: Entity,
+) -> bool {
+    let (Some(from_vessel), Some(to_port)) = (probe.vessel_of(from_port), probe.input_port_of(to_vessel)) else {
+        return false;
+    };
+    if from_vessel == to_vessel {
+        info!("A vessel cannot feed itself.");
+        return false;
+    }
+    if links.iter().any(|l| l.from_port == from_port && l.to_port == to_port) {
+        return false; // already linked
+    }
+    commands.spawn(ReactionLink { from_vessel, from_port, to_vessel, to_port });
+    info!("Linked {:?} -> {:?}", from_vessel, to_vessel);
+    true
+}
+
+/// A link dragged out of an output port lands on another vessel: its input port, or
+/// anywhere on the card.
 fn stop_draw_link(
     mut trigger: On<PointerDragEnd>,
     mut commands: Commands,
@@ -889,27 +975,56 @@ fn stop_draw_link(
 ) {
     trigger.propagate(false);
     let Some(from_port) = state.0.take() else { return };
-    let (Some(DropSpot::InputPort { port: to_port, vessel: to_vessel }), (from, _)) =
-        (probe.under(trigger.pointer.id), probe.classify(from_port))
-    else {
-        return;
-    };
-    // the vessel the output port belongs to
-    let from_vessel = match from {
-        Some(DropSpot::Ingredients { vessel, .. })
-        | Some(DropSpot::Catalyst { vessel, .. })
-        | Some(DropSpot::InputPort { vessel, .. }) => vessel,
+    let to_vessel = match probe.under(trigger.pointer.id) {
+        Some(DropSpot::InputPort { vessel, .. })
+        | Some(DropSpot::Ingredients { vessel, .. })
+        | Some(DropSpot::Catalyst { vessel, .. }) => vessel,
         None => return,
     };
-    if from_vessel == to_vessel {
-        info!("A vessel cannot feed itself.");
+    link(&mut commands, &probe, &links, from_port, to_vessel);
+}
+
+/// A tap on an output port picks it to link from (a second tap on it lets go): the next
+/// vessel tapped is fed from it.
+fn tap_output_port(
+    mut trigger: On<PointerClick>,
+    presses: Res<Presses>,
+    mut pick: ResMut<LinkPick>,
+    mut toasts: ResMut<crate::ui::toasts::Toasts>,
+) {
+    trigger.propagate(false);
+    if trigger.button != PointerButton::Primary || !presses.is_tap(trigger.pointer.id, trigger.pointer.position) {
         return;
     }
-    if links.iter().any(|l| l.from_port == from_port && l.to_port == to_port) {
-        return; // already linked
+    if pick.0 == Some(trigger.entity) {
+        pick.0 = None;
+    } else {
+        pick.0 = Some(trigger.entity);
+        toasts.push(crate::ui::toasts::ToastKind::Hint, "Now tap the vessel to feed.".to_string());
     }
-    commands.spawn(ReactionLink { from_vessel, from_port, to_vessel, to_port });
-    info!("Linked {:?} -> {:?}", from_vessel, to_vessel);
+}
+
+/// Lets go of a picked output port when the next tap misses every vessel, or the port is
+/// gone. (A tap on a vessel is click_card's: it makes the link.)
+fn link_pick_system(
+    mut pick: ResMut<LinkPick>,
+    mut clicks: MessageReader<ClickMessage>,
+    probe: DropProbe,
+    ports: Query<(), With<OutputPort>>,
+) {
+    let Some(port) = pick.0 else {
+        clicks.clear();
+        return;
+    };
+    if !ports.contains(port) {
+        pick.0 = None;
+        return;
+    }
+    for c in clicks.read() {
+        if c.button == PointerButton::Primary && c.entity != port && probe.classify(c.entity).0.is_none() {
+            pick.0 = None;
+        }
+    }
 }
 
 #[cfg(test)]

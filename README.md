@@ -77,6 +77,10 @@ whenever CI passes, and for each release; the APK and the .ipa are the runs' art
 and a release carries them as `Curieosity-android.apk` and `Curieosity-ios.ipa`. Either
 can also be built from the Actions tab ("Android" or "iOS", then "Run workflow").
 
+Every merge to main publishes a release by itself (`.github/workflows/release.yml`),
+numbered from the version in `Cargo.toml`: 0.2.0, then 0.2.1, 0.2.2 and so on. To start a
+new series, change that version.
+
 To build the APK yourself you need the Android SDK and NDK, the `aarch64-linux-android`
 Rust target and `cargo install cargo-ndk`; then, in `android/`, run the two build steps
 from `.github/workflows/android.yml`. The iOS app needs a Mac with Xcode and the
