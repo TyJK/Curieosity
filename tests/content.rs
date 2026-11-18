@@ -18,6 +18,7 @@ use chem_alchemy::resources::player_progress::{SaveData, SAVE_VERSION};
 use chem_alchemy::resources::recipe_database::{RecipeDatabase, RecipeKey, MAX_GRANT, MAX_MILESTONE_GAP};
 use chem_alchemy::systems::achievements::{achievement_list, achievements_csv};
 use chem_alchemy::ui::credits::{text_credit, SECTIONS, TEXT_SOURCES};
+use chem_alchemy::ui::hint::{base_materials, decoy_count, makes_target, plan_kit, targets, MAX_STEPS};
 use chem_alchemy::ui::process_toolbar::{vessel_art_path, VESSELS};
 use chem_alchemy::ui::settings::Settings;
 use chem_alchemy::ui::tech_tree::plan_links;
@@ -248,6 +249,89 @@ fn milestones_unlock_every_vessel() {
     }
 }
 
+/// Every vessel a milestone unlocks says why that discovery makes it possible (the player
+/// sees it when it unlocks, and when they tap it while it is locked).
+#[test]
+fn every_vessel_says_why_it_unlocks() {
+    let bad: Vec<&str> = VESSELS
+        .iter()
+        .filter(|v| v.why.trim().len() < 20 || !v.why.trim_end().ends_with('.'))
+        .map(|v| v.name)
+        .collect();
+    assert!(bad.is_empty(), "vessels without a reason to unlock: {bad:?}");
+}
+
+/// Wherever a player is in the game, every target the Hint button offers comes with a kit
+/// that can make it: run the route's steps in order from the kit's items alone and the
+/// target appears. The kits leave out what they make on the way, stay within MAX_STEPS,
+/// and mix in decoys the route doesn't touch: as many as the setting asks for, wherever
+/// there are enough raw materials to spare.
+#[test]
+fn every_hint_target_has_a_kit_that_makes_it() {
+    let c = content();
+    let db = &c.db;
+    let decoys = Settings::default().decoy_range();
+    let mut short = 0;
+    let pt = db.playthrough();
+    let base = base_materials(db);
+    let mut known: HashSet<u32> = db.start.iter().copied().collect();
+    let mut vessels: HashSet<ProcessType> = [ProcessType::Mix, ProcessType::Heat].into_iter().collect();
+    let mut fired = vec![false; db.milestones.len()];
+    let (mut checked, mut multi, mut bad) = (0usize, 0usize, Vec::new());
+    for (n, id) in pt.steps.iter().enumerate() {
+        loop {
+            let mut any = false;
+            for (i, m) in db.milestones.iter().enumerate() {
+                if !fired[i] && known.contains(&m.on) {
+                    fired[i] = true;
+                    vessels.extend(m.unlock.iter().cloned());
+                    known.extend(m.grant.iter().copied());
+                    any = true;
+                }
+            }
+            if !any {
+                break;
+            }
+        }
+        if n % 25 == 0 {
+            let k = |id: u32| known.contains(&id);
+            let o = |p: &ProcessType| vessels.contains(p);
+            let mut pool: Vec<u32> = known.iter().copied().collect();
+            pool.sort_unstable();
+            for t in targets(db, &k, &o) {
+                checked += 1;
+                let Some(kit) = plan_kit(db, &k, &o, &base, &pool, t.product, t.reaction, decoys) else {
+                    bad.push(format!("step {n}: no kit for {}", name(c, t.product)));
+                    continue;
+                };
+                multi += usize::from(kit.steps.len() > 1);
+                let shelf: HashSet<u32> = kit.shelf().collect();
+                if !makes_target(db, &kit) {
+                    bad.push(format!("step {n}: the kit for {} can't make it", name(c, t.product)));
+                } else if kit.steps.len() > MAX_STEPS {
+                    bad.push(format!("step {n}: {} steps to {}", kit.steps.len(), name(c, t.product)));
+                } else if kit.intermediates.iter().any(|i| shelf.contains(i)) || shelf.contains(&t.product) {
+                    bad.push(format!("step {n}: the kit for {} gives away a step", name(c, t.product)));
+                } else if kit.shelf().any(|id| !known.contains(&id)) {
+                    bad.push(format!("step {n}: the kit for {} holds something not yet found", name(c, t.product)));
+                } else if kit.decoys.iter().any(|d| kit.items.contains(d)) {
+                    bad.push(format!("step {n}: a decoy for {} is needed after all", name(c, t.product)));
+                } else if kit.decoys.len() > decoy_count(kit.items.len(), decoys) {
+                    bad.push(format!("step {n}: {} decoys for {}", kit.decoys.len(), name(c, t.product)));
+                }
+                short += usize::from(kit.decoys.len() < decoy_count(kit.items.len(), decoys));
+            }
+        }
+        if let Some(r) = db.authored.iter().find(|r| r.id == *id) {
+            known.extend(r.products.iter().map(|p| p.substance_id));
+        }
+    }
+    assert!(bad.is_empty(), "{} of {checked} kits are wrong:\n{}", bad.len(), bad.join("\n"));
+    assert!(checked > 100 && multi * 4 > checked, "only {multi} of {checked} kits take more than one step");
+    // decoys come from the raw materials found so far: the very first targets may run short
+    assert!(short * 10 < checked, "{short} of {checked} kits had fewer decoys than the setting asks for");
+}
+
 #[test]
 fn catalyst_recipes_live_in_vessels_with_a_slot() {
     let c = content();
@@ -464,6 +548,10 @@ fn a_save_round_trips() {
         unlocked: vec![ProcessType::Mix, ProcessType::Heat, ProcessType::Smelting, ProcessType::Catalysis],
         dormant: vec![999_999_901],
         dormant_vessels: vec!["Replicator".into()],
+        journal: vec![
+            ("Discovery".into(), "New: Quicklime".into()),
+            ("Milestone".into(), "Copper! The furnace becomes a smelter.".into()),
+        ],
     };
     let back = SaveData::parse(&data.to_text()).unwrap();
     assert_eq!(back, data);
@@ -520,6 +608,7 @@ fn settings_round_trip_and_tolerate_old_files() {
     assert_eq!(old.ui_scale, 1.5);
     assert_eq!(old.reaction_speed, Settings::default().reaction_speed);
     assert!(old.tooltips && old.next_step && !old.tour_done, "help defaults on for an old settings file");
+    assert!(old.kit, "target kits default on for an old settings file");
 }
 
 /// Every description the game ships says where it came from, and that source is one whose

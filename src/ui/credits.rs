@@ -4,6 +4,7 @@
 // The same list is the in-game Credits screen (Settings > About), the per-page "Text:"
 // line in the Substance Library, and CREDITS.md in the repository; a content test keeps
 // CREDITS.md in step with it.
+use crate::ui::{Button, Interaction};
 use bevy::prelude::*;
 
 use crate::resources::ui_fonts::UiFonts;
@@ -199,7 +200,7 @@ pub fn spawn_credits(mut commands: Commands, fonts: Res<UiFonts>, assets: Res<As
                 BackgroundColor(Color::srgba(0.0, 0.0, 0.02, 0.7)),
             ));
             root.spawn((
-                Node {
+                Node { border_radius: BorderRadius::all(Val::Px(theme::R_LG)),
                     width: Val::Px(820.0),
                     max_width: Val::Percent(94.0),
                     max_height: Val::Percent(90.0),
@@ -210,7 +211,6 @@ pub fn spawn_credits(mut commands: Commands, fonts: Res<UiFonts>, assets: Res<As
                     overflow: Overflow::scroll_y(),
                     ..default()
                 },
-                BorderRadius::all(Val::Px(theme::R_LG)),
                 BackgroundColor(theme::SURFACE),
                 BorderColor::all(theme::LINE_STRONG),
                 theme::shadow(40.0, 14.0, 0.6),

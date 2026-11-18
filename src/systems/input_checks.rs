@@ -24,6 +24,7 @@ use bevy::camera::NormalizedRenderTarget;
 use bevy::ecs::world::CommandQueue;
 use bevy::input::keyboard::{Key, KeyboardInput, NativeKey};
 use bevy::input::mouse::{MouseButtonInput, MouseScrollUnit, MouseWheel};
+use bevy::input::touch::TouchPhase;
 use bevy::input::ButtonState;
 use bevy::picking::pointer::{Location, PointerAction, PointerButton as PickButton, PointerId, PointerInput};
 use bevy::prelude::*;
@@ -44,7 +45,7 @@ use crate::resources::recipe_database::Lookup;
 use crate::resources::recipe_database::RecipeDatabase;
 use crate::resources::ui_fonts::UiFonts;
 use crate::systems::drag_drop::{DragGhostNode, LinkDragState};
-use crate::systems::reaction_check::{spawn_vessel_card, EquationText, VesselArtFill, VESSEL_W};
+use crate::systems::reaction_check::{spawn_vessel_card, EquationText, VesselArtBig, VesselArtSmall, VESSEL_W};
 use crate::ui::codex::{
     CodexCategoryTab, CodexDetail, CodexEntry, CodexFilter, CodexIndustryCard, CodexListContent, CodexReactionLink,
     CodexRefLink, CodexScrollable, CodexState, URL_SINK,
@@ -56,8 +57,7 @@ use crate::ui::inventory::{
     is_element_formula, CategoryTab, InvCategory, InventoryContent, InventoryScroll, ShelfTile,
 };
 use crate::ui::onboarding::{
-    next_step, Coach, CoachBubble, CoachNext, CoachSkip, CoachStep, EraBanner, NextStepCard, NextStepShow, TooltipNode,
-    TooltipTitle, TourAgainButton,
+    Coach, CoachBubble, CoachNext, CoachSkip, CoachStep, EraBanner, TooltipNode, TooltipTitle, TourAgainButton,
 };
 use crate::ui::process_toolbar::{vessel_name, NewGameButton, ProcessButton, ProcessUnlocks, VesselSidebar, VESSELS};
 use crate::ui::reaction_library::{
@@ -93,6 +93,8 @@ pub struct Target {
 enum Op {
     Do(Setup),
     Click(Target),
+    /// two clicks in quick succession (a double-tap)
+    DoubleClick(Target),
     Drag(Target, Target),
     DragBy(Target, Vec2),
     Wheel(Target, f32),
@@ -104,6 +106,8 @@ enum Op {
     Release,
     Key(KeyCode),
     Wait(u32),
+    /// let this many real seconds pass (frames can be quick or slow)
+    Pause(f64),
     /// poll every frame until it holds, failing after this many frames
     Until(Verify, u32),
     Expect(Verify),
@@ -155,6 +159,7 @@ pub struct InputChecks {
     polls: u32,
     cursor: Vec2,
     pressed: bool,
+    pause_until: Option<f64>,
 }
 
 /// Values a check remembers between its steps (a card's position before a drag...).
@@ -283,6 +288,7 @@ fn next_check(st: &mut InputChecks) {
     st.i += 1;
     st.op = 0;
     st.polls = 0;
+    st.pause_until = None;
 }
 
 const FIND_FRAMES: u32 = 30;
@@ -304,6 +310,22 @@ fn run_op(world: &mut World, st: &mut InputChecks, op: &Op) -> Flow {
                     Prim::Idle,
                     Prim::Press,
                     Prim::Idle,
+                    Prim::Release,
+                    Prim::Idle,
+                    Prim::Idle,
+                ]);
+                Flow::Next
+            }
+            Err(e) => missing(st, e),
+        },
+        Op::DoubleClick(t) => match find(world, t) {
+            Ok(p) => {
+                st.prims.extend([
+                    Prim::Move(p),
+                    Prim::Idle,
+                    Prim::Press,
+                    Prim::Release,
+                    Prim::Press,
                     Prim::Release,
                     Prim::Idle,
                     Prim::Idle,
@@ -371,6 +393,20 @@ fn run_op(world: &mut World, st: &mut InputChecks, op: &Op) -> Flow {
             st.wait = *n;
             Flow::Next
         }
+        Op::Pause(secs) => {
+            let now = world.resource::<Time<Real>>().elapsed_secs_f64();
+            match st.pause_until {
+                None => {
+                    st.pause_until = Some(now + secs);
+                    Flow::Again
+                }
+                Some(until) if now >= until => {
+                    st.pause_until = None;
+                    Flow::Next
+                }
+                Some(_) => Flow::Again,
+            }
+        }
         Op::Until(v, max) => match v(world) {
             Ok(()) => Flow::Next,
             Err(e) if st.polls >= *max => Flow::Fail(e),
@@ -432,7 +468,13 @@ fn apply(world: &mut World, st: &mut InputChecks, p: Prim) {
             world.write_message(PointerInput::new(CHECK_POINTER, location, action));
         }
         Prim::Wheel(dy) => {
-            world.write_message(MouseWheel { unit: MouseScrollUnit::Line, x: 0.0, y: dy, window });
+            world.write_message(MouseWheel {
+                unit: MouseScrollUnit::Line,
+                x: 0.0,
+                y: dy,
+                window,
+                phase: TouchPhase::Moved,
+            });
         }
         Prim::KeyDown(k) | Prim::KeyUp(k) => {
             let state = if matches!(p, Prim::KeyDown(_)) { ButtonState::Pressed } else { ButtonState::Released };
@@ -482,7 +524,9 @@ fn point_in(world: &mut World, e: Entity, fx: f32, fy: f32) -> Option<Vec2> {
     if !reveal(world, e, centre) {
         return None;
     }
-    let p = (centre + (Vec2::new(fx, fy) - 0.5) * size) / sf;
+    // through the node's transform, so a zoomed bench's cards are pointed at where they show
+    let tf = *world.get::<UiGlobalTransform>(e)?;
+    let p = tf.affine().transform_point2((Vec2::new(fx, fy) - 0.5) * size) / sf;
     // on screen, or it can't be pointed at
     let size = world
         .query_filtered::<&Window, With<PrimaryWindow>>()
@@ -632,9 +676,13 @@ fn card_part(p: ProcessType, part: CardPart) -> Target {
         let c = card(w, pp.clone())?;
         match part {
             CardPart::Art => {
-                let fill = descendant::<VesselArtFill>(w, c)?;
-                let art = w.get::<ChildOf>(fill)?.parent();
-                point_in(w, art, 0.5, 0.5)
+                for art in [descendant::<VesselArtBig>(w, c), descendant::<VesselArtSmall>(w, c)].into_iter().flatten()
+                {
+                    if let Some(p) = point_in(w, art, 0.5, 0.5) {
+                        return Some(p);
+                    }
+                }
+                None
             }
             CardPart::Title => {
                 let header = w.get::<Children>(c)?.iter().next()?;
@@ -682,6 +730,41 @@ fn marked<C: Component>(name: &str) -> Target {
         let e = first::<C>(w, |_| true)?;
         point_in(w, e, 0.5, 0.5)
     })
+}
+
+/// The Tech Tree's built graph steps and list rows.
+fn tech_built(w: &mut World) -> (usize, usize) {
+    let steps = w.query::<&TechNodeButton>().iter(w).count();
+    let rows = w.query::<&crate::ui::tech_tree::TechListEntry>().iter(w).count();
+    (steps, rows)
+}
+
+/// Scroll the Tech Tree's graph to a fraction of its size.
+fn scroll_tech_graph(w: &mut World, at: Vec2) {
+    let size = w.resource::<crate::ui::tech_tree::TechLayout>().size();
+    for (m, mut sp) in w.query::<(&TechScrollable, &mut ScrollPosition)>().iter_mut(w) {
+        if m.graph {
+            sp.0 = size * at;
+        }
+    }
+}
+
+/// Every step whose place overlaps the graph's view is built.
+fn tech_view_complete(w: &mut World) -> Result<(), String> {
+    let view = w
+        .query::<(&TechScrollable, &ComputedNode, &ScrollPosition)>()
+        .iter(w)
+        .find(|(m, _, _)| m.graph)
+        .map(|(_, cn, sp)| Rect::from_corners(sp.0, sp.0 + cn.size * cn.inverse_scale_factor()))
+        .ok_or("no graph view")?;
+    let want = w.resource::<crate::ui::tech_tree::TechLayout>().steps_in(view);
+    let built: std::collections::HashSet<u32> = w.query::<&TechNodeButton>().iter(w).map(|b| b.0).collect();
+    let missing: Vec<u32> = want.iter().copied().filter(|id| !built.contains(id)).collect();
+    if missing.is_empty() {
+        Ok(())
+    } else {
+        Err(format!("{} of the {} steps in view not built (view {view:?})", missing.len(), want.len()))
+    }
 }
 
 /// How many steps the tech tree's needs check looks at.
@@ -764,6 +847,11 @@ fn fresh(world: &mut World) {
     world.resource_mut::<CreditsUi>().open = false;
     *world.resource_mut::<KeyFocus>() = KeyFocus::default();
     world.resource_mut::<SelectedSubstance>().0 = None;
+    world.resource_mut::<crate::ui::detail_panel::LastTap>().0 = None;
+    world.resource_mut::<crate::systems::drag_drop::ActiveVessel>().0 = None;
+    world.resource_mut::<crate::ui::hint::HintState>().stop();
+    *world.resource_mut::<crate::ui::inventory::ShelfSearch>() = Default::default();
+    world.resource_mut::<crate::ui::toasts::JournalUi>().open = false;
     *world.resource_mut::<InvCategory>() = InvCategory::All;
     {
         let mut f = world.resource_mut::<CodexFilter>();
@@ -787,6 +875,8 @@ fn fresh(world: &mut World) {
         n.left = Val::Px(0.0);
         n.top = Val::Px(0.0);
     }
+    world.resource_mut::<crate::systems::drag_drop::BenchZoom>().0 = 1.0;
+    world.resource_mut::<crate::ui::main_menu::MainMenu>().hide();
     for mut sp in
         world.query_filtered::<&mut ScrollPosition, Or<(With<VesselSidebar>, With<InventoryScroll>)>>().iter_mut(world)
     {
@@ -969,6 +1059,30 @@ fn tooltip_says(want: &'static str) -> Verify {
     })
 }
 
+/// A pop-up on screen (or queued this frame) starts with `want`.
+fn toast_says(want: &'static str) -> Verify {
+    verify(move |w| {
+        let mut seen: Vec<String> = w.resource::<Toasts>().0.iter().map(|(_, t)| t.clone()).collect();
+        let stack: Vec<Entity> = w.query_filtered::<Entity, With<crate::ui::toasts::ToastStack>>().iter(w).collect();
+        for s in stack {
+            let mut queue = VecDeque::from([s]);
+            while let Some(e) = queue.pop_front() {
+                if let Some(t) = w.get::<Text>(e) {
+                    seen.push(t.0.clone());
+                }
+                if let Some(ch) = w.get::<Children>(e) {
+                    queue.extend(ch.iter());
+                }
+            }
+        }
+        if seen.iter().any(|t| t.starts_with(want)) {
+            Ok(())
+        } else {
+            Err(format!("no pop-up starting {want:?}; showing {seen:?}"))
+        }
+    })
+}
+
 fn tooltip_hidden() -> Verify {
     verify(|w| {
         let shown = w
@@ -1092,12 +1206,12 @@ pub fn all_checks(world: &mut World) -> Vec<Check> {
     ));
     v.push(check(
         "Lab: vessels",
-        "Clicking a locked vessel does nothing",
+        "Clicking a locked vessel places nothing, and says what unlocks it and why",
         vec![
             setup(new_game),
             Op::Wait(3),
             Op::Click(sidebar_button(Smelting)),
-            Op::Wait(5),
+            Op::Until(toast_says("The Bloomery unlocks with Copper. Copper smelted"), 30),
             Op::Expect(verify(|w| {
                 if card(w, Smelting).is_none() {
                     Ok(())
@@ -1152,6 +1266,8 @@ pub fn all_checks(world: &mut World) -> Vec<Check> {
         vec![
             Op::Click(tile("Water")),
             Op::Until(selected_is(Some("Water")), 30),
+            // a moment apart: two quick taps are a double-tap
+            Op::Pause(crate::ui::detail_panel::DOUBLE_TAP + 0.15),
             Op::Click(tile("Water")),
             Op::Until(selected_is(None), 30),
         ],
@@ -2432,7 +2548,15 @@ pub fn all_checks(world: &mut World) -> Vec<Check> {
             setup(new_game),
             open_tree(),
             Op::Wait(10),
-            Op::Click(marked::<TechNodeButton>("a step in the graph")),
+            Op::Click(target("a step in sight on the graph", |w| {
+                let view = first::<TechGraphView>(w, |_| true)?;
+                let (lo, hi) = (point_in(w, view, 0.05, 0.05)?, point_in(w, view, 0.95, 0.95)?);
+                let steps: Vec<Entity> = w.query_filtered::<Entity, With<TechNodeButton>>().iter(w).collect();
+                steps.into_iter().find_map(|e| {
+                    let p = point_in(w, e, 0.5, 0.5)?;
+                    (p.x > lo.x && p.y > lo.y && p.x < hi.x && p.y < hi.y).then_some(p)
+                })
+            })),
             Op::Until(state("a step selected", |w| w.resource::<TechTreeState>().selected.is_some()), 30),
         ],
     ));
@@ -2447,6 +2571,10 @@ pub fn all_checks(world: &mut World) -> Vec<Check> {
         ops.push(setup(move |w| {
             let id = sampled_step(w, i);
             w.resource_mut::<TechTreeState>().selected = id;
+            // only the steps in sight are built: bring it into view, badge and all
+            if let Some(id) = id {
+                w.resource_mut::<TechLinks>().reveal(id);
+            }
         }));
         ops.push(Op::Wait(3));
         ops.push(Op::Until(verify(move |w| needs_shown(w, i)), 30));
@@ -2573,6 +2701,82 @@ pub fn all_checks(world: &mut World) -> Vec<Check> {
     ));
     v.push(check(
         "Tech Tree",
+        "Only the steps in sight are built: panning builds more, closing lets go of all",
+        vec![
+            setup(new_game),
+            setup(|w| {
+                let mut t = w.resource_mut::<TechTreeState>();
+                t.open = true;
+                t.mode = TechMode::Graph;
+                t.selected = None;
+            }),
+            Op::Until(verify(|w| if tech_built(w).0 > 0 { Ok(()) } else { Err("no step built".into()) }), 60),
+            Op::Expect(verify(tech_view_complete)),
+            Op::Expect(verify(|w| {
+                let (steps, rows) = tech_built(w);
+                let all = w.resource::<crate::ui::tech_tree::TechLayout>().steps();
+                if steps * 4 < all && rows == 0 {
+                    Ok(())
+                } else {
+                    Err(format!("{steps} of {all} steps built, {rows} list rows built behind the graph"))
+                }
+            })),
+            // the last step of the tree, far from where it opens
+            setup(|w| {
+                let last = w.resource::<RecipeDatabase>().authored.last().map(|r| r.id);
+                if let Some(id) = last {
+                    w.resource_mut::<TechLinks>().reveal(id);
+                }
+            }),
+            Op::Until(
+                verify(|w| {
+                    let last = w.resource::<RecipeDatabase>().authored.last().map(|r| r.id);
+                    if w.query::<&TechNodeButton>().iter(w).any(|b| Some(b.0) == last) {
+                        Ok(())
+                    } else {
+                        Err(format!("the last step ({last:?}) is not built after scrolling to it"))
+                    }
+                }),
+                60,
+            ),
+            Op::Until(verify(tech_view_complete), 30),
+            // the middle of the map, and deep down the tallest columns
+            setup(|w| scroll_tech_graph(w, Vec2::new(0.5, 0.5))),
+            Op::Wait(3),
+            Op::Until(verify(tech_view_complete), 30),
+            setup(|w| scroll_tech_graph(w, Vec2::new(0.3, 0.9))),
+            Op::Wait(3),
+            Op::Until(verify(tech_view_complete), 30),
+            setup(|w| w.resource_mut::<TechTreeState>().mode = TechMode::List),
+            Op::Until(
+                verify(|w| match tech_built(w) {
+                    (0, rows) if rows > 0 => Ok(()),
+                    built => Err(format!("(graph steps, list rows) built: {built:?}")),
+                }),
+                60,
+            ),
+            Op::Expect(verify(|w| {
+                let rows = tech_built(w).1;
+                let all = w.resource::<crate::ui::tech_tree::TechLayout>().steps();
+                if rows * 4 < all {
+                    Ok(())
+                } else {
+                    Err(format!("{rows} of {all} list rows built"))
+                }
+            })),
+            setup(|w| w.resource_mut::<TechTreeState>().open = false),
+            Op::Until(
+                verify(|w| match tech_built(w) {
+                    (0, 0) => Ok(()),
+                    built => Err(format!("still built once closed: {built:?}")),
+                }),
+                60,
+            ),
+            setup(|w| w.resource_mut::<TechTreeState>().mode = TechMode::Graph),
+        ],
+    ));
+    v.push(check(
+        "Tech Tree",
         "The x closes it",
         vec![
             open_tree(),
@@ -2651,14 +2855,19 @@ pub fn all_checks(world: &mut World) -> Vec<Check> {
             Op::Click(card_part(Heat, React)),
             Op::Until(
                 verify(|w| {
-                    let popping = w
-                        .query_filtered::<&UiTransform, (With<InVessel>, With<crate::ui::inventory::PopIn>)>()
+                    // popping now, or popped already (on slow frames the pop can be over
+                    // before the check looks)
+                    let popped = w
+                        .query_filtered::<(), (
+                            With<InVessel>,
+                            Or<(With<crate::ui::inventory::PopIn>, With<crate::ui::inventory::Popped>)>,
+                        )>()
                         .iter(w)
                         .count();
-                    if popping > 0 {
+                    if popped > 0 {
                         Ok(())
                     } else {
-                        Err("no product chip was popping in".into())
+                        Err("no product chip popped in".into())
                     }
                 }),
                 WAIT,
@@ -2690,7 +2899,7 @@ pub fn all_checks(world: &mut World) -> Vec<Check> {
             Op::Wait(10),
             setup(|w| {
                 let tiles: Vec<Entity> = w.query_filtered::<Entity, With<ShelfTile>>().iter(w).collect();
-                let first = tiles.iter().map(|e| e.index()).min().map(|i| i as f32).unwrap_or(0.0);
+                let first = tiles.iter().map(|e| e.index().index()).min().map(|i| i as f32).unwrap_or(0.0);
                 w.resource_mut::<Scratch>().0.insert("n", tiles.len() as f32);
                 w.resource_mut::<Scratch>().0.insert("first", first);
             }),
@@ -2707,7 +2916,7 @@ pub fn all_checks(world: &mut World) -> Vec<Check> {
                         return Err(format!("{} tiles, expected {} with Charcoal", tiles.len(), n + 1));
                     }
                     let first = w.resource::<Scratch>().0.get("first").copied().unwrap_or(0.0);
-                    let kept = tiles.iter().any(|(e, _)| e.index() as f32 == first);
+                    let kept = tiles.iter().any(|(e, _)| e.index().index() as f32 == first);
                     if kept {
                         Ok(())
                     } else {
@@ -2740,7 +2949,7 @@ pub fn all_checks(world: &mut World) -> Vec<Check> {
         ],
     ));
 
-    // --- help: tooltips, the tour, the next-step card, the era banner ---
+    // --- help: tooltips, the tour, the era banner (the Hint button's checks are in polish.rs) ---
     v.push(check(
         "Help",
         "Hovering a shelf tile explains it",
@@ -2848,63 +3057,6 @@ pub fn all_checks(world: &mut World) -> Vec<Check> {
                     }
                 }),
                 30,
-            ),
-        ],
-    ));
-    v.push(check(
-        "Help",
-        "The next-step card suggests a step and opens it in the tree",
-        vec![
-            setup(new_game),
-            setup(|w| w.resource_mut::<Settings>().next_step = true),
-            Op::Until(
-                verify(|w| {
-                    let want = {
-                        let db = w.resource::<RecipeDatabase>();
-                        next_step(db, w.resource::<PlayerProgress>(), w.resource::<ProcessUnlocks>()).map(|r| r.id)
-                    };
-                    let (shown, id) = w
-                        .query_filtered::<(&Node, &NextStepShow), With<NextStepCard>>()
-                        .iter(w)
-                        .next()
-                        .map(|(n, s)| (n.display != Display::None, s.0))
-                        .unwrap_or((false, None));
-                    if shown && id.is_some() && id == want {
-                        Ok(())
-                    } else {
-                        Err(format!("card shown={shown} on {id:?}, expected {want:?}"))
-                    }
-                }),
-                60,
-            ),
-            Op::Shot("the next-step card"),
-            Op::Click(marked::<NextStepCard>("the next-step card")),
-            Op::Until(
-                verify(|w| {
-                    let id = w.query_filtered::<&NextStepShow, With<NextStepCard>>().iter(w).next().and_then(|s| s.0);
-                    let t = w.resource::<TechTreeState>();
-                    if t.open && t.selected.is_some() && t.selected == id {
-                        Ok(())
-                    } else {
-                        Err(format!("tree open={} on {:?}, card on {:?}", t.open, t.selected, id))
-                    }
-                }),
-                30,
-            ),
-            Op::Until(
-                verify(|w| {
-                    let hidden = w
-                        .query_filtered::<&Node, With<NextStepCard>>()
-                        .iter(w)
-                        .next()
-                        .is_some_and(|n| n.display == Display::None);
-                    if hidden {
-                        Ok(())
-                    } else {
-                        Err("the card shows over the tech tree".into())
-                    }
-                }),
-                10,
             ),
         ],
     ));

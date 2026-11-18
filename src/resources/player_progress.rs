@@ -21,11 +21,12 @@ use crate::data::common::ProcessType;
 use crate::data::substances::Substances;
 use crate::resources::recipe_database::RecipeDatabase;
 use crate::ui::process_toolbar::ProcessUnlocks;
-use crate::ui::toasts::{ToastKind, Toasts};
+use crate::ui::toasts::{Journal, ToastKind, Toasts};
 use crate::GameData;
 
 /// The save format this build writes. 1 was the first format (no version field); 2 adds
-/// the version, the game version that wrote it, and the dormant lists.
+/// the version, the game version that wrote it, and the dormant lists. (The journal of
+/// past notifications came later as an optional field: older saves simply have none.)
 pub const SAVE_VERSION: u32 = 2;
 
 /// Seconds after the last change before the save is written (changes come in bursts:
@@ -66,6 +67,8 @@ pub struct SaveData {
     pub unlocked: Vec<ProcessType>,
     pub dormant: Vec<u32>,
     pub dormant_vessels: Vec<String>,
+    /// past notifications as (kind, text), oldest first
+    pub journal: Vec<(String, String)>,
 }
 
 /// A vessel as written in a save: a bare name such as `Fire`. Read by name, so a vessel
@@ -116,6 +119,7 @@ struct SaveFile {
     unlocked: Vec<VesselName>,
     dormant: Vec<u32>,
     dormant_vessels: Vec<String>,
+    journal: Vec<(String, String)>,
 }
 
 /// The file as written.
@@ -127,6 +131,7 @@ struct SaveOut<'a> {
     unlocked: &'a [ProcessType],
     dormant: &'a [u32],
     dormant_vessels: &'a [String],
+    journal: &'a [(String, String)],
 }
 
 impl SaveData {
@@ -141,6 +146,7 @@ impl SaveData {
             unlocked: Vec::new(),
             dormant: file.dormant,
             dormant_vessels: file.dormant_vessels,
+            journal: file.journal,
         };
         for VesselName(name) in file.unlocked {
             match ron::from_str::<ProcessType>(&name) {
@@ -195,6 +201,7 @@ impl SaveData {
             unlocked: &self.unlocked,
             dormant: &self.dormant,
             dormant_vessels: &self.dormant_vessels,
+            journal: &self.journal,
         };
         ron::ser::to_string_pretty(&out, ron::ser::PrettyConfig::default().compact_arrays(true)).unwrap_or_default()
     }
@@ -221,7 +228,7 @@ pub struct FiredMilestones {
 }
 
 /// `%APPDATA%\Curieosity\progress.ron` on Windows, `~/.local/share/curieosity/progress.ron`
-/// elsewhere, and the app's own storage on Android. Kept out of the project folder.
+/// elsewhere, and the app's own storage on Android and iOS. Kept out of the project folder.
 pub fn save_path() -> PathBuf {
     let base = app_storage()
         .or_else(|| std::env::var_os("APPDATA").map(|p| PathBuf::from(p).join("Curieosity")))
@@ -237,7 +244,14 @@ fn app_storage() -> Option<PathBuf> {
     bevy::android::ANDROID_APP.get().and_then(|app| app.internal_data_path())
 }
 
-#[cfg(not(target_os = "android"))]
+/// iOS: the app's own Application Support folder (backed up with the device, kept until the
+/// app is deleted). HOME is the app's sandbox there.
+#[cfg(target_os = "ios")]
+fn app_storage() -> Option<PathBuf> {
+    std::env::var_os("HOME").map(|home| PathBuf::from(home).join("Library/Application Support/Curieosity"))
+}
+
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
 fn app_storage() -> Option<PathBuf> {
     None
 }
@@ -307,6 +321,7 @@ pub fn load_or_seed_progress_system(
     mut progress: ResMut<PlayerProgress>,
     mut unlocks: ResMut<ProcessUnlocks>,
     mut toasts: ResMut<Toasts>,
+    mut journal: ResMut<Journal>,
 ) {
     if progress.ready {
         return;
@@ -331,6 +346,7 @@ pub fn load_or_seed_progress_system(
             }
             progress.dormant = save.dormant.clone();
             progress.dormant_vessels = save.dormant_vessels.clone();
+            *journal = Journal::from_pairs(&save.journal);
             for p in save.unlocked {
                 unlocks.0.insert(p);
             }
@@ -384,23 +400,30 @@ impl SaveClock {
         self.pending_since.is_some()
     }
 
-    fn write(&mut self, progress: &PlayerProgress, unlocks: &ProcessUnlocks, persistence: &Persistence) {
+    fn write(
+        &mut self,
+        progress: &PlayerProgress,
+        unlocks: &ProcessUnlocks,
+        journal: &Journal,
+        persistence: &Persistence,
+    ) {
         self.pending_since = None;
         self.writes += 1;
         if !persistence.0 {
             return;
         }
         let path = save_path();
-        if let Err(e) = write_atomic(&path, &current_save(progress, unlocks).to_text()) {
+        if let Err(e) = write_atomic(&path, &current_save(progress, unlocks, journal).to_text()) {
             warn!("Could not write save {}: {}", path.display(), e);
         }
     }
 }
 
-/// Autosave: a short while after discoveries or unlocks change.
+/// Autosave: a short while after discoveries, unlocks or the journal change.
 pub fn save_progress_system(
     progress: Res<PlayerProgress>,
     unlocks: Res<ProcessUnlocks>,
+    journal: Res<Journal>,
     persistence: Res<Persistence>,
     time: Res<Time>,
     mut clock: ResMut<SaveClock>,
@@ -409,11 +432,11 @@ pub fn save_progress_system(
         return;
     }
     let now = time.elapsed_secs();
-    if progress.is_changed() || unlocks.is_changed() {
+    if progress.is_changed() || unlocks.is_changed() || journal.is_changed() {
         clock.pending_since.get_or_insert(now);
     }
     if clock.pending_since.is_some_and(|since| now - since >= AUTOSAVE_DELAY) {
-        clock.write(&progress, &unlocks, &persistence);
+        clock.write(&progress, &unlocks, &journal, &persistence);
     }
 }
 
@@ -423,16 +446,17 @@ pub fn save_on_exit_system(
     mut exit: MessageReader<AppExit>,
     progress: Res<PlayerProgress>,
     unlocks: Res<ProcessUnlocks>,
+    journal: Res<Journal>,
     persistence: Res<Persistence>,
     mut clock: ResMut<SaveClock>,
 ) {
     if exit.read().count() > 0 && progress.ready && clock.pending() {
-        clock.write(&progress, &unlocks, &persistence);
+        clock.write(&progress, &unlocks, &journal, &persistence);
     }
 }
 
 /// The save for the game as it stands.
-pub fn current_save(progress: &PlayerProgress, unlocks: &ProcessUnlocks) -> SaveData {
+pub fn current_save(progress: &PlayerProgress, unlocks: &ProcessUnlocks, journal: &Journal) -> SaveData {
     let mut discovered: Vec<u32> = progress.discovered.iter().copied().collect();
     discovered.sort_unstable();
     let mut unlocked: Vec<ProcessType> = unlocks.0.iter().cloned().collect();
@@ -443,6 +467,7 @@ pub fn current_save(progress: &PlayerProgress, unlocks: &ProcessUnlocks) -> Save
         unlocked,
         dormant: progress.dormant.clone(),
         dormant_vessels: progress.dormant_vessels.clone(),
+        journal: journal.to_pairs(),
     }
 }
 
@@ -505,6 +530,24 @@ mod tests {
         assert_eq!(later.discovered, vec![1, 5, 424242]);
         assert!(later.dormant.is_empty());
         assert_eq!(later.dormant_vessels, vec!["Replicator".to_string()]);
+    }
+
+    #[test]
+    fn the_journal_is_saved_and_old_saves_have_none() {
+        let mut j = Journal::default();
+        j.push(ToastKind::Discovery, "New: Quicklime");
+        j.push(ToastKind::Milestone, "Copper! The furnace becomes a smelter.");
+        let save = SaveData { version: SAVE_VERSION, discovered: vec![1], journal: j.to_pairs(), ..Default::default() };
+        let back = SaveData::parse(&save.to_text()).unwrap();
+        assert_eq!(Journal::from_pairs(&back.journal).0, j.0);
+        assert!(SaveData::parse("(discovered:[1],unlocked:[Mix])").unwrap().journal.is_empty());
+        // only the newest are kept
+        let mut long = Journal::default();
+        for i in 0..crate::ui::toasts::JOURNAL_MAX + 25 {
+            long.push(ToastKind::Discovery, format!("#{i}"));
+        }
+        assert_eq!(long.0.len(), crate::ui::toasts::JOURNAL_MAX);
+        assert_eq!(long.0[0].text, "#25");
     }
 
     #[test]

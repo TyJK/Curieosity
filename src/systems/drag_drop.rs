@@ -9,7 +9,8 @@
 //   * the empty bench -> pans it
 //   * a vessel's output port onto another vessel's input port -> links them
 // and the click that goes with a selection: with a substance selected on the shelf,
-// clicking a vessel puts it in.
+// clicking a vessel puts it in. The vessel last placed, tapped, moved or filled is the
+// active one: a double-tap on a shelf tile puts that substance straight into it.
 //
 // On a touch screen a finger swiping across the shelf scrolls it; holding a tile for a
 // moment first lifts it instead (tapping it and then a vessel works too).
@@ -19,9 +20,10 @@
 // drop target, and it works the same for the mouse and for the review run's virtual
 // pointer. Positions from the pointer are window pixels; nodes are UI pixels, so every
 // distance is divided by the interface size (UiScale).
+use crate::ui::Button;
 use bevy::ecs::system::SystemParam;
 use bevy::picking::hover::{HoverMap, PreviousHoverMap};
-use bevy::picking::pointer::{PointerId, PointerPress};
+use bevy::picking::pointer::{PointerId, PointerPressState};
 use bevy::prelude::*;
 
 use crate::components::ui_markers::{
@@ -44,13 +46,24 @@ pub struct DragDropPlugin;
 #[derive(Resource, Default)]
 pub struct LinkDragState(pub Option<Entity>);
 
+/// The vessel last placed, tapped, moved or filled: where a double-tapped shelf tile goes.
+#[derive(Resource, Default, Debug)]
+pub struct ActiveVessel(pub Option<Entity>);
+
+/// Put this substance into the active vessel (a double-tap on its shelf tile).
+#[derive(Message, Clone, Copy, Debug)]
+pub struct AddToActive(pub u32);
+
 impl Plugin for DragDropPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<LinkDragState>()
+            .init_resource::<ActiveVessel>()
+            .init_resource::<BenchZoom>()
+            .add_message::<AddToActive>()
             // PreUpdate: its commands land before Update can despawn a freshly spawned tile
             // (the shelf rebuilds itself when a milestone grants new substances).
             .add_systems(PreUpdate, attach_drag_observers_to_draggables)
-            .add_systems(Update, sweep_drags_system);
+            .add_systems(Update, (sweep_drags_system, add_to_active_system, active_vessel_system, bench_zoom_system));
     }
 }
 
@@ -88,6 +101,9 @@ pub struct DragGhostNode {
     pub owner: Entity,
 }
 
+/// The layer a dragged card or tile is lifted to while the drag lasts (and only then).
+const LIFT: i32 = 100;
+
 const GHOST_W: f32 = 132.0;
 const GHOST_H: f32 = 40.0;
 /// Pointer travel (window px) before a press counts as a drag rather than a click.
@@ -111,10 +127,13 @@ fn attach_drag_observers_to_draggables(
     new_panes: Query<Entity, Added<CanvasScrollingPane>>,
     new_output_ports: Query<Entity, (Added<Draggable>, With<OutputPort>)>,
 ) {
+    // No GlobalZIndex at rest: a node with one is drawn as its own root, in an order Bevy
+    // does not keep stable between roots on the same layer, so a vessel card could be drawn
+    // over its own contents. Only a drag lifts a node (LIFT), and the drop puts it back.
     for entity in &new_ingredients {
         commands
             .entity(entity)
-            .try_insert((Outline::default(), GlobalZIndex::default(), Pickable::default()))
+            .try_insert((Outline::default(), Pickable::default()))
             .observe(finger_down)
             .observe(start_drag)
             .observe(update_drag)
@@ -123,7 +142,7 @@ fn attach_drag_observers_to_draggables(
     for entity in &new_vessels {
         commands
             .entity(entity)
-            .insert((Outline::default(), GlobalZIndex::default(), Pickable::default()))
+            .insert((Outline::default(), Pickable::default()))
             .observe(start_drag)
             .observe(update_drag)
             .observe(stop_drag_vessel)
@@ -258,19 +277,19 @@ impl DropProbe<'_, '_> {
 // ---------------------------------------------------------------------------------------
 // Dragging
 // ---------------------------------------------------------------------------------------
-fn finger_down(trigger: On<Pointer<Press>>, mut commands: Commands, time: Res<Time<Real>>) {
-    if matches!(trigger.pointer_id, PointerId::Touch(_)) {
+fn finger_down(trigger: On<PointerPress>, mut commands: Commands, time: Res<Time<Real>>) {
+    if matches!(trigger.pointer.id, PointerId::Touch(_)) {
         commands.entity(trigger.entity).try_insert(FingerDown(time.elapsed_secs_f64()));
     }
 }
 
 #[allow(clippy::too_many_arguments)]
 fn start_drag(
-    mut trigger: On<Pointer<DragStart>>,
+    mut trigger: On<PointerDragStart>,
     mut commands: Commands,
     existing: Query<&DragGhost>,
-    mut vessel_query: Query<(&mut Outline, &mut GlobalZIndex, &Node), With<VesselCard>>,
-    mut tile_query: Query<(&mut Outline, &mut GlobalZIndex, &Ingredient), Without<VesselCard>>,
+    mut vessel_query: Query<(&mut Outline, &Node), With<VesselCard>>,
+    mut tile_query: Query<(&mut Outline, &Ingredient), Without<VesselCard>>,
     chips: Query<(), Or<(With<InVessel>, With<InCatalystZone>)>>,
     fingers: Query<&FingerDown>,
     time: Res<Time<Real>>,
@@ -282,42 +301,41 @@ fn start_drag(
     trigger.propagate(false);
     let e = trigger.entity;
 
-    if let Ok((mut outline, mut z, node)) = vessel_query.get_mut(e) {
+    if let Ok((mut outline, node)) = vessel_query.get_mut(e) {
         outline.width = Val::Px(2.0);
         outline.color = theme::CYAN;
-        z.0 = 100;
         let left = if let Val::Px(px) = node.left { px } else { 0.0 };
         let top = if let Val::Px(px) = node.top { px } else { 0.0 };
-        commands.entity(e).insert(DragStartPos { left, top });
+        commands.entity(e).insert((DragStartPos { left, top }, GlobalZIndex(LIFT)));
         return;
     }
 
     // a finger moving straight off a shelf tile swipes the shelf
-    if matches!(trigger.pointer_id, PointerId::Touch(_)) && !chips.contains(e) {
+    if matches!(trigger.pointer.id, PointerId::Touch(_)) && !chips.contains(e) {
         let held = fingers.get(e).map(|f| time.elapsed_secs_f64() - f.0).unwrap_or(0.0);
         if held < LIFT_HOLD {
             commands.entity(e).try_insert(Swiping);
             return;
         }
     }
-    let Ok((mut outline, mut z, ing)) = tile_query.get_mut(e) else { return };
+    let Ok((mut outline, ing)) = tile_query.get_mut(e) else { return };
     // never two copies of one tile
     if let Ok(old) = existing.get(e) {
         commands.entity(old.ghost).despawn();
     }
     outline.width = Val::Px(2.0);
     outline.color = theme::CYAN;
-    z.0 = 100;
 
     // The floating copy, centred on the pointer.
     let s = ui_scale.0.max(0.01);
     let half = Vec2::new(GHOST_W, GHOST_H) * 0.5;
-    let at = trigger.pointer_location.position / s - half;
+    let at = trigger.pointer.position / s - half;
     let accent = if is_element_formula(&ing.formula) { element_tile_color(&ing.formula) } else { theme::CYAN };
     let ghost = commands
         .spawn((
             DragGhostNode { owner: e },
             Node {
+                border_radius: BorderRadius::all(Val::Px(theme::R_MD)),
                 position_type: PositionType::Absolute,
                 left: Val::Px(at.x),
                 top: Val::Px(at.y),
@@ -329,7 +347,6 @@ fn start_drag(
                 border: UiRect::all(Val::Px(1.5)),
                 ..default()
             },
-            BorderRadius::all(Val::Px(theme::R_MD)),
             BackgroundColor(theme::mix(theme::RAISED, accent, 0.16).with_alpha(0.95)),
             BorderColor::all(accent),
             theme::shadow(18.0, 6.0, 0.55),
@@ -371,11 +388,11 @@ fn start_drag(
             );
         })
         .id();
-    commands.entity(e).insert(DragGhost { ghost, half });
+    commands.entity(e).insert((DragGhost { ghost, half }, GlobalZIndex(LIFT)));
 }
 
 fn update_drag(
-    trigger: On<Pointer<Drag>>,
+    trigger: On<PointerDrag>,
     mut commands: Commands,
     mut vessel_query: Query<(&mut Node, &DragStartPos), With<VesselCard>>,
     ghosts: Query<&DragGhost>,
@@ -383,6 +400,7 @@ fn update_drag(
     swiping: Query<(), With<Swiping>>,
     mut swipes: MessageWriter<TouchScroll>,
     ui_scale: Res<UiScale>,
+    zoom: Res<BenchZoom>,
 ) {
     let s = ui_scale.0.max(0.01);
     let e = trigger.entity;
@@ -394,14 +412,15 @@ fn update_drag(
         return;
     }
     if let Ok((mut node, start)) = vessel_query.get_mut(e) {
-        let d = trigger.distance / s;
+        // a card moves in the pane's own units: the pointer's travel, unscaled
+        let d = trigger.distance / (s * zoom.0.max(0.01));
         node.left = Val::Px((start.left + d.x).max(0.0));
         node.top = Val::Px((start.top + d.y).max(0.0));
         return;
     }
     if let Ok(g) = ghosts.get(e) {
         if let Ok(mut node) = ghost_nodes.get_mut(g.ghost) {
-            let at = trigger.pointer_location.position / s - g.half;
+            let at = trigger.pointer.position / s - g.half;
             node.left = Val::Px(at.x);
             node.top = Val::Px(at.y);
         }
@@ -414,9 +433,9 @@ fn update_drag(
 /// its own) moves it; onto its own zone it stays put; anywhere else it is taken out.
 #[allow(clippy::too_many_arguments)]
 fn stop_drag_ingredient(
-    mut trigger: On<Pointer<DragEnd>>,
+    mut trigger: On<PointerDragEnd>,
     mut commands: Commands,
-    mut tiles: Query<(&mut Outline, &mut GlobalZIndex, &Ingredient)>,
+    mut tiles: Query<(&mut Outline, &Ingredient)>,
     homes: Query<(Option<&InVessel>, Option<&InCatalystZone>)>,
     moved: Query<(), With<DragMoved>>,
     ghosts: Query<&DragGhost>,
@@ -425,6 +444,7 @@ fn stop_drag_ingredient(
     catalysts: Query<(Entity, &InCatalystZone)>,
     fonts: Res<UiFonts>,
     assets: Res<AssetServer>,
+    mut active: ResMut<ActiveVessel>,
 ) {
     trigger.propagate(false);
     let e = trigger.entity;
@@ -440,23 +460,27 @@ fn stop_drag_ingredient(
         commands.entity(e).remove::<Swiping>();
         return;
     }
-    let Ok((mut outline, mut z, ing)) = tiles.get_mut(e) else { return };
+    let Ok((mut outline, ing)) = tiles.get_mut(e) else { return };
     outline.color = Color::NONE;
-    z.0 = 0;
+    commands.entity(e).try_remove::<GlobalZIndex>();
     let ing = ing.clone();
-    let spot = probe.under(trigger.pointer_id);
+    let spot = probe.under(trigger.pointer.id);
     let home = match homes.get(e) {
         Ok((Some(v), _)) => Some(ChipHome::Contents(v.0)),
         Ok((None, Some(c))) => Some(ChipHome::Catalyst(c.0)),
         _ => None,
     };
+    let into = spot_vessel(spot);
     match chip_drop(home, spot, was_moved) {
         ChipDrop::Place => {
-            put_in_vessel(&mut commands, spot, &ing, &catalysts, &fonts, &assets);
+            if put_in_vessel(&mut commands, spot, &ing, &catalysts, &fonts, &assets) {
+                active.0 = into;
+            }
         }
         ChipDrop::Move => {
             if put_in_vessel(&mut commands, spot, &ing, &catalysts, &fonts, &assets) {
                 commands.entity(e).despawn();
+                active.0 = into;
             }
         }
         ChipDrop::Remove => {
@@ -500,8 +524,18 @@ pub fn chip_drop(home: Option<ChipHome>, spot: Option<DropSpot>, moved: bool) ->
     }
 }
 
-/// Put a substance into the vessel part `spot` names. Shared by drag-and-drop and
-/// click-to-place.
+/// The vessel a drop spot belongs to.
+fn spot_vessel(spot: Option<DropSpot>) -> Option<Entity> {
+    match spot {
+        Some(DropSpot::Catalyst { vessel, .. })
+        | Some(DropSpot::Ingredients { vessel, .. })
+        | Some(DropSpot::InputPort { vessel, .. }) => Some(vessel),
+        None => None,
+    }
+}
+
+/// Put a substance into the vessel part `spot` names. Shared by drag-and-drop,
+/// click-to-place and the double-tap.
 fn put_in_vessel(
     commands: &mut Commands,
     spot: Option<DropSpot>,
@@ -533,24 +567,25 @@ fn put_in_vessel(
 }
 
 fn stop_drag_vessel(
-    trigger: On<Pointer<DragEnd>>,
+    trigger: On<PointerDragEnd>,
     mut commands: Commands,
-    mut vessels: Query<(&mut Node, &mut Outline, &mut GlobalZIndex), With<VesselCard>>,
+    mut vessels: Query<(&mut Node, &mut Outline), With<VesselCard>>,
+    mut active: ResMut<ActiveVessel>,
 ) {
     let e = trigger.entity;
-    let Ok((mut node, mut outline, mut z)) = vessels.get_mut(e) else { return };
+    let Ok((mut node, mut outline)) = vessels.get_mut(e) else { return };
+    active.0 = Some(e);
     let snap = |v: Val| if let Val::Px(px) = v { Val::Px((px / 20.0).round() * 20.0) } else { v };
     node.left = snap(node.left);
     node.top = snap(node.top);
     outline.color = Color::NONE;
-    z.0 = 0;
-    commands.entity(e).remove::<(DragStartPos, DragMoved)>();
+    commands.entity(e).remove::<(DragStartPos, DragMoved, GlobalZIndex)>();
 }
 
 /// Click-to-place: with a substance selected on the shelf, a click on a vessel (not on one
 /// of its buttons or ports) puts it in; on the Catalyst Bed's slot it becomes the catalyst.
 fn click_card(
-    mut trigger: On<Pointer<Click>>,
+    mut trigger: On<PointerClick>,
     mut commands: Commands,
     moved: Query<(), With<DragMoved>>,
     probe: DropProbe,
@@ -561,6 +596,7 @@ fn click_card(
     catalysts: Query<(Entity, &InCatalystZone)>,
     fonts: Res<UiFonts>,
     assets: Res<AssetServer>,
+    mut active: ResMut<ActiveVessel>,
 ) {
     trigger.propagate(false);
     if trigger.button != PointerButton::Primary
@@ -569,6 +605,8 @@ fn click_card(
     {
         return;
     }
+    // any tap on a card makes it the one a double-tap fills
+    active.0 = Some(trigger.entity);
     let Some(id) = selected.0.filter(|id| progress.discovered.contains(id)) else { return };
     let (spot, on_control) = probe.classify(trigger.original_event_target());
     if on_control {
@@ -586,16 +624,97 @@ fn click_card(
     put_in_vessel(&mut commands, spot, &ing, &catalysts, &fonts, &assets);
 }
 
+/// A double-tapped shelf tile goes into the active vessel (or the only one on the bench).
+#[allow(clippy::too_many_arguments)]
+fn add_to_active_system(
+    mut asks: MessageReader<AddToActive>,
+    mut commands: Commands,
+    mut active: ResMut<ActiveVessel>,
+    cards: Query<(Entity, &Children), With<VesselCard>>,
+    zones: Query<(), With<VesselIngredientZone>>,
+    catalysts: Query<(Entity, &InCatalystZone)>,
+    game_data: Res<GameData>,
+    substances: Res<Assets<Substances>>,
+    fonts: Res<UiFonts>,
+    assets: Res<AssetServer>,
+    mut toasts: ResMut<crate::ui::toasts::Toasts>,
+) {
+    for ask in asks.read() {
+        let vessel = active.0.filter(|e| cards.contains(*e)).or_else(|| {
+            let mut all = cards.iter().map(|(e, _)| e);
+            match (all.next(), all.next()) {
+                (Some(only), None) => Some(only),
+                _ => None,
+            }
+        });
+        let Some((vessel, children)) = vessel.and_then(|v| cards.get(v).ok()) else {
+            toasts.push(
+                crate::ui::toasts::ToastKind::Hint,
+                if cards.is_empty() {
+                    "Put a vessel on the bench first: a double-tap fills the vessel you used last."
+                } else {
+                    "Tap the vessel you want first: a double-tap fills the vessel you used last."
+                },
+            );
+            continue;
+        };
+        let Some(zone) = children.iter().find(|c| zones.contains(*c)) else { continue };
+        let Some(sub) = substances.get(&game_data.substances).and_then(|s| s.0.get(&ask.0)) else { continue };
+        let ing = Ingredient {
+            id: sub.id,
+            name: sub.name.clone(),
+            formula: sub.formula.clone(),
+            state: sub.state,
+            properties: sub.properties.clone(),
+            amount: 1,
+        };
+        if put_in_vessel(&mut commands, Some(DropSpot::Ingredients { zone, vessel }), &ing, &catalysts, &fonts, &assets)
+        {
+            active.0 = Some(vessel);
+        }
+    }
+}
+
+/// With more than one vessel on the bench, the active one wears an outline in its colour
+/// (a card being dragged keeps the drag's outline). A vessel that is gone stops being active.
+fn active_vessel_system(
+    mut active: ResMut<ActiveVessel>,
+    all: Query<(), With<VesselCard>>,
+    mut cards: Query<
+        (Entity, &crate::components::ui_markers::ProcessVessel, &mut Outline),
+        (With<VesselCard>, Without<DragStartPos>),
+    >,
+) {
+    if active.0.is_some_and(|e| !all.contains(e)) {
+        active.0 = None;
+    }
+    let several = all.iter().count() > 1;
+    for (e, pv, mut outline) in &mut cards {
+        let want = if several && active.0 == Some(e) {
+            Outline {
+                width: Val::Px(2.0),
+                offset: Val::Px(3.0),
+                color: crate::systems::reaction_check::process_color(&pv.process).with_alpha(0.85),
+            }
+        } else {
+            Outline { width: Val::Px(0.0), offset: Val::Px(0.0), color: Color::NONE }
+        };
+        if outline.color != want.color || outline.width != want.width {
+            *outline = want;
+        }
+    }
+}
+
 /// The safety net: once no pointer is pressed, no drag can be in progress, so anything a
 /// drag left behind (a floating copy, a lifted card, a half-drawn link) is put away. Also
 /// removes any copy whose tile is gone.
 fn sweep_drags_system(
     mut commands: Commands,
-    pointers: Query<&PointerPress>,
+    pointers: Query<&PointerPressState>,
     ghosts: Query<(Entity, &DragGhostNode)>,
     owners: Query<&DragGhost>,
-    mut tiles: Query<(Entity, &mut Outline, &mut GlobalZIndex), (With<DragGhost>, Without<VesselCard>)>,
-    mut cards: Query<(Entity, &mut Node, &mut Outline, &mut GlobalZIndex), (With<DragStartPos>, With<VesselCard>)>,
+    mut tiles: Query<(Entity, &mut Outline), (With<DragGhost>, Without<VesselCard>)>,
+    mut cards: Query<(Entity, &mut Node, &mut Outline), (With<DragStartPos>, With<VesselCard>)>,
     moved: Query<Entity, With<DragMoved>>,
     mut link: ResMut<LinkDragState>,
 ) {
@@ -609,18 +728,16 @@ fn sweep_drags_system(
     if pressing {
         return;
     }
-    for (e, mut outline, mut z) in &mut tiles {
+    for (e, mut outline) in &mut tiles {
         outline.color = Color::NONE;
-        z.0 = 0;
-        commands.entity(e).remove::<DragGhost>();
+        commands.entity(e).remove::<(DragGhost, GlobalZIndex)>();
     }
-    for (e, mut node, mut outline, mut z) in &mut cards {
+    for (e, mut node, mut outline) in &mut cards {
         let snap = |v: Val| if let Val::Px(px) = v { Val::Px((px / 20.0).round() * 20.0) } else { v };
         node.left = snap(node.left);
         node.top = snap(node.top);
         outline.color = Color::NONE;
-        z.0 = 0;
-        commands.entity(e).remove::<DragStartPos>();
+        commands.entity(e).remove::<(DragStartPos, GlobalZIndex)>();
     }
     for e in &moved {
         commands.entity(e).remove::<DragMoved>();
@@ -634,7 +751,7 @@ fn sweep_drags_system(
 // Panning the bench
 // ---------------------------------------------------------------------------------------
 fn start_pan_canvas(
-    trigger: On<Pointer<DragStart>>,
+    trigger: On<PointerDragStart>,
     mut commands: Commands,
     panes: Query<&Node, With<CanvasScrollingPane>>,
 ) {
@@ -646,36 +763,118 @@ fn start_pan_canvas(
 }
 
 fn update_pan_canvas(
-    trigger: On<Pointer<Drag>>,
+    trigger: On<PointerDrag>,
     mut panes: Query<(&mut Node, &PanStartPos), With<CanvasScrollingPane>>,
     bench: Query<&ComputedNode, With<ReactionCanvasRoot>>,
     ui_scale: Res<UiScale>,
+    zoom: Res<BenchZoom>,
 ) {
     let Ok((mut node, start)) = panes.get_mut(trigger.entity) else { return };
-    // how much of the pane the bench shows, in UI px
-    let view = bench.iter().next().map(|c| c.size * c.inverse_scale_factor()).unwrap_or(Vec2::new(1000.0, 500.0));
-    let w = if let Val::Px(px) = node.width { px } else { 5000.0 };
-    let h = if let Val::Px(px) = node.height { px } else { 5000.0 };
-    let min = Vec2::new((view.x - w).min(0.0), (view.y - h).min(0.0));
     let d = trigger.distance / ui_scale.0.max(0.01);
-    node.left = Val::Px((start.left + d.x).clamp(min.x, 0.0));
-    node.top = Val::Px((start.top + d.y).clamp(min.y, 0.0));
+    pan_bench(&mut node, bench_view(&bench), Vec2::new(start.left, start.top) + d, zoom.0);
 }
 
-fn stop_pan_canvas(trigger: On<Pointer<DragEnd>>, mut commands: Commands) {
+/// How large the bench draws its vessels and links (1 is full size). At OVERVIEW and below
+/// the vessel cards collapse to their overview form (reaction_check::vessel_fit_system).
+#[derive(Resource, Debug, Clone, Copy, PartialEq)]
+pub struct BenchZoom(pub f32);
+
+impl Default for BenchZoom {
+    fn default() -> Self {
+        Self(1.0)
+    }
+}
+
+/// The zoom steps, nearest first.
+pub const ZOOMS: [f32; 4] = [1.0, 0.8, 0.6, 0.45];
+/// At this zoom and below, cards show their overview form.
+pub const OVERVIEW: f32 = 0.6;
+
+impl BenchZoom {
+    /// The next step out (or in), staying within ZOOMS.
+    pub fn stepped(self, out: bool) -> f32 {
+        let i = ZOOMS.iter().position(|z| (z - self.0).abs() < 0.01).unwrap_or(0) as i32;
+        let j = (i + if out { 1 } else { -1 }).clamp(0, ZOOMS.len() as i32 - 1);
+        ZOOMS[j as usize]
+    }
+
+    pub fn overview(self) -> bool {
+        self.0 <= OVERVIEW + 0.001
+    }
+}
+
+/// Applies a zoom change: the pane is scaled about its top-left corner (bevy_ui scales a
+/// node about its middle, so it is moved back by what that shifts), and panned so the
+/// middle of the bench stays on the same spot.
+pub fn bench_zoom_system(
+    zoom: Res<BenchZoom>,
+    mut last: Local<Option<f32>>,
+    mut panes: Query<(&mut Node, &mut UiTransform), With<CanvasScrollingPane>>,
+    bench: Query<&ComputedNode, With<ReactionCanvasRoot>>,
+) {
+    let z = zoom.0;
+    if *last == Some(z) {
+        return;
+    }
+    let Ok((mut node, mut tf)) = panes.single_mut() else { return };
+    let old = last.unwrap_or(1.0);
+    *last = Some(z);
+    let size = pane_size(&node);
+    tf.scale = Vec2::splat(z);
+    tf.translation = Val2::px(-(1.0 - z) * size.x / 2.0, -(1.0 - z) * size.y / 2.0);
+    let view = bench_view(&bench);
+    let middle = view / 2.0;
+    let spot = (middle - pane_offset(&node)) / old;
+    pan_bench(&mut node, view, middle - spot * z, z);
+}
+
+/// The pane's size, unscaled (UI px).
+fn pane_size(pane: &Node) -> Vec2 {
+    let w = if let Val::Px(px) = pane.width { px } else { 5000.0 };
+    let h = if let Val::Px(px) = pane.height { px } else { 5000.0 };
+    Vec2::new(w, h)
+}
+
+/// How much of the pane the bench shows, in UI px.
+pub fn bench_view(bench: &Query<&ComputedNode, With<ReactionCanvasRoot>>) -> Vec2 {
+    bench.iter().next().map(|c| c.size * c.inverse_scale_factor()).unwrap_or(Vec2::new(1000.0, 500.0))
+}
+
+/// Move the bench pane so its top-left sits at `at` (UI px), kept within the pane as drawn
+/// at `zoom`: never past its top-left corner (0, 0), never so far that its far edges come
+/// into view. The drag, the wheel and zooming all pan through here.
+pub fn pan_bench(pane: &mut Node, view: Vec2, at: Vec2, zoom: f32) {
+    let size = pane_size(pane) * zoom.max(0.01);
+    let min = Vec2::new((view.x - size.x).min(0.0), (view.y - size.y).min(0.0));
+    let at = at.clamp(min, Vec2::ZERO);
+    if pane.left != Val::Px(at.x) {
+        pane.left = Val::Px(at.x);
+    }
+    if pane.top != Val::Px(at.y) {
+        pane.top = Val::Px(at.y);
+    }
+}
+
+/// Where the bench pane's top-left sits (UI px).
+pub fn pane_offset(pane: &Node) -> Vec2 {
+    let px = |v: Val| if let Val::Px(p) = v { p } else { 0.0 };
+    Vec2::new(px(pane.left), px(pane.top))
+}
+
+fn stop_pan_canvas(trigger: On<PointerDragEnd>, mut commands: Commands) {
     commands.entity(trigger.entity).remove::<PanStartPos>();
 }
 
 // ---------------------------------------------------------------------------------------
 // Linking vessels
 // ---------------------------------------------------------------------------------------
-fn start_draw_link(mut trigger: On<Pointer<DragStart>>, mut state: ResMut<LinkDragState>) {
+fn start_draw_link(mut trigger: On<PointerDragStart>, mut state: ResMut<LinkDragState>) {
     trigger.propagate(false); // not a pan, not a card move
     state.0 = Some(trigger.entity);
 }
 
 fn stop_draw_link(
-    mut trigger: On<Pointer<DragEnd>>,
+    mut trigger: On<PointerDragEnd>,
     mut commands: Commands,
     mut state: ResMut<LinkDragState>,
     probe: DropProbe,
@@ -684,7 +883,7 @@ fn stop_draw_link(
     trigger.propagate(false);
     let Some(from_port) = state.0.take() else { return };
     let (Some(DropSpot::InputPort { port: to_port, vessel: to_vessel }), (from, _)) =
-        (probe.under(trigger.pointer_id), probe.classify(from_port))
+        (probe.under(trigger.pointer.id), probe.classify(from_port))
     else {
         return;
     };

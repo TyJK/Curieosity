@@ -309,10 +309,15 @@ pub struct Views<'w> {
     tree: ResMut<'w, TechTreeState>,
     settings_ui: ResMut<'w, SettingsUi>,
     coach: ResMut<'w, Coach>,
+    hint: ResMut<'w, crate::ui::hint::HintState>,
 }
 
 impl Views<'_> {
     fn close_all(&mut self) {
+        // the lab's screenshot chases a target; nothing else does
+        if self.hint.target.is_some() || self.hint.list_open {
+            self.hint.stop();
+        }
         self.codex.open = false;
         if self.codex_filter.category != InvCategory::All {
             self.codex_filter.category = InvCategory::All;
@@ -474,7 +479,7 @@ fn autoplay_drive_system(
             if let Some(s) = game.settings.as_mut() {
                 s.reaction_speed = 25.0;
                 s.tour_done = true;
-                s.next_step = true; // the screenshots show the suggestion as the game goes
+                s.next_step = true; // the screenshots show the Hint button as the game goes
                 s.tooltips = false; // and no tooltip left over from wherever the cursor rests
             }
             views.coach.step = CoachStep::Off;
@@ -716,7 +721,17 @@ fn autoplay_drive_system(
             let subs = game.game_data.as_ref().and_then(|g| game.substances.get(&g.substances));
             views.close_all();
             match view {
-                TourView::Lab => {}
+                TourView::Lab => {
+                    // the lab is shown chasing a target, one hint in, with its kit on the shelf
+                    let known = |id: u32| game.progress.discovered.contains(&id);
+                    let open = |p: &ProcessType| game.unlocks.0.contains(p);
+                    if let Some(t) = crate::ui::hint::targets(db, &known, &open).into_iter().next() {
+                        let decoys =
+                            game.settings.as_ref().map_or(Settings::default().decoy_range(), |s| s.decoy_range());
+                        crate::ui::hint::choose(&mut views.hint, t, db, &game.progress, &game.unlocks, decoys);
+                        views.hint.level = 1;
+                    }
+                }
                 TourView::TreeGraph | TourView::TreeList => {
                     views.tree.open = true;
                     views.tree.mode = if view == TourView::TreeGraph { TechMode::Graph } else { TechMode::List };

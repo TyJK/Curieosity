@@ -14,7 +14,7 @@ use bevy::{
 use serde::de::DeserializeOwned;
 use thiserror::Error;
 
-#[derive(Default)]
+#[derive(Default, TypePath)]
 pub struct RonAssetLoader<T> {
     _phantom: std::marker::PhantomData<T>,
 }

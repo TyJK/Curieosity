@@ -26,10 +26,12 @@ jobs:
     name: Format, lints and tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          components: rustfmt, clippy
+      - uses: actions/checkout@v5
+      # the version rust-toolchain.toml names, with its components (rustup >= 1.28 no
+      # longer installs it on first use; older rustup does, so either way it is there)
+      - name: Rust
+        shell: bash
+        run: rustup show active-toolchain || rustup toolchain install
       - name: Libraries Bevy builds against
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libasound2-dev libudev-dev libwayland-dev libxkbcommon-dev
       - uses: Swatinem/rust-cache@v2
@@ -44,8 +46,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 240
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/checkout@v5
+      # the version rust-toolchain.toml names, with its components (rustup >= 1.28 no
+      # longer installs it on first use; older rustup does, so either way it is there)
+      - name: Rust
+        shell: bash
+        run: rustup show active-toolchain || rustup toolchain install
       - name: Libraries, a virtual display and a software Vulkan renderer
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libasound2-dev libudev-dev libwayland-dev libxkbcommon-dev xvfb mesa-vulkan-drivers libvulkan1
       - uses: Swatinem/rust-cache@v2

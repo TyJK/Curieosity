@@ -8,6 +8,11 @@ Draws the Steam art in the game's line-art style, into steam/, and the Android a
     android/app/src/main/res/drawable-nodpi/ic_launcher_foreground.png
                                                  the logo layer of the Android icon (its
                                                  background is a colour, in values/colors.xml)
+    assets/icon/curieosity.png, curieosity.ico   the desktop icon: the window's (the PNG, set
+                                                 at runtime) and the Windows .exe's (the ICO,
+                                                 built in by build.rs)
+    ios/AppIcon.png                              the iOS app icon (1024x1024, opaque; the
+                                                 iOS workflow compiles it into the app)
 
 The achievements come from steam/achievements.csv (which `cargo test` keeps in step with
 the game's milestones and eras). An icon shows the vessel its milestone unlocks, else the
@@ -303,6 +308,54 @@ def android_icon():
     return layer
 
 
+def desktop_icon(px=256):
+    """The desktop icon: the logo on a dark rounded plate with the violet glow, the way the
+    Android launcher shows its icon."""
+    img = Image.new("RGBA", (px, px), (0, 0, 0, 0))
+    plate = Image.new("RGBA", (px, px), (0, 0, 0, 0))
+    ImageDraw.Draw(plate).rounded_rectangle((0, 0, px - 1, px - 1), radius=int(px * 0.22), fill=BG + (255,))
+    glow = Image.new("RGBA", (px, px), (0, 0, 0, 0))
+    m = int(px * 0.2)
+    ImageDraw.Draw(glow).ellipse((m, m, px - m, px - m), fill=VIOLET + (110,))
+    plate.alpha_composite(glow.filter(ImageFilter.GaussianBlur(px * 0.09)))
+    # keep the glow inside the plate
+    mask = Image.new("L", (px, px), 0)
+    ImageDraw.Draw(mask).rounded_rectangle((0, 0, px - 1, px - 1), radius=int(px * 0.22), fill=255)
+    img.paste(plate, (0, 0), mask)
+    size = int(px * 0.66)
+    img.alpha_composite(logo(size), ((px - size) // 2, (px - size) // 2))
+    return img
+
+
+def write_desktop_icon():
+    out = ROOT / "assets" / "icon"
+    out.mkdir(parents=True, exist_ok=True)
+    icon = desktop_icon(256)
+    icon.save(out / "curieosity.png")
+    icon.save(out / "curieosity.ico", sizes=[(16, 16), (24, 24), (32, 32), (48, 48), (64, 64), (128, 128), (256, 256)])
+    print("  assets/icon/curieosity.png  256x256, assets/icon/curieosity.ico  16-256")
+
+
+def ios_icon(px=1024):
+    """The iOS app icon: the desktop icon's plate filling the square, opaque and without
+    corners (iOS rounds them itself)."""
+    img = Image.new("RGBA", (px, px), BG + (255,))
+    glow = Image.new("RGBA", (px, px), (0, 0, 0, 0))
+    m = int(px * 0.2)
+    ImageDraw.Draw(glow).ellipse((m, m, px - m, px - m), fill=VIOLET + (110,))
+    img.alpha_composite(glow.filter(ImageFilter.GaussianBlur(px * 0.09)))
+    size = int(px * 0.66)
+    img.alpha_composite(logo(size), ((px - size) // 2, (px - size) // 2))
+    return img.convert("RGB")
+
+
+def write_ios_icon():
+    out = ROOT / "ios" / "AppIcon.png"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    ios_icon(1024).save(out)
+    print("  ios/AppIcon.png  1024x1024")
+
+
 def main():
     rows = list(csv.DictReader((OUT / "achievements.csv").open(encoding="utf-8")))
     (OUT / "achievements").mkdir(parents=True, exist_ok=True)
@@ -323,6 +376,8 @@ def main():
     icon.parent.mkdir(parents=True, exist_ok=True)
     android_icon().save(icon)
     print(f"  {icon.relative_to(ROOT).as_posix()}  432x432")
+    write_desktop_icon()
+    write_ios_icon()
 
 
 if __name__ == "__main__":

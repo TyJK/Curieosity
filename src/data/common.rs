@@ -53,6 +53,9 @@ pub struct VesselSpec {
     pub art: &'static str,
     /// whether the card has a catalyst slot
     pub catalyst_slot: bool,
+    /// why the discovery that unlocks it makes it possible (one sentence, shown when it
+    /// unlocks and when a locked one is tapped)
+    pub why: &'static str,
 }
 
 const fn v(
@@ -62,39 +65,40 @@ const fn v(
     tier: u8,
     art: &'static str,
     catalyst_slot: bool,
+    why: &'static str,
 ) -> VesselSpec {
-    VesselSpec { name, process, category, tier, art, catalyst_slot }
+    VesselSpec { name, process, category, tier, art, catalyst_slot, why }
 }
 
 /// Every vessel, in the order the vessel list shows them (roughly the order they unlock).
 pub const VESSEL_SPECS: &[VesselSpec] = &[
-    v("Mortar", ProcessType::Mix, "Mix", 1, "mortar", false),
-    v("Fire", ProcessType::Heat, "Heat", 1, "fire", false),
-    v("Fermenter", ProcessType::Fermenter, "Biology", 1, "fermenter", false),
-    v("Bloomery", ProcessType::Smelting, "Heat", 2, "bloomery", false),
-    v("Still", ProcessType::Distillation, "Distillation", 1, "still", false),
-    v("Ice Bath", ProcessType::Cool, "Cool", 1, "ice_bath", false),
-    v("Irradiator", ProcessType::Irradiate, "Radiation", 1, "irradiator", false),
-    v("Glass Flask", ProcessType::Flask, "Mix", 2, "flask", false),
-    v("Voltaic Cell", ProcessType::Electrolysis, "Electrolysis", 1, "voltaic_cell", false),
-    v("Catalyst Bed", ProcessType::Catalysis, "Catalysis", 1, "catalyst_bed", true),
-    v("Polymer Reactor", ProcessType::Polymerize, "Polymer", 1, "polymer_reactor", false),
-    v("Blast Furnace", ProcessType::BlastFurnace, "Heat", 3, "blast_furnace", false),
-    v("Fractionating Column", ProcessType::Column, "Distillation", 2, "column", false),
-    v("Electrolytic Cell", ProcessType::ElectrolyticCell, "Electrolysis", 2, "electrolytic_cell", false),
-    v("Centrifuge", ProcessType::Centrifuge, "Separation", 1, "centrifuge", false),
-    v("Air Liquefier", ProcessType::AirLiquefier, "Cool", 2, "air_liquefier", false),
-    v("Autoclave", ProcessType::Pressurize, "Pressure", 1, "autoclave", false),
-    v("Arc Furnace", ProcessType::ArcFurnace, "Heat", 4, "arc_furnace", false),
-    v("High-Pressure Reactor", ProcessType::HighPressure, "Pressure", 2, "high_pressure", true),
-    v("Catalytic Cracker", ProcessType::Cracker, "Catalysis", 2, "cracker", true),
-    v("Bioreactor", ProcessType::Bioreactor, "Biology", 2, "bioreactor", true),
-    v("Ultracentrifuge", ProcessType::Ultracentrifuge, "Separation", 2, "ultracentrifuge", false),
-    v("Nuclear Reactor", ProcessType::NuclearReactor, "Radiation", 2, "nuclear_reactor", false),
-    v("Crystal Puller", ProcessType::CrystalPuller, "Fabrication", 1, "crystal_puller", false),
-    v("Diamond Press", ProcessType::DiamondPress, "Pressure", 3, "diamond_press", true),
-    v("CVD Chamber", ProcessType::CvdChamber, "Fabrication", 2, "cvd_chamber", true),
-    v("Cyclotron", ProcessType::Cyclotron, "Radiation", 3, "cyclotron", false),
+    v("Mortar", ProcessType::Mix, "Mix", 1, "mortar", false, "Grinding and mixing by hand: the oldest chemistry there is."),
+    v("Fire", ProcessType::Heat, "Heat", 1, "fire", false, "An open fire: the first way people changed what things are made of."),
+    v("Fermenter", ProcessType::Fermenter, "Biology", 1, "fermenter", false, "Bronze Age cities stored grain and fruit in sealed jars and vats, and brewers and vintners let yeast turn the surplus into beer and wine."),
+    v("Bloomery", ProcessType::Smelting, "Heat", 2, "bloomery", false, "Copper smelted from malachite taught furnace-building: a clay shaft with bellows gets hot enough to pull metals out of their ores."),
+    v("Still", ProcessType::Distillation, "Distillation", 1, "still", false, "Iron Age craftsmen could make sealed pots with a long cooled spout: vapour boiled off one side condenses back to liquid on the other."),
+    v("Ice Bath", ProcessType::Cool, "Cool", 1, "ice_bath", false, "Glass lets you watch a solution as it chills, so cold becomes a tool: crystals grow out of a cooled solution."),
+    v("Irradiator", ProcessType::Irradiate, "Radiation", 1, "irradiator", false, "Silver chloride darkens in sunlight: proof that light itself can drive a reaction."),
+    v("Glass Flask", ProcessType::Flask, "Mix", 2, "flask", false, "Nitric acid eats metal and glazed pottery. Only glass holds strong acids, so careful wet chemistry moves into glass flasks."),
+    v("Voltaic Cell", ProcessType::Electrolysis, "Electrolysis", 1, "voltaic_cell", false, "A battery gives a steady electric current, and current can pull compounds apart into their elements."),
+    v("Catalyst Bed", ProcessType::Catalysis, "Catalysis", 1, "catalyst_bed", true, "Platinum makes reactions go without being used up (Döbereiner's lamp, 1823), so a bed of catalyst is worth building."),
+    v("Polymer Reactor", ProcessType::Polymerize, "Polymer", 1, "polymer_reactor", false, "Vulcanised rubber showed that long chains of molecules are a material of their own; making them on purpose takes a reactor."),
+    v("Blast Furnace", ProcessType::BlastFurnace, "Heat", 3, "blast_furnace", false, "Coke burns hotter than charcoal and is strong enough to carry the weight of a tall furnace's charge: iron by the ton."),
+    v("Fractionating Column", ProcessType::Column, "Distillation", 2, "column", false, "Coal tar holds many liquids that boil close together; parting out pure benzene takes a tall column."),
+    v("Electrolytic Cell", ProcessType::ElectrolyticCell, "Electrolysis", 2, "electrolytic_cell", false, "The dynamo makes electric current by the ton, enough for industrial electrolysis of salt and alumina."),
+    v("Centrifuge", ProcessType::Centrifuge, "Separation", 1, "centrifuge", false, "Sugar mills spun their syrup in perforated baskets to throw off the molasses: spinning separates what settles too slowly."),
+    v("Air Liquefier", ProcessType::AirLiquefier, "Cool", 2, "air_liquefier", false, "Dry ice showed a gas can be frozen solid; compressing and cooling can turn every gas, air included, into a liquid."),
+    v("Autoclave", ProcessType::Pressurize, "Pressure", 1, "autoclave", false, "Pig iron cast into thick vessels holds steam under pressure: Papin's digester, the first pressure cooker, becomes the autoclave. Hospitals sterilise in the same sealed vessel: steam under pressure gets hotter than boiling water."),
+    v("Arc Furnace", ProcessType::ArcFurnace, "Heat", 4, "arc_furnace", false, "Henri Moissan, who isolated fluorine, built an electric arc furnace that reaches 3,500 C."),
+    v("High-Pressure Reactor", ProcessType::HighPressure, "Pressure", 2, "high_pressure", true, "Alloy steel strong enough to hold 200 atmospheres while hot makes high-pressure chemistry like ammonia synthesis possible."),
+    v("Catalytic Cracker", ProcessType::Cracker, "Catalysis", 2, "cracker", true, "Motor cars wanted more gasoline than crude oil holds, so catalysts crack heavy oil into it."),
+    v("Bioreactor", ProcessType::Bioreactor, "Biology", 2, "bioreactor", true, "The sulfa drugs proved chemistry could cure infections; penicillin then had to be grown by the vat."),
+    v("Ultracentrifuge", ProcessType::Ultracentrifuge, "Separation", 2, "ultracentrifuge", false, "Separating the proteins of blood plasma needs far more spin than a sugar centrifuge gives."),
+    v("Nuclear Reactor", ProcessType::NuclearReactor, "Radiation", 2, "nuclear_reactor", false, "Uranium metal fuels a chain reaction in a pile of graphite (Fermi, 1942)."),
+    v("Crystal Puller", ProcessType::CrystalPuller, "Fabrication", 1, "crystal_puller", false, "Silicon this pure is worth growing into one flawless crystal, pulled slowly out of the melt."),
+    v("Diamond Press", ProcessType::DiamondPress, "Pressure", 3, "diamond_press", true, "Cemented carbide anvils hold the 50,000 atmospheres that turn graphite into diamond."),
+    v("CVD Chamber", ProcessType::CvdChamber, "Fabrication", 2, "cvd_chamber", true, "Transistors need thin films laid down almost atom by atom: chemical vapour deposition."),
+    v("Cyclotron", ProcessType::Cyclotron, "Radiation", 3, "cyclotron", false, "Reaching elements beyond neptunium means firing particles at targets, and a cyclotron accelerates them."),
 ];
 
 impl ProcessType {
@@ -110,6 +114,10 @@ impl ProcessType {
     }
     pub fn has_catalyst_slot(&self) -> bool {
         self.spec().is_some_and(|s| s.catalyst_slot)
+    }
+    /// Why the discovery that unlocks this vessel makes it possible ("" if it has no vessel).
+    pub fn why(&self) -> &'static str {
+        self.spec().map(|s| s.why).unwrap_or("")
     }
     /// The vessels of this one's family, highest tier first.
     pub fn family_members(&self) -> Vec<&'static VesselSpec> {

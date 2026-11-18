@@ -74,13 +74,13 @@ pub fn run() -> AppExit {
         window.resolution = cfg.window.into();
         window.title = "Curieosity (review playthrough)".to_string();
     }
-    if cfg!(target_os = "android") {
+    if crate::platform::PHONE {
         window.mode = bevy::window::WindowMode::BorderlessFullscreen(MonitorSelection::Primary);
         window.resizable = false;
     }
 
     let mut app = App::new();
-    if cfg!(target_os = "android") {
+    if crate::platform::PHONE {
         // draw when something changes, at most 60 times a second, and barely in the background
         app.insert_resource(bevy::winit::WinitSettings::mobile());
     }
@@ -112,21 +112,33 @@ pub fn run() -> AppExit {
         .init_resource::<SaveClock>()
         .init_resource::<InvCategory>()
         .init_resource::<SelectedSubstance>()
+        .init_resource::<crate::ui::detail_panel::LastTap>()
         .init_resource::<CodexState>()
         .init_resource::<CodexFilter>()
         .init_resource::<ReactionLibState>()
         .init_resource::<TechTreeState>()
         .init_resource::<TechLinks>()
+        .init_resource::<crate::ui::tech_tree::TechLayout>()
         .init_resource::<settings::SettingsUi>()
         .insert_resource(settings::FitInterface(autoplay.as_ref().is_some_and(|c| c.fit_screen)))
         .insert_resource(settings::ScaleOverride(autoplay.as_ref().and_then(|c| c.scale)))
         .init_resource::<process_toolbar::ProcessUnlocks>()
         .init_resource::<toasts::Toasts>()
         .init_resource::<toasts::ToastRoom>()
+        .init_resource::<toasts::Journal>()
+        .init_resource::<toasts::JournalUi>()
+        .init_resource::<crate::ui::hint::HintState>()
+        .init_resource::<crate::ui::inventory::ShelfSearch>()
+        .init_resource::<crate::ui::inventory::TypingBox>()
         .init_resource::<crate::ui::inventory::Dock>()
         .add_message::<CheckVesselReaction>()
         .add_message::<GameEvent>()
         .add_message::<shell::TouchScroll>()
+        .add_message::<process_toolbar::NewGameStarted>()
+        // the title, the notice and the menu; review runs and `--skip-title` start in the lab
+        .insert_resource(crate::ui::main_menu::MainMenu::starting(
+            autoplay.is_some() || std::env::args().any(|a| a == "--skip-title"),
+        ))
         .add_systems(
             Startup,
             (
@@ -144,6 +156,8 @@ pub fn run() -> AppExit {
                     spawn_tech_tree,
                     settings::spawn_settings,
                     toasts::spawn_toast_stack,
+                    toasts::spawn_journal,
+                    crate::ui::main_menu::spawn_main_menu,
                 ),
             )
                 .chain(),
@@ -166,7 +180,9 @@ pub fn run() -> AppExit {
                 (populate_inventory_system, crate::ui::inventory::shelf_window_system).chain(),
                 crate::ui::inventory::fit_dock_system,
                 category_tab_system,
+                crate::ui::inventory::shelf_search_system,
                 shelf_hover_system,
+                crate::ui::inventory::shelf_selection_outline_system,
                 discovery_system,
                 attach_click_observers,
                 selection_view_system,
@@ -186,6 +202,8 @@ pub fn run() -> AppExit {
                     .chain(),
                 fizzle_system,
                 vessel_art_system,
+                crate::systems::reaction_check::vessel_fit_system,
+                crate::systems::reaction_check::vessel_chain_button_system,
             ),
         )
         .add_systems(
@@ -212,6 +230,8 @@ pub fn run() -> AppExit {
                 tech_button_system,
                 tech_mode_system,
                 populate_tech_views_system,
+                crate::ui::tech_tree::tech_graph_window_system,
+                crate::ui::tech_tree::tech_list_window_system,
                 tech_node_click_system,
                 tech_reveal_system,
                 tech_selection_links_system,
@@ -224,9 +244,21 @@ pub fn run() -> AppExit {
             Update,
             (
                 process_toolbar::gate_process_buttons_system,
+                process_toolbar::locked_vessel_tap_system,
+                process_toolbar::sidebar_fit_system,
                 process_toolbar::new_game_button_system,
+                (
+                    crate::ui::hint::spawn_hint_ui,
+                    crate::ui::hint::hint_input_system,
+                    crate::ui::hint::hint_progress_system,
+                    crate::ui::hint::hint_suggest_system,
+                    crate::ui::hint::hint_view_system,
+                )
+                    .chain(),
                 toasts::spawn_toasts_system,
                 toasts::fade_toasts_system,
+                toasts::journal_input_system,
+                toasts::journal_view_system,
                 pop_in_system,
             ),
         )
@@ -241,6 +273,10 @@ pub fn run() -> AppExit {
                 shell::header_stats_system,
                 shell::decorate_bench_system,
                 shell::bench_state_system,
+                shell::bench_zoom_controls_system,
+                crate::ui::main_menu::main_menu_system,
+                crate::ui::main_menu::main_menu_button_system,
+                crate::ui::main_menu::menu_float_system,
                 shell::wheel_scroll_system,
                 shell::touch_scroll_system,
                 shell::clamp_scroll_system,
@@ -255,6 +291,11 @@ pub fn run() -> AppExit {
         .add_systems(PostUpdate, draw_links_system.after(UiSystems::Layout))
         .add_systems(Last, save_on_exit_system);
 
+    #[cfg(not(any(target_os = "android", target_os = "ios")))]
+    app.add_systems(Update, crate::platform::window_icon_system);
+    #[cfg(target_os = "ios")]
+    app.add_systems(PreUpdate, crate::platform::ios_keyboard_system.after(bevy::input::InputSystems))
+        .add_systems(Last, crate::platform::ios_open_url_system);
     if let Some(cfg) = autoplay {
         app.add_plugins(AutoplayPlugin(cfg));
     }

@@ -4,6 +4,7 @@
 // small building blocks (labels, icons, buttons, chips, panels) every screen is made of.
 // Buttons carry a `Skin`; `skin_system` recolours them on hover/press and when their
 // `active` flag changes, so no screen hand-rolls its own hover logic.
+use crate::ui::{Button, Interaction};
 use bevy::prelude::*;
 use bevy::ui::{BoxShadow, ShadowStyle};
 
@@ -96,16 +97,20 @@ pub fn font(fonts: &UiFonts, w: Weight) -> Handle<Font> {
 
 /// A text node.
 pub fn label(fonts: &UiFonts, text: impl Into<String>, size: f32, w: Weight, color: Color) -> impl Bundle {
-    (Text::new(text.into()), TextFont { font: font(fonts, w), font_size: size, ..default() }, TextColor(color))
+    (
+        Text::new(text.into()),
+        TextFont { font: font(fonts, w).into(), font_size: FontSize::Px(size), ..default() },
+        TextColor(color),
+    )
 }
 
 /// A text node that wraps inside `max_w` pixels.
 pub fn para(fonts: &UiFonts, text: impl Into<String>, size: f32, color: Color, max_w: Val) -> impl Bundle {
     (
         Text::new(text.into()),
-        TextFont { font: fonts.main.clone(), font_size: size, ..default() },
+        TextFont { font: fonts.main.clone().into(), font_size: FontSize::Px(size), ..default() },
         TextColor(color),
-        TextLayout::new_with_linebreak(LineBreak::WordBoundary),
+        TextLayout::linebreak(LineBreak::WordBoundary),
         Node { max_width: max_w, ..default() },
     )
 }
@@ -270,8 +275,7 @@ pub fn button(kind: Kind, node: Node, radius: f32) -> impl Bundle {
     (
         Button,
         skin,
-        Node { border: UiRect::all(Val::Px(1.0)), ..node },
-        BorderRadius::all(Val::Px(radius)),
+        Node { border_radius: BorderRadius::all(Val::Px(radius)), border: UiRect::all(Val::Px(1.0)), ..node },
         BackgroundColor(bg),
         BorderColor::all(border),
     )
@@ -353,8 +357,12 @@ pub fn spawn_icon_button(
 pub fn spawn_chip(parent: &mut ChildSpawnerCommands, fonts: &UiFonts, text: &str, color: Color) {
     parent
         .spawn((
-            Node { padding: UiRect::axes(Val::Px(9.0), Val::Px(3.0)), border: UiRect::all(Val::Px(1.0)), ..default() },
-            BorderRadius::all(Val::Px(99.0)),
+            Node {
+                border_radius: BorderRadius::all(Val::Px(99.0)),
+                padding: UiRect::axes(Val::Px(9.0), Val::Px(3.0)),
+                border: UiRect::all(Val::Px(1.0)),
+                ..default()
+            },
             BackgroundColor(color.with_alpha(0.14)),
             BorderColor::all(color.with_alpha(0.65)),
             Pickable::IGNORE,

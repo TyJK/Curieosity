@@ -3,7 +3,9 @@
 // Selecting a substance on the shelf. A click selects it (click it again, press Esc or the
 // x to let go): the tile lights up and the shelf header shows what it is, with a button to
 // open its page in the Substance Library. While something is selected, clicking a vessel
-// puts it in (see drag_drop.rs); dragging works as always.
+// puts it in (see drag_drop.rs); dragging works as always. A double-tap on a tile puts it
+// straight into the vessel used last.
+use crate::ui::Interaction;
 use bevy::prelude::*;
 
 use crate::components::{format_formula, Draggable, Ingredient};
@@ -13,7 +15,7 @@ use crate::resources::ui_fonts::UiFonts;
 use crate::systems::drag_drop::DragMoved;
 use crate::ui::codex::CodexState;
 use crate::ui::inventory::{element_tile_color, is_element_formula, ShelfTile};
-use crate::ui::theme::{self, Kind, Weight};
+use crate::ui::theme::{self, Weight};
 use crate::GameData;
 
 /// The substance selected on the shelf, if any.
@@ -42,32 +44,55 @@ pub fn attach_click_observers(mut commands: Commands, new_items: Query<Entity, (
     }
 }
 
+/// Two taps on one shelf tile within this long (seconds) are a double-tap.
+pub const DOUBLE_TAP: f64 = 0.4;
+
+/// The last tap on a shelf tile and when it was (real seconds), for spotting a double-tap.
+#[derive(Resource, Default)]
+pub struct LastTap(pub Option<(Entity, f64)>);
+
+#[allow(clippy::too_many_arguments)]
 fn on_item_click(
-    mut trigger: On<Pointer<Click>>,
+    mut trigger: On<PointerClick>,
     ingredients: Query<&Ingredient>,
+    tiles: Query<(), With<ShelfTile>>,
     moved: Query<(), With<DragMoved>>,
     mut selected: ResMut<SelectedSubstance>,
+    time: Res<Time<Real>>,
+    mut last: ResMut<LastTap>,
+    mut add: MessageWriter<crate::systems::drag_drop::AddToActive>,
 ) {
     trigger.propagate(false);
     // a drag that ends back on its own tile is not a click
     if trigger.button != PointerButton::Primary || moved.contains(trigger.entity) {
         return;
     }
-    if let Ok(ing) = ingredients.get(trigger.entity) {
-        selected.0 = if selected.0 == Some(ing.id) { None } else { Some(ing.id) };
+    let Ok(ing) = ingredients.get(trigger.entity) else { return };
+    let now = time.elapsed_secs_f64();
+    let double =
+        tiles.contains(trigger.entity) && last.0.is_some_and(|(e, at)| e == trigger.entity && now - at <= DOUBLE_TAP);
+    if double {
+        // the first tap selected it (or let it go): keep it selected, and fill the vessel
+        selected.0 = Some(ing.id);
+        add.write(crate::systems::drag_drop::AddToActive(ing.id));
+        last.0 = None;
+        return;
     }
+    last.0 = Some((trigger.entity, now));
+    selected.0 = if selected.0 == Some(ing.id) { None } else { Some(ing.id) };
 }
 
 /// The right-hand end of the shelf header: a hint, or the selection with its buttons.
 pub fn spawn_selection_bar(bar: &mut ChildSpawnerCommands, fonts: &UiFonts, assets: &AssetServer) {
     bar.spawn((
         SelectionHint,
-        theme::label(fonts, "drag onto a vessel · click to select", theme::XS, Weight::Regular, theme::TEXT_3),
+        theme::label(fonts, "tap to select · double-tap to fill", theme::XS, Weight::Regular, theme::TEXT_3),
         Node { margin: UiRect::left(Val::Px(14.0)), ..default() },
     ));
     bar.spawn((
         SelectionReadout,
         Node {
+            border_radius: BorderRadius::all(Val::Px(theme::R_MD)),
             display: Display::None,
             align_items: AlignItems::Center,
             column_gap: Val::Px(8.0),
@@ -76,7 +101,6 @@ pub fn spawn_selection_bar(bar: &mut ChildSpawnerCommands, fonts: &UiFonts, asse
             border: UiRect::all(Val::Px(1.0)),
             ..default()
         },
-        BorderRadius::all(Val::Px(theme::R_MD)),
         BackgroundColor(theme::mix(theme::SURFACE, theme::CYAN, 0.08)),
         BorderColor::all(theme::CYAN.with_alpha(0.6)),
     ))
@@ -91,12 +115,33 @@ pub fn spawn_selection_bar(bar: &mut ChildSpawnerCommands, fonts: &UiFonts, asse
                 ..default()
             },
         ));
-        r.spawn(Node { flex_direction: FlexDirection::Column, ..default() }).with_children(|c| {
-            c.spawn((SelectionName, theme::label(fonts, "", theme::SM, Weight::Semibold, theme::TEXT)));
-            c.spawn((SelectionFormula, theme::label(fonts, "", 10.5, Weight::Regular, theme::CYAN)));
+        // one line each, cut short rather than wrapped
+        r.spawn(Node {
+            flex_direction: FlexDirection::Column,
+            max_width: Val::Px(190.0),
+            overflow: Overflow::clip(),
+            ..default()
+        })
+        .with_children(|c| {
+            c.spawn((
+                SelectionName,
+                theme::label(fonts, "", theme::SM, Weight::Semibold, theme::TEXT),
+                TextLayout::no_wrap(),
+            ));
+            c.spawn((
+                SelectionFormula,
+                theme::label(fonts, "", 10.5, Weight::Regular, theme::CYAN),
+                TextLayout::no_wrap(),
+            ));
         });
-        r.spawn(theme::label(fonts, "click a vessel to add", 10.5, Weight::Regular, theme::TEXT_3));
-        theme::spawn_button(r, fonts, assets, Kind::Secondary, Some("book"), "Library", SelectionOpenButton);
+        theme::spawn_icon_button(
+            r,
+            assets,
+            "book",
+            26.0,
+            theme::TEXT,
+            (SelectionOpenButton, crate::ui::onboarding::Tip::Text("Library", "Open it in the Substance Library.")),
+        );
         theme::spawn_icon_button(r, assets, "close", 26.0, theme::TEXT_2, SelectionClearButton);
     });
 }
@@ -110,8 +155,7 @@ pub fn selection_view_system(
     substances: Res<Assets<Substances>>,
     fonts: Res<UiFonts>,
     assets: Res<AssetServer>,
-    mut hint: Query<&mut Node, (With<SelectionHint>, Without<SelectionReadout>)>,
-    mut readout: Query<&mut Node, (With<SelectionReadout>, Without<SelectionHint>)>,
+    mut readout: Query<&mut Node, With<SelectionReadout>>,
     thumb: Query<Entity, With<SelectionThumb>>,
     mut name: Query<&mut Text, (With<SelectionName>, Without<SelectionFormula>)>,
     mut formula: Query<&mut Text, (With<SelectionFormula>, Without<SelectionName>)>,
@@ -139,9 +183,7 @@ pub fn selection_view_system(
         return;
     }
     let sub = sel.and_then(|id| substances.get(&game_data.substances).and_then(|s| s.0.get(&id)));
-    if let Ok(mut n) = hint.single_mut() {
-        n.display = if sub.is_some() { Display::None } else { Display::Flex };
-    }
+    // (the hint's own display is inventory::fit_dock_system's: it also hides on a narrow screen)
     if let Ok(mut n) = readout.single_mut() {
         n.display = if sub.is_some() { Display::Flex } else { Display::None };
     }

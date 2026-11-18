@@ -160,12 +160,13 @@ def react():
 
 
 def discovery():
-    """Something new: a bright two-note chime (E6, B6)."""
+    """Something new: a bright two-note chime (E6, B6), kept well under the bench's sounds
+    (it plays often)."""
     s = 1.3
     x = np.zeros(int(RATE * s))
     place(x, bell(1318.5, 1.2, 0.5), 0.0)
     place(x, 0.85 * bell(1975.5, 1.2, 0.45), 0.085)
-    return finish(x, -4)
+    return finish(x, -14)
 
 
 def milestone():
@@ -176,7 +177,7 @@ def milestone():
         place(x, 0.7 * bell(f, 1.6, 0.6), i * 0.095)
     pad = sum(sine(f, s) * a for f, a in ((261.63, 0.5), (392.0, 0.35), (523.25, 0.3), (659.25, 0.2)))
     pad *= env(len(x), 0.35, 0.9, sustain=0.0, release=0.5) * 0.35
-    return finish(x + pad, -3)
+    return finish(x + pad, -9)
 
 
 def fizzle():
@@ -199,19 +200,273 @@ def era():
                                             (277.18, 0.3), (329.63, 0.25)))
     x += 0.4 * chord * env(n, 0.9, 1.4, sustain=0.0, release=1.0)
     place(x, 0.25 * bell(1760, 2.0, 0.7), 0.45)
-    return finish(x, -3)
+    return finish(x, -10)
+
+
+# --- each kind of vessel: a sound for setting it on the bench and one for reacting -------
+# (src/systems/sound.rs maps every vessel to one of these families)
+def crackles(seconds, count, lo=2000, hi=8000, spread=(0.0, 1.0), level=(0.3, 1.0)):
+    """Short dry pops, scattered: burning wood, an ice crust, a Geiger counter."""
+    x = np.zeros(int(RATE * seconds))
+    for _ in range(count):
+        d = rng.uniform(0.002, 0.008)
+        pop = bandpass(noise(d), lo, hi) * env(int(RATE * d), 0.0003, d / 4)
+        place(x, rng.uniform(*level) * pop, rng.uniform(*spread) * seconds * 0.95)
+    return x
+
+
+def flicker(n, rate=7.0, depth=0.5):
+    """A slow random wobble in loudness, like a flame."""
+    knots = rng.uniform(1 - depth, 1, int(n / RATE * rate) + 3)
+    return np.interp(np.arange(n), np.linspace(0, n, len(knots)), knots)
+
+
+def fire_place():
+    """A fire catching: a breathy whoosh, then the first pops."""
+    s = 0.9
+    n = int(RATE * s)
+    whoosh = lowpass(noise(s), glide(300, 2400, s, 0.5)) * env(n, 0.06, 0.25)
+    x = 0.9 * whoosh + 0.35 * crackles(s, 9, spread=(0.25, 1.0))
+    return finish(x, -10)
+
+
+def fire_react():
+    """Something burning: a low roar that flickers, full of crackles."""
+    s = 1.4
+    n = int(RATE * s)
+    roar = lowpass(noise(s), 650) * flicker(n, 8, 0.6) * env(n, 0.15, 0.6, sustain=0.6, release=0.4)
+    x = 0.8 * roar + 0.45 * crackles(s, 46)
+    return finish(x, -8)
+
+
+def grind_place():
+    """A stone mortar set down: a dull thud, then one gritty turn of the pestle."""
+    s = 0.6
+    thud = tail_fade(sine(glide(110, 60, 0.12), 0.12) * env(int(RATE * 0.12), 0.002, 0.04), 0.04)
+    d = 0.4
+    m = int(RATE * d)
+    grit = bandpass(noise(d), 250, 2200) * np.abs(rng.standard_normal(m)) ** 0.5
+    stroke = grit * np.sin(np.linspace(0, np.pi, m)) ** 1.5
+    x = np.zeros(int(RATE * s))
+    place(x, thud, 0.0)
+    place(x, 0.6 * stroke, 0.12)
+    return finish(x, -9)
+
+
+def grind_react():
+    """A pestle grinding: three gritty strokes over a low rumble."""
+    s = 1.3
+    x = np.zeros(int(RATE * s))
+    for i in range(3):
+        d = 0.38
+        m = int(RATE * d)
+        grit = bandpass(noise(d), 250, 2200) * np.abs(rng.standard_normal(m)) ** 0.5
+        stroke = grit * np.sin(np.linspace(0, np.pi, m)) ** 1.5
+        place(x, stroke, 0.05 + i * 0.4)
+    x += 0.3 * lowpass(noise(s), 120) * env(len(x), 0.1, 0.8, sustain=0.5, release=0.3)
+    return finish(x, -9)
+
+
+def cold_place():
+    """A cold bath set down: a gust of icy wind, and an ice cube's clink as it settles."""
+    s = 0.8
+    n = int(RATE * s)
+    sweep = np.concatenate([glide(500, 1600, s * 0.4), glide(1600, 700, s - s * 0.4)])[:n]
+    x = bandpass(noise(s), sweep * 0.55, sweep) * env(n, 0.18, 0.25, sustain=0.2, release=0.25)
+    place(x, 0.2 * bell(3300, 0.3, 0.05, ((1, 1.0), (1.73, 0.5), (2.9, 0.25))), 0.45)
+    return finish(x, -10)
+
+
+def cold_react():
+    """Something freezing: frost crackling across a surface and the ice tightening, over a
+    thin wind."""
+    s = 1.5
+    n = int(RATE * s)
+    wind = bandpass(noise(s), 500, 1400) * env(n, 0.3, 0.8, sustain=0.3, release=0.4)
+    x = 0.5 * wind + 0.6 * crackles(s, 60, 4000, 11000, (0.1, 1.0), (0.2, 0.8))
+    for _ in range(5):
+        place(x, 0.2 * bell(rng.uniform(3500, 5500), 0.35, 0.06), rng.uniform(0.2, 1.2))
+    return finish(x, -9)
+
+
+def glass_react():
+    """Glassware boiling: the bubbling of a reaction, and a drip or two from the condenser."""
+    x = react()
+    for at in (0.45, 0.85):
+        d = 0.06
+        drip = tail_fade(sine(glide(1400, 700, d), d) * env(int(RATE * d), 0.001, 0.02), 0.02)
+        place(x, 0.3 * drip, at)
+    return finish(x, -9)
+
+
+def bio_place():
+    """A wooden vat set down: a hollow knock and a slosh of liquid."""
+    s = 0.6
+    knock = sum(a * sine(f, 0.25) * np.exp(-t_axis(0.25) / 0.05) for f, a in ((190, 1.0), (430, 0.4), (870, 0.15)))
+    slosh = lowpass(noise(0.4), 700) * env(int(RATE * 0.4), 0.08, 0.12)
+    x = np.zeros(int(RATE * s))
+    place(x, knock, 0.0)
+    place(x, 0.5 * slosh, 0.08)
+    return finish(x, -9)
+
+
+def bio_react():
+    """Something fermenting: slow, fat bubbles rising through a still liquid."""
+    s = 1.5
+    x = 0.08 * lowpass(noise(s), 400) * env(int(RATE * s), 0.3, 1.0, sustain=0.5, release=0.4)
+    for at in sorted(rng.uniform(0.0, 1.25, 7)):
+        d = rng.uniform(0.06, 0.1)
+        f0 = rng.uniform(110, 170)
+        b = tail_fade(sine(glide(f0, f0 * 2.2, d), d) * env(int(RATE * d), 0.004, d / 2.5), d / 3)
+        place(x, rng.uniform(0.5, 0.9) * b, at)
+    return finish(x, -9)
+
+
+def hum(freq, seconds, harmonics=((1, 1.0), (2, 0.5), (3, 0.3), (5, 0.12))):
+    return sum(a * sine(freq * k, seconds) for k, a in harmonics)
+
+
+def electric_place():
+    """A cell switched on: a relay's click, then mains hum swelling in."""
+    s = 0.7
+    n = int(RATE * s)
+    relay = bandpass(noise(0.01), 1500, 6000) * env(int(RATE * 0.01), 0.0002, 0.002)
+    x = 0.35 * hum(100, s) * env(n, 0.12, 0.25, sustain=0.0, release=0.25)
+    place(x, 0.8 * relay, 0.0)
+    return finish(x, -14)
+
+
+def electric_react():
+    """Current flowing: a buzzing hum, a fizz at the electrodes and a few sparks."""
+    s = 1.3
+    n = int(RATE * s)
+    buzz = hum(100, s, ((1, 1.0), (2, 0.6), (3, 0.5), (4, 0.3), (6, 0.2))) * env(n, 0.08, 0.7, sustain=0.6, release=0.3)
+    fizz = bandpass(noise(s), 3000, 8000) * env(n, 0.2, 0.7, sustain=0.5, release=0.3)
+    x = 0.4 * buzz + 0.25 * fizz
+    for _ in range(4):
+        d = 0.045
+        zap = sine(glide(3200, 300, d), d) * env(int(RATE * d), 0.0005, 0.012) + bandpass(noise(d), 2000, 9000) * env(int(RATE * d), 0.0003, 0.006)
+        place(x, 0.6 * zap, rng.uniform(0.15, 1.1))
+    return finish(x, -10)
+
+
+def radiation_place():
+    """A machine powering up: a rising tone that settles into a soft beep."""
+    s = 0.9
+    n = int(RATE * s)
+    sweep = sine(glide(80, 420, 0.6), 0.6) * env(int(RATE * 0.6), 0.05, 0.4, sustain=0.6, release=0.1)
+    x = np.zeros(n)
+    place(x, 0.5 * sweep, 0.0)
+    place(x, 0.3 * tail_fade(sine(880, 0.12) * env(int(RATE * 0.12), 0.003, 0.05), 0.04), 0.62)
+    return finish(x, -17)
+
+
+def radiation_react():
+    """Radiation at work: a Geiger counter quickening over a low drone."""
+    s = 1.4
+    n = int(RATE * s)
+    drone = (sine(60, s) + 0.7 * sine(61.5, s)) * env(n, 0.3, 0.8, sustain=0.6, release=0.3)
+    x = 0.25 * drone
+    t = 0.05
+    while t < s - 0.05:
+        click = bandpass(noise(0.003), 1500, 7000) * env(int(RATE * 0.003), 0.0002, 0.0008)
+        place(x, rng.uniform(0.5, 1.0) * click, t)
+        rate = 8 + 40 * (t / s)
+        t += rng.exponential(1 / rate)
+    return finish(x, -10)
+
+
+def pressure_place():
+    """A heavy steel vessel set down: a dull metal clank."""
+    s = 0.8
+    clank = bell(220, s, 0.12, ((1, 1.0), (2.32, 0.6), (3.91, 0.35), (5.43, 0.2), (7.1, 0.1)))
+    thud = tail_fade(sine(glide(90, 55, 0.1), 0.1) * env(int(RATE * 0.1), 0.002, 0.03), 0.03)
+    x = 0.6 * clank
+    place(x, 0.8 * thud, 0.0)
+    return finish(x, -10)
+
+
+def pressure_react():
+    """Pressure building: a hiss of steam, a strained creak, a valve letting go."""
+    s = 1.4
+    n = int(RATE * s)
+    hiss = bandpass(noise(s), 2500, 9000) * env(n, 0.06, 0.6, sustain=0.5, release=0.35)
+    creak = sine(glide(150, 115, 0.5), 0.5) * (1 + 0.6 * np.sign(np.sin(2 * np.pi * 31 * t_axis(0.5))))
+    creak *= env(int(RATE * 0.5), 0.05, 0.2)
+    x = 0.5 * hiss
+    place(x, 0.25 * creak, 0.3)
+    psst = bandpass(noise(0.25), 3000, 10000) * env(int(RATE * 0.25), 0.005, 0.08)
+    place(x, 0.7 * psst, 1.05)
+    return finish(x, -11)
+
+
+def spin_place():
+    """A centrifuge lid latched: two clicks and a small clunk."""
+    s = 0.4
+    x = np.zeros(int(RATE * s))
+    for at in (0.0, 0.07):
+        place(x, bandpass(noise(0.006), 1500, 7000) * env(int(RATE * 0.006), 0.0002, 0.0015), at)
+    place(x, 0.7 * tail_fade(sine(glide(160, 120, 0.08), 0.08) * env(int(RATE * 0.08), 0.002, 0.025), 0.03), 0.14)
+    return finish(x, -6)
+
+
+def spin_react():
+    """A centrifuge spinning up and down: a rising whine and rushing air."""
+    s = 1.5
+    n = int(RATE * s)
+    f = np.concatenate([glide(160, 1300, 0.75, 0.7), glide(1300, 220, s - 0.75, 1.3)])[:n]
+    whine = (sine(f, s) + 0.4 * sine(f * 2, s) + 0.15 * sine(f * 3, s)) * env(n, 0.1, 0.9, sustain=0.6, release=0.35)
+    air = bandpass(noise(s), 500, 3000) * np.interp(np.arange(n), [0, n * 0.5, n], [0.1, 1.0, 0.1])
+    return finish(0.5 * whine + 0.35 * air, -13)
+
+
+def crystal_place():
+    """A crystal furnace set down: a soft glassy chime."""
+    s = 1.0
+    x = np.zeros(int(RATE * s))
+    place(x, bell(1760, 0.9, 0.3), 0.0)
+    place(x, 0.6 * bell(2637, 0.8, 0.25), 0.06)
+    return finish(x, -14)
+
+
+def crystal_react():
+    """A crystal growing: a shimmer of tiny chimes over a low hum."""
+    s = 1.5
+    n = int(RATE * s)
+    x = 0.3 * hum(110, s, ((1, 1.0), (2, 0.3))) * env(n, 0.4, 0.8, sustain=0.5, release=0.4)
+    for _ in range(16):
+        place(x, rng.uniform(0.15, 0.4) * bell(rng.uniform(2000, 5200), 0.5, 0.12), rng.uniform(0.05, 1.2))
+    return finish(x, -11)
 
 
 SOUNDS = {
     "click": click,
     "pickup": pickup,
     "drop": drop,
-    "place": place_vessel,
-    "react": react,
     "discovery": discovery,
     "milestone": milestone,
     "fizzle": fizzle,
     "era": era,
+    "fire_place": fire_place,
+    "fire_react": fire_react,
+    "grind_place": grind_place,
+    "grind_react": grind_react,
+    "cold_place": cold_place,
+    "cold_react": cold_react,
+    "glass_place": place_vessel,
+    "glass_react": glass_react,
+    "bio_place": bio_place,
+    "bio_react": bio_react,
+    "electric_place": electric_place,
+    "electric_react": electric_react,
+    "radiation_place": radiation_place,
+    "radiation_react": radiation_react,
+    "pressure_place": pressure_place,
+    "pressure_react": pressure_react,
+    "spin_place": spin_place,
+    "spin_react": spin_react,
+    "crystal_place": crystal_place,
+    "crystal_react": crystal_react,
 }
 
 

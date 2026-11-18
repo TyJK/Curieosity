@@ -1,8 +1,10 @@
 // src/ui/shell.rs
 //
 // The frame around everything: the header bar (logo, the four views, the current era, how
-// much of the world has been discovered, settings), view switching and Esc, and the lab
+// much of the world has been discovered, past notifications, settings), view switching and
+// Esc, and the lab
 // bench's decoration (dot grid, vignette, the "start here" hint on an empty bench).
+use crate::ui::Interaction;
 use bevy::prelude::*;
 
 use crate::components::ui_markers::{CanvasScrollingPane, ReactionCanvasRoot};
@@ -28,6 +30,9 @@ pub enum View {
 pub struct NavTab(pub View);
 #[derive(Component)]
 pub struct SettingsButton;
+/// The bell: opens the journal of past notifications.
+#[derive(Component)]
+pub struct JournalButton;
 #[derive(Component)]
 pub struct EraText;
 #[derive(Component)]
@@ -38,6 +43,13 @@ pub struct CountBar;
 pub struct BenchGrid;
 #[derive(Component)]
 pub struct EmptyBenchHint;
+/// The bench's zoom bar: out, the level, in.
+#[derive(Component)]
+pub struct BenchZoomOut;
+#[derive(Component)]
+pub struct BenchZoomIn;
+#[derive(Component)]
+pub struct BenchZoomLabel;
 
 pub fn current_view(codex: &CodexState, rlib: &ReactionLibState, tree: &TechTreeState) -> View {
     if codex.open {
@@ -139,15 +151,23 @@ pub fn spawn_header(mut commands: Commands, fonts: Res<UiFonts>, assets: Res<Ass
                 c.spawn(Node { align_items: AlignItems::Center, column_gap: Val::Px(8.0), ..default() }).with_children(
                     |r| {
                         r.spawn((
-                            Node { width: Val::Px(140.0), height: Val::Px(5.0), ..default() },
-                            BorderRadius::all(Val::Px(99.0)),
+                            Node {
+                                border_radius: BorderRadius::all(Val::Px(99.0)),
+                                width: Val::Px(140.0),
+                                height: Val::Px(5.0),
+                                ..default()
+                            },
                             BackgroundColor(theme::LINE_STRONG.with_alpha(0.7)),
                         ))
                         .with_children(|track| {
                             track.spawn((
                                 CountBar,
-                                Node { width: Val::Percent(0.0), height: Val::Percent(100.0), ..default() },
-                                BorderRadius::all(Val::Px(99.0)),
+                                Node {
+                                    border_radius: BorderRadius::all(Val::Px(99.0)),
+                                    width: Val::Percent(0.0),
+                                    height: Val::Percent(100.0),
+                                    ..default()
+                                },
                                 BackgroundGradient::from(LinearGradient::to_right(vec![
                                     ColorStop::auto(theme::VIOLET),
                                     ColorStop::auto(theme::CYAN),
@@ -158,18 +178,22 @@ pub fn spawn_header(mut commands: Commands, fonts: Res<UiFonts>, assets: Res<Ass
                     },
                 );
             });
+            theme::spawn_icon_button(h, assets, "bell", 36.0, theme::TEXT, JournalButton);
             theme::spawn_icon_button(h, assets, "gear", 36.0, theme::TEXT, SettingsButton);
         });
 }
 
-/// Header tabs and the gear button.
+/// Header tabs, the bell and the gear button.
+#[allow(clippy::too_many_arguments)]
 pub fn nav_input_system(
     tabs: Query<(&Interaction, &NavTab), Changed<Interaction>>,
     gear: Query<&Interaction, (Changed<Interaction>, With<SettingsButton>)>,
+    bell: Query<&Interaction, (Changed<Interaction>, With<JournalButton>)>,
     mut codex: ResMut<CodexState>,
     mut rlib: ResMut<ReactionLibState>,
     mut tree: ResMut<TechTreeState>,
     mut settings_ui: ResMut<SettingsUi>,
+    mut journal_ui: ResMut<crate::ui::toasts::JournalUi>,
 ) {
     for (i, tab) in &tabs {
         if *i == Interaction::Pressed {
@@ -183,10 +207,17 @@ pub fn nav_input_system(
             settings_ui.open = !settings_ui.open;
         }
     }
+    for i in &bell {
+        if *i == Interaction::Pressed {
+            journal_ui.open = !journal_ui.open;
+        }
+    }
 }
 
-/// Esc closes the settings dialog, then any open view, then lets go of the shelf
-/// selection; with nothing else to close it opens settings.
+/// Esc closes the shelf search's typing, then the credits, the settings dialog or the
+/// journal, then any open view, then lets go of the shelf selection; with nothing else to
+/// close it opens settings.
+#[allow(clippy::too_many_arguments)]
 pub fn escape_system(
     keys: Res<ButtonInput<KeyCode>>,
     named: Res<ButtonInput<bevy::input::keyboard::Key>>,
@@ -196,6 +227,9 @@ pub fn escape_system(
     mut settings_ui: ResMut<SettingsUi>,
     mut selected: ResMut<crate::ui::detail_panel::SelectedSubstance>,
     mut credits: ResMut<crate::ui::credits::CreditsUi>,
+    mut journal_ui: ResMut<crate::ui::toasts::JournalUi>,
+    mut search: ResMut<crate::ui::inventory::ShelfSearch>,
+    mut menu: ResMut<crate::ui::main_menu::MainMenu>,
     pads: Query<&Gamepad>,
 ) {
     // a controller's B and Start do what Esc does, and so does a phone's Back
@@ -204,18 +238,30 @@ pub fn escape_system(
     if !keys.just_pressed(KeyCode::Escape) && !pad && !back {
         return;
     }
-    if credits.open {
+    use crate::ui::main_menu::MenuStage;
+    if matches!(menu.stage, MenuStage::Title | MenuStage::Notice) {
+        // (main_menu_system moves past these on any key)
+        return;
+    }
+    if search.typing {
+        search.typing = false;
+    } else if credits.open {
         credits.open = false;
+    } else if journal_ui.open {
+        journal_ui.open = false;
     } else if settings_ui.open {
         settings_ui.open = false;
     } else if codex.open || rlib.open || tree.open {
         codex.open = false;
         rlib.open = false;
         tree.open = false;
+    } else if menu.stage == MenuStage::Menu {
+        // back to the game
+        menu.hide();
     } else if selected.0.is_some() {
         selected.0 = None;
     } else {
-        settings_ui.open = true;
+        menu.show_menu();
     }
 }
 
@@ -365,7 +411,7 @@ pub fn decorate_bench_system(
                 h.spawn((
                     theme::label(
                         &fonts,
-                        "Place a vessel from the right, then drag substances from the shelf below into it.",
+                        "Place a vessel from the right, then tap or drag substances from the shelf into it.",
                         theme::SM,
                         Weight::Regular,
                         theme::TEXT_3,
@@ -373,7 +419,100 @@ pub fn decorate_bench_system(
                     Pickable::IGNORE,
                 ));
             });
+            // zoom: out, the level, in (Ctrl and the wheel, or a pinch, do the same)
+            r.spawn((
+                Node {
+                    position_type: PositionType::Absolute,
+                    left: Val::Px(12.0),
+                    bottom: Val::Px(12.0),
+                    align_items: AlignItems::Center,
+                    column_gap: Val::Px(2.0),
+                    padding: UiRect::all(Val::Px(3.0)),
+                    border: UiRect::all(Val::Px(1.0)),
+                    border_radius: BorderRadius::all(Val::Px(99.0)),
+                    ..default()
+                },
+                BackgroundColor(theme::SURFACE.with_alpha(0.92)),
+                BorderColor::all(theme::LINE),
+                Name::new("BenchZoom"),
+            ))
+            .with_children(|z| {
+                theme::spawn_icon_button(
+                    z,
+                    &assets,
+                    "minus",
+                    28.0,
+                    theme::TEXT,
+                    (
+                        BenchZoomOut,
+                        crate::ui::onboarding::Tip::Text(
+                            "Zoom out",
+                            "See more of the bench. At 60% and below the vessels fold down to what they hold.",
+                        ),
+                    ),
+                );
+                z.spawn((
+                    BenchZoomLabel,
+                    theme::label(&fonts, "100%", theme::XS, Weight::Semibold, theme::TEXT_2),
+                    TextLayout::justify(Justify::Center),
+                    Node { min_width: Val::Px(40.0), ..default() },
+                    Pickable::IGNORE,
+                ));
+                theme::spawn_icon_button(
+                    z,
+                    &assets,
+                    "plus",
+                    28.0,
+                    theme::TEXT,
+                    (BenchZoomIn, crate::ui::onboarding::Tip::Text("Zoom in", "Back toward full size.")),
+                );
+            });
         });
+    }
+}
+
+/// The zoom bar's buttons and its level, and a two-finger pinch: apart zooms in,
+/// together zooms out, a step at a time.
+pub fn bench_zoom_controls_system(
+    mut zoom: ResMut<crate::systems::drag_drop::BenchZoom>,
+    outs: Query<&Interaction, (Changed<Interaction>, With<BenchZoomOut>)>,
+    ins: Query<&Interaction, (Changed<Interaction>, With<BenchZoomIn>)>,
+    mut label: Query<&mut Text, With<BenchZoomLabel>>,
+    touches: Res<Touches>,
+    mut pinch: Local<Option<f32>>,
+) {
+    let mut to = zoom.0;
+    if outs.iter().any(|i| *i == Interaction::Pressed) {
+        to = zoom.stepped(true);
+    }
+    if ins.iter().any(|i| *i == Interaction::Pressed) {
+        to = zoom.stepped(false);
+    }
+    let fingers: Vec<Vec2> = touches.iter().map(|t| t.position()).collect();
+    if let [a, b] = fingers[..] {
+        let d = a.distance(b);
+        match *pinch {
+            None => *pinch = Some(d),
+            Some(start) if d > start * 1.3 => {
+                to = zoom.stepped(false);
+                *pinch = Some(d);
+            }
+            Some(start) if d < start / 1.3 => {
+                to = zoom.stepped(true);
+                *pinch = Some(d);
+            }
+            _ => {}
+        }
+    } else {
+        *pinch = None;
+    }
+    if zoom.0 != to {
+        zoom.0 = to;
+    }
+    if zoom.is_changed() {
+        for mut t in &mut label {
+            t.0 = format!("{:.0}%", zoom.0 * 100.0);
+        }
     }
 }
 
@@ -422,7 +561,7 @@ fn node_at(p: Vec2, stack: &bevy::ui::UiStack, hits: &Query<HitParts>) -> Option
         vis.is_none_or(|v| v.get())
             && node.size.x > 0.0
             && node.contains_point(*tf, p)
-            && clip.is_none_or(|c| c.clip.contains(p))
+            && clip.is_none_or(|c| c.contains_point(p))
     })
 }
 
@@ -433,8 +572,8 @@ fn scroll_out_from(
     mut e: Entity,
     d: Vec2,
     parents: &Query<&ChildOf>,
-    scrollers: &mut Query<(&Node, &ComputedNode, &mut ScrollPosition)>,
-) {
+    scrollers: &mut Query<(&Node, &ComputedNode, &mut ScrollPosition), Without<CanvasScrollingPane>>,
+) -> bool {
     loop {
         if let Ok((node, cn, mut sp)) = scrollers.get_mut(e) {
             let max = scroll_max(cn);
@@ -444,19 +583,21 @@ fn scroll_out_from(
                 .clamp(Vec2::ZERO, max);
             if (can_x || can_y) && want != sp.0 {
                 sp.0 = want;
-                return;
+                return true;
             }
         }
         match parents.get(e) {
             Ok(c) => e = c.parent(),
-            Err(_) => return,
+            Err(_) => return false,
         }
     }
 }
 
 /// The wheel scrolls whatever scrolling panel is under the cursor (Shift scrolls
 /// sideways), and never past its end, so there is no dead zone to scroll back through.
-/// At the end of an inner list the wheel moves on to the panel around it.
+/// At the end of an inner list the wheel moves on to the panel around it; on the bench it
+/// pans the bench, as dragging does.
+#[allow(clippy::too_many_arguments)]
 pub fn wheel_scroll_system(
     mut wheel: MessageReader<bevy::input::mouse::MouseWheel>,
     keys: Res<ButtonInput<KeyCode>>,
@@ -464,7 +605,10 @@ pub fn wheel_scroll_system(
     stack: Res<bevy::ui::UiStack>,
     hits: Query<HitParts>,
     parents: Query<&ChildOf>,
-    mut scrollers: Query<(&Node, &ComputedNode, &mut ScrollPosition)>,
+    mut scrollers: Query<(&Node, &ComputedNode, &mut ScrollPosition), Without<CanvasScrollingPane>>,
+    mut panes: Query<(Entity, &mut Node), With<CanvasScrollingPane>>,
+    bench: Query<&ComputedNode, With<ReactionCanvasRoot>>,
+    mut zoom: ResMut<crate::systems::drag_drop::BenchZoom>,
 ) {
     use bevy::input::mouse::MouseScrollUnit;
     let mut d = Vec2::ZERO;
@@ -483,8 +627,32 @@ pub fn wheel_scroll_system(
     }
     let Some(win) = windows.iter().next() else { return };
     let Some(cursor) = win.cursor_position() else { return };
-    if let Some(top) = node_at(cursor * win.scale_factor(), &stack, &hits) {
-        scroll_out_from(top, d, &parents, &mut scrollers);
+    let Some(top) = node_at(cursor * win.scale_factor(), &stack, &hits) else { return };
+    let ctrl = keys.pressed(KeyCode::ControlLeft) || keys.pressed(KeyCode::ControlRight);
+    if !ctrl && scroll_out_from(top, d, &parents, &mut scrollers) {
+        return;
+    }
+    // nothing scrolled: on the bench, pan it (Ctrl zooms it)
+    let Ok((pane, mut node)) = panes.single_mut() else { return };
+    let mut e = top;
+    loop {
+        if e == pane || bench.contains(e) {
+            if ctrl {
+                let z = zoom.stepped(d.y + d.x < 0.0);
+                if zoom.0 != z {
+                    zoom.0 = z;
+                }
+                return;
+            }
+            let at = crate::systems::drag_drop::pane_offset(&node) + d;
+            let view = crate::systems::drag_drop::bench_view(&bench);
+            crate::systems::drag_drop::pan_bench(&mut node, view, at, zoom.0);
+            return;
+        }
+        match parents.get(e) {
+            Ok(c) => e = c.parent(),
+            Err(_) => return,
+        }
     }
 }
 
@@ -510,7 +678,7 @@ pub fn touch_scroll_system(
     hits: Query<HitParts>,
     dragged: Query<(), Or<(With<Draggable>, With<CanvasScrollingPane>)>>,
     parents: Query<&ChildOf>,
-    mut scrollers: Query<(&Node, &ComputedNode, &mut ScrollPosition)>,
+    mut scrollers: Query<(&Node, &ComputedNode, &mut ScrollPosition), Without<CanvasScrollingPane>>,
 ) {
     let s = ui_scale.0.max(0.01);
     if let Some(win) = windows.iter().next() {
