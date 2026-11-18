@@ -1,17 +1,16 @@
-# Every push and pull request: formatting, lints and the tests, then the review run (the
-# interaction checks and a short playthrough, drawn by a software renderer under a virtual
-# display). The whole tech tree is played weekly, or on demand from the Actions tab
-# ("Run workflow", tick "full"). Each review uploads its report and screenshots; any
-# failed check or step fails the run.
+# Every pull request: formatting, lints and the tests, then the review run (the interaction
+# checks and a short playthrough, drawn by a software renderer under a virtual display). It
+# runs once per pull request, not again when it merges: what merges is what was checked. A
+# new push to the same branch cancels the run still going for the last one. The whole tech
+# tree is played weekly, or on demand from the Actions tab ("Run workflow", tick "full").
+# Each review uploads its report and screenshots; any failed check or step fails the run.
 #
 # Once the checks and the review pass, the Android and iOS apps are built (android.yml and
-# ios.yml, called from here), for a pull request, a push to main or a run started by hand;
-# their APK and IPA are this run's artifacts. The weekly run builds nothing: nothing changed.
+# ios.yml, called from here), for a pull request or a run started by hand; their APK and IPA
+# are this run's artifacts. The weekly run builds nothing: nothing changed.
 name: CI
 
 on:
-  push:
-    branches: [main]
   pull_request:
   schedule:
     - cron: "37 7 * * 1" # Mondays: the full playthrough
@@ -21,6 +20,10 @@ on:
         description: "Play the whole tech tree (about an hour and a half)"
         type: boolean
         default: false
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
 
 env:
   CARGO_TERM_COLOR: always

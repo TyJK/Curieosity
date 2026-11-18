@@ -21,6 +21,7 @@
 // pointer. Positions from the pointer are window pixels; nodes are UI pixels, so every
 // distance is divided by the interface size (UiScale).
 use crate::ui::Button;
+use bevy::ecs::system::entity_command::observe;
 use bevy::ecs::system::SystemParam;
 use bevy::picking::hover::{HoverMap, PreviousHoverMap};
 use bevy::picking::pointer::{PointerId, PointerPressState};
@@ -130,29 +131,35 @@ fn attach_drag_observers_to_draggables(
     // No GlobalZIndex at rest: a node with one is drawn as its own root, in an order Bevy
     // does not keep stable between roots on the same layer, so a vessel card could be drawn
     // over its own contents. Only a drag lifts a node (LIFT), and the drop puts it back.
+    // Something can be gone again before these land (a chip used up by a reaction in the
+    // same frame, a card closed): it needs no observers then, so that is not an error.
     for entity in &new_ingredients {
         commands
             .entity(entity)
             .try_insert((Outline::default(), Pickable::default()))
-            .observe(finger_down)
-            .observe(start_drag)
-            .observe(update_drag)
-            .observe(stop_drag_ingredient);
+            .queue_silenced(observe(finger_down))
+            .queue_silenced(observe(start_drag))
+            .queue_silenced(observe(update_drag))
+            .queue_silenced(observe(stop_drag_ingredient));
     }
     for entity in &new_vessels {
         commands
             .entity(entity)
-            .insert((Outline::default(), Pickable::default()))
-            .observe(start_drag)
-            .observe(update_drag)
-            .observe(stop_drag_vessel)
-            .observe(click_card);
+            .try_insert((Outline::default(), Pickable::default()))
+            .queue_silenced(observe(start_drag))
+            .queue_silenced(observe(update_drag))
+            .queue_silenced(observe(stop_drag_vessel))
+            .queue_silenced(observe(click_card));
     }
     for entity in &new_panes {
-        commands.entity(entity).observe(start_pan_canvas).observe(update_pan_canvas).observe(stop_pan_canvas);
+        commands
+            .entity(entity)
+            .queue_silenced(observe(start_pan_canvas))
+            .queue_silenced(observe(update_pan_canvas))
+            .queue_silenced(observe(stop_pan_canvas));
     }
     for entity in &new_output_ports {
-        commands.entity(entity).observe(start_draw_link).observe(stop_draw_link);
+        commands.entity(entity).queue_silenced(observe(start_draw_link)).queue_silenced(observe(stop_draw_link));
     }
 }
 

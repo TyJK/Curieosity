@@ -11,14 +11,29 @@ Curieosity is free, and always will be.
 
 ## Play
 
-Download the latest build for Windows, macOS or Linux from
-[Releases](../../releases), unzip it, and run `Curieosity`. Progress saves itself.
+- **Windows, macOS, Linux:** download your system's zip from the
+  [latest release](https://github.com/TyJK/Curieosity/releases/latest), unzip it, and run
+  `Curieosity`.
+- **Android** (12 or later, 64-bit): on your phone, download
+  [Curieosity-android.apk](https://github.com/TyJK/Curieosity/releases/latest/download/Curieosity-android.apk)
+  and open it. Allow installing from your browser when Android asks. Later versions install
+  over it and keep your progress.
+- **iPhone and iPad** (iOS 15 or later): download
+  [Curieosity-ios.ipa](https://github.com/TyJK/Curieosity/releases/latest/download/Curieosity-ios.ipa)
+  on a Windows or Mac computer and install it with [Sideloadly](https://sideloadly.io):
+  1. Plug the device into the computer, open Sideloadly, drop the .ipa on it, enter your
+     Apple ID and press Start.
+  2. On iOS 16 and later, turn on Settings > Privacy & Security > Developer Mode on the
+     device (the switch appears after the first install; it restarts the device).
+  3. On the device, open Settings > General > VPN & Device Management, tap your Apple ID
+     and tap Trust.
 
-Mouse, keyboard (Tab, arrows, Enter, Esc) and controllers all work.
+  With a free Apple ID the app stops opening after 7 days: install it again the same way
+  (don't delete it first, or its progress goes with it).
 
-On Android (12 or later, 64-bit), install the APK from the
-Android workflow's latest run (see below). Swipe the shelf to scroll it; hold a tile a
-moment to lift it onto a vessel, or tap a tile and then a vessel. Back works as Esc.
+Progress saves itself. Mouse, keyboard (Tab, arrows, Enter, Esc) and controllers all work.
+On a phone, swipe the shelf to scroll it; hold a tile a moment to lift it onto a vessel, or
+tap a tile and then a vessel. Back works as Esc.
 
 ## Build from source
 
@@ -41,7 +56,8 @@ cargo run --release -- --autoplay --window 915x412      the same at a phone's si
 
 The review run plays the game through its real input, writes a report with screenshots to
 `target/review/run_<time>/report.md`, and exits with an error if anything failed. GitHub
-Actions runs the tests and a short review on every push, and the whole tech tree weekly.
+Actions runs the tests and a short review on every pull request, and the whole tech tree
+weekly.
 
 ## Content
 
@@ -52,14 +68,19 @@ balances and the whole tree can be played through. It also packs the game's shar
 full scraped library, which is too big for this repository and lives in `library/`
 (see `tools/data/pack_library.py`).
 
-## Android
+## Android and iOS
 
 `android/` holds the Android build: a small library crate that starts the game, and the
-Gradle project that packs it with `assets/` into an APK. The Android workflow builds it
-on GitHub's runners (which have the Android SDK): Actions, then "Android", then "Run
-workflow"; the APK is the run's artifact. To build it yourself you need the Android SDK
-and NDK, the `aarch64-linux-android` Rust target and `cargo install cargo-ndk`; then, in
-`android/`, run the two build steps from `.github/workflows/android.yml`.
+Gradle project that packs it with `assets/` into an APK. `ios/` holds the iOS app's
+Info.plist and icon. GitHub's runners build both (the Android SDK, and Xcode on macOS)
+whenever CI passes, and for each release; the APK and the .ipa are the runs' artifacts,
+and a release carries them as `Curieosity-android.apk` and `Curieosity-ios.ipa`. Either
+can also be built from the Actions tab ("Android" or "iOS", then "Run workflow").
+
+To build the APK yourself you need the Android SDK and NDK, the `aarch64-linux-android`
+Rust target and `cargo install cargo-ndk`; then, in `android/`, run the two build steps
+from `.github/workflows/android.yml`. The iOS app needs a Mac with Xcode and the
+`aarch64-apple-ios` Rust target; `.github/workflows/ios.yml` has the steps.
 
 ## Steam
 

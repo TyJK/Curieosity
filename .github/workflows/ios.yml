@@ -1,7 +1,7 @@
-# Builds the iOS app: an .ipa to install by hand. CI builds it once its checks pass (ci.yml
-# calls this workflow); it can also be started from the Actions tab ("iOS", then "Run
-# workflow"), and pushing a v* tag builds it too. The .ipa is the run's artifact, kept for
-# 30 days.
+# Builds the iOS app: an .ipa to install by hand. CI builds it once its checks pass, and a
+# release (a v* tag) builds it for the release (ci.yml and release.yml call this workflow);
+# it can also be started from the Actions tab ("iOS", then "Run workflow"). The .ipa is the
+# run's artifact, kept for 30 days.
 #
 # Without signing secrets the .ipa is unsigned. Sideloadly or AltStore install it, signing it
 # on the way with the installer's own Apple ID (a free Apple ID's apps run for 7 days, then
@@ -18,8 +18,6 @@ name: iOS
 on:
   workflow_call:
   workflow_dispatch:
-  push:
-    tags: ["v*"]
 
 env:
   CARGO_TERM_COLOR: always
