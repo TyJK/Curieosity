@@ -6,9 +6,9 @@
 // During play Esc (a controller's Start, a phone's Back) brings the menu back, and again
 // returns to the game. Review runs and `--skip-title` start straight in the lab.
 //
-// Behind every stage sits the lab's dot grid with a vessel from each family and a few
-// formulas drifting slowly over it; the menu adds a strip of the eras, the player's own
-// lit up to where they have reached.
+// Behind every stage sits the lab's dot grid with a vessel from each family drifting over it,
+// its contents glowing and bubbling, and molecules turning among them; the menu adds a strip
+// of the eras, the player's own lit up to where they have reached.
 use crate::ui::Interaction;
 use bevy::prelude::*;
 
@@ -91,7 +91,7 @@ pub struct MenuDecor;
 /// The column each stage is built into.
 #[derive(Component)]
 pub struct MenuContent;
-/// A piece of the backdrop that bobs, sways and tilts slowly.
+/// A piece of the backdrop that bobs, sways and tilts slowly (and turns, for a molecule).
 #[derive(Component)]
 pub struct MenuFloat {
     period: f32,
@@ -99,33 +99,95 @@ pub struct MenuFloat {
     bob: f32,
     sway: f32,
     tilt: f32,
+    /// degrees per second, for a steady turn
+    spin: f32,
+}
+/// A layer that brightens and dims: a vessel's contents, its glow, its flame or spark.
+#[derive(Component)]
+pub struct MenuPulse {
+    color: Color,
+    period: f32,
+    phase: f32,
+    /// how far it dims, 0..1
+    depth: f32,
+}
+/// A bubble rising through a vessel's contents: a layer the size of the vessel moves up, and
+/// the dot in it (MenuBubbleDot, on the same cycle) fades as it goes.
+#[derive(Component)]
+pub struct MenuBubble {
+    period: f32,
+    phase: f32,
+    /// how far it rises, as a share of the vessel's height
+    rise: f32,
+}
+#[derive(Component)]
+pub struct MenuBubbleDot {
+    color: Color,
+    period: f32,
+    phase: f32,
 }
 
-/// The vessels drifting behind the menu, one per family: where (percent of the screen), how
-/// big (percent of its smaller side) and how slowly they move (seconds per cycle).
-const FLOATING_VESSELS: &[(ProcessType, f32, f32, f32, f32)] = &[
-    (ProcessType::Mix, 7.0, 9.0, 13.0, 9.0),
-    (ProcessType::Heat, 19.0, 29.0, 15.0, 11.0),
-    (ProcessType::Distillation, 5.0, 49.0, 14.0, 10.0),
-    (ProcessType::Electrolysis, 18.0, 66.0, 12.0, 8.5),
-    (ProcessType::Fermenter, 6.0, 80.0, 12.0, 12.0),
-    (ProcessType::Catalysis, 80.0, 8.0, 12.0, 10.5),
-    (ProcessType::Cyclotron, 89.0, 26.0, 14.0, 9.5),
-    (ProcessType::Pressurize, 77.0, 45.0, 14.0, 11.5),
-    (ProcessType::Cool, 89.0, 63.0, 12.0, 8.0),
-    (ProcessType::CrystalPuller, 78.0, 79.0, 13.0, 12.5),
+/// A vessel behind the menu: where (percent of the screen), how big (percent of the screen's
+/// smaller side), seconds per drift, the colour of what it holds, and where its liquid is
+/// (left, right, bottom, top, as shares of the art) if bubbles should rise in it.
+struct Floating {
+    process: ProcessType,
+    x: f32,
+    y: f32,
+    size: f32,
+    period: f32,
+    contents: Color,
+    liquid: Option<(f32, f32, f32, f32)>,
+}
+
+const fn vessel(
+    process: ProcessType,
+    (x, y, size, period): (f32, f32, f32, f32),
+    contents: Color,
+    liquid: Option<(f32, f32, f32, f32)>,
+) -> Floating {
+    Floating { process, x, y, size, period, contents, liquid }
+}
+
+/// A vessel of each family, glowing, with bubbles where there is liquid.
+const FLOATING_VESSELS: &[Floating] = &[
+    vessel(ProcessType::Flask, (3.0, 3.0, 18.0, 9.0), Color::srgb(0.30, 0.55, 0.95), Some((0.34, 0.66, 0.78, 0.60))),
+    vessel(ProcessType::Heat, (18.0, 21.0, 20.0, 11.0), Color::srgb(0.95, 0.60, 0.20), None),
+    vessel(
+        ProcessType::Distillation,
+        (2.0, 41.0, 19.0, 10.0),
+        Color::srgb(0.85, 0.30, 0.45),
+        Some((0.20, 0.40, 0.84, 0.71)),
+    ),
+    vessel(
+        ProcessType::Electrolysis,
+        (19.0, 58.0, 17.0, 8.5),
+        Color::srgb(0.40, 0.75, 0.95),
+        Some((0.30, 0.70, 0.80, 0.52)),
+    ),
+    vessel(
+        ProcessType::Bioreactor,
+        (3.0, 73.0, 19.0, 12.0),
+        Color::srgb(0.85, 0.75, 0.35),
+        Some((0.33, 0.67, 0.82, 0.42)),
+    ),
+    vessel(ProcessType::Catalysis, (67.0, 2.0, 16.0, 10.5), Color::srgb(0.90, 0.50, 0.20), None),
+    vessel(ProcessType::Cyclotron, (83.0, 17.0, 19.0, 9.5), Color::srgb(0.80, 0.80, 0.90), None),
+    vessel(ProcessType::Pressurize, (66.0, 38.0, 18.0, 11.5), Color::srgb(0.95, 0.85, 0.40), None),
+    vessel(ProcessType::Cool, (84.0, 55.0, 17.0, 8.0), Color::srgb(0.40, 0.65, 1.00), None),
+    vessel(ProcessType::CrystalPuller, (67.0, 72.0, 18.0, 12.5), Color::srgb(0.80, 0.85, 0.95), None),
 ];
 
-/// Formulas drifting among them: text, where (percent), size (px).
-const FLOATING_FORMULAS: &[(&str, f32, f32, f32)] = &[
-    ("H₂O", 28.0, 13.0, 22.0),
-    ("NaCl", 2.0, 34.0, 18.0),
-    ("Fe₂O₃", 29.0, 47.0, 20.0),
-    ("CO₂", 29.0, 86.0, 18.0),
-    ("H₂SO₄", 67.0, 21.0, 20.0),
-    ("CaCO₃", 89.0, 47.0, 17.0),
-    ("C₆H₁₂O₆", 66.0, 64.0, 18.0),
-    ("NH₃", 92.0, 88.0, 18.0),
+/// Molecules turning slowly among them (the game's own skeletal drawings): substance id,
+/// where (percent), size (percent of the smaller side), colour, degrees per second.
+const FLOATING_MOLECULES: &[(u32, f32, f32, f32, Color, f32)] = &[
+    (42, 27.0, 2.0, 16.0, Color::srgb(0.45, 0.52, 1.00), 3.0), // indigo
+    (153, 88.0, 1.0, 12.0, Color::srgb(1.00, 0.45, 0.35), -4.0), // alizarin, madder red
+    (6591, 29.0, 37.0, 13.0, Color::srgb(0.85, 0.88, 1.00), 2.5), // morphine
+    (232, 29.0, 74.0, 14.0, Color::srgb(0.55, 0.95, 0.60), -3.0), // penicillin G
+    (425, 82.0, 84.0, 11.0, Color::srgb(0.85, 0.88, 1.00), 4.0), // salicin, from willow bark
+    (1484, 75.5, 23.0, 10.0, Color::srgb(0.75, 0.55, 1.00), -2.5), // benzanthrone, a vat dye
+    (1236, 17.5, 86.0, 9.0, Color::srgb(0.35, 0.84, 0.90), 5.0), // uracil
 ];
 
 pub fn spawn_main_menu(mut commands: Commands) {
@@ -199,7 +261,7 @@ pub fn main_menu_system(
     let Ok(content) = contents.single() else {
         // the first time: the backdrop, and the column the stages go in (built next frame)
         commands.entity(root_e).with_children(|p| {
-            spawn_decor(p, &fonts, &assets);
+            spawn_decor(p, &assets);
             p.spawn((
                 MenuContent,
                 Node {
@@ -269,10 +331,10 @@ pub fn main_menu_system(
     });
 }
 
-/// The backdrop: the lab's dot grid, a violet glow behind the title, darker edges, and a
-/// vessel of each family with a few formulas drifting over it, all faint enough to read
-/// the menu over.
-fn spawn_decor(p: &mut ChildSpawnerCommands, fonts: &UiFonts, assets: &AssetServer) {
+/// The backdrop: the lab's dot grid, a violet glow behind the title, darker edges, a vessel of
+/// each family glowing with its contents (bubbling where they are liquid), and some of the
+/// molecules the game draws, turning slowly.
+fn spawn_decor(p: &mut ChildSpawnerCommands, assets: &AssetServer) {
     let full = || Node {
         position_type: PositionType::Absolute,
         left: Val::Px(0.0),
@@ -304,9 +366,106 @@ fn spawn_decor(p: &mut ChildSpawnerCommands, fonts: &UiFonts, assets: &AssetServ
             )),
             Pickable::IGNORE,
         ));
-        for (i, (process, x, y, size, period)) in FLOATING_VESSELS.iter().enumerate() {
+        let layer = || Node {
+            position_type: PositionType::Absolute,
+            width: Val::Percent(100.0),
+            height: Val::Percent(100.0),
+            ..default()
+        };
+        for (i, f) in FLOATING_VESSELS.iter().enumerate() {
+            let k = i as f32;
+            let family = process_color(&f.process);
+            d.spawn((
+                Node {
+                    position_type: PositionType::Absolute,
+                    left: Val::Percent(f.x),
+                    top: Val::Percent(f.y),
+                    width: Val::VMin(f.size),
+                    height: Val::VMin(f.size),
+                    ..default()
+                },
+                UiTransform::default(),
+                MenuFloat { period: f.period, phase: k * 0.37, bob: 10.0, sway: 5.0, tilt: 5.0, spin: 0.0 },
+                Pickable::IGNORE,
+            ))
+            .with_children(|v| {
+                // a soft glow of the family's colour behind it
+                v.spawn((
+                    Node {
+                        position_type: PositionType::Absolute,
+                        left: Val::Percent(-30.0),
+                        top: Val::Percent(-30.0),
+                        width: Val::Percent(160.0),
+                        height: Val::Percent(160.0),
+                        ..default()
+                    },
+                    BackgroundGradient::from(RadialGradient::new(
+                        UiPosition::CENTER,
+                        RadialGradientShape::ClosestSide,
+                        vec![
+                            ColorStop::new(family.with_alpha(0.16), Val::Percent(0.0)),
+                            ColorStop::new(Color::NONE, Val::Percent(100.0)),
+                        ],
+                    )),
+                    Pickable::IGNORE,
+                ));
+                // what it holds, glowing; the vessel; its flame, spark or frost, flickering
+                let flicker = if f.process == ProcessType::Heat { 0.9 } else { 2.6 };
+                for (art, color, pulse) in [
+                    ("fill", f.contents.with_alpha(0.6), Some((3.4, 0.35))),
+                    ("outline", family.with_alpha(0.72), None),
+                    ("accent", accent_glow(&f.process).with_alpha(0.75), Some((flicker, 0.55))),
+                ] {
+                    let mut e = v.spawn((
+                        ImageNode { image: assets.load(vessel_art_path(&f.process, art)), color, ..default() },
+                        layer(),
+                        Pickable::IGNORE,
+                    ));
+                    if let Some((period, depth)) = pulse {
+                        e.insert(MenuPulse { color, period, phase: k * 0.23, depth });
+                    }
+                }
+                // bubbles rising through the liquid
+                let Some((left, right, bottom, top)) = f.liquid else { return };
+                let light = f.contents.mix(&Color::WHITE, 0.55).with_alpha(0.85);
+                for b in 0..4 {
+                    let bf = b as f32;
+                    let x = left + (right - left) * (0.15 + 0.7 * ((bf * 0.37 + k * 0.13) % 1.0));
+                    let (period, phase) = (2.0 + 0.45 * bf, bf * 0.27 + k * 0.11);
+                    v.spawn((
+                        layer(),
+                        UiTransform::default(),
+                        MenuBubble { period, phase, rise: bottom - top },
+                        Pickable::IGNORE,
+                    ))
+                    .with_children(|w| {
+                        w.spawn((
+                            Node {
+                                position_type: PositionType::Absolute,
+                                left: Val::Percent(x * 100.0 - 1.6),
+                                top: Val::Percent(bottom * 100.0 - 4.0),
+                                width: Val::Percent(3.2),
+                                height: Val::Percent(3.2),
+                                border_radius: BorderRadius::MAX,
+                                ..default()
+                            },
+                            BackgroundColor(Color::NONE),
+                            MenuBubbleDot { color: light, period, phase },
+                            Pickable::IGNORE,
+                        ));
+                    });
+                }
+            });
+        }
+        // molecules, turning slowly
+        for (i, (id, x, y, size, color, spin)) in FLOATING_MOLECULES.iter().enumerate() {
             let k = i as f32;
             d.spawn((
+                ImageNode {
+                    image: assets.load(format!("structures/{id}.png")),
+                    color: color.with_alpha(0.42),
+                    ..default()
+                },
                 Node {
                     position_type: PositionType::Absolute,
                     left: Val::Percent(*x),
@@ -316,39 +475,7 @@ fn spawn_decor(p: &mut ChildSpawnerCommands, fonts: &UiFonts, assets: &AssetServ
                     ..default()
                 },
                 UiTransform::default(),
-                MenuFloat { period: *period, phase: k * 0.37, bob: 9.0, sway: 4.0, tilt: 5.0 },
-                Pickable::IGNORE,
-            ))
-            .with_children(|v| {
-                for (layer, color) in [
-                    ("outline", process_color(process).with_alpha(0.30)),
-                    ("accent", accent_glow(process).with_alpha(0.22)),
-                ] {
-                    v.spawn((
-                        ImageNode { image: assets.load(vessel_art_path(process, layer)), color, ..default() },
-                        Node {
-                            position_type: PositionType::Absolute,
-                            width: Val::Percent(100.0),
-                            height: Val::Percent(100.0),
-                            ..default()
-                        },
-                        Pickable::IGNORE,
-                    ));
-                }
-            });
-        }
-        for (i, (text, x, y, size)) in FLOATING_FORMULAS.iter().enumerate() {
-            let k = i as f32;
-            d.spawn((
-                theme::label(fonts, *text, *size, Weight::Semibold, theme::CYAN.with_alpha(0.28)),
-                Node {
-                    position_type: PositionType::Absolute,
-                    left: Val::Percent(*x),
-                    top: Val::Percent(*y),
-                    ..default()
-                },
-                UiTransform::default(),
-                MenuFloat { period: 13.0 + k * 1.3, phase: k * 0.21, bob: 6.0, sway: 10.0, tilt: 0.0 },
+                MenuFloat { period: 14.0 + k * 1.7, phase: k * 0.29, bob: 8.0, sway: 10.0, tilt: 0.0, spin: *spin },
                 Pickable::IGNORE,
             ));
         }
@@ -401,16 +528,39 @@ fn spawn_eras(p: &mut ChildSpawnerCommands, fonts: &UiFonts, eras: &[String], re
     });
 }
 
-/// The backdrop's slow drift, while the title or the menu shows.
-pub fn menu_float_system(time: Res<Time>, menu: Res<MainMenu>, mut floats: Query<(&MenuFloat, &mut UiTransform)>) {
+/// The backdrop's life while the title or the menu shows: everything drifts, molecules turn,
+/// vessels' contents and flames pulse, and bubbles rise and fade.
+pub fn menu_float_system(
+    time: Res<Time>,
+    menu: Res<MainMenu>,
+    mut floats: Query<(&MenuFloat, &mut UiTransform), Without<MenuBubble>>,
+    mut pulses: Query<(&MenuPulse, &mut ImageNode)>,
+    mut bubbles: Query<(&MenuBubble, &mut UiTransform), Without<MenuFloat>>,
+    mut dots: Query<(&MenuBubbleDot, &mut BackgroundColor)>,
+) {
     if menu.stage == MenuStage::Hidden {
         return;
     }
     let t = time.elapsed_secs();
+    let tau = std::f32::consts::TAU;
     for (f, mut tf) in &mut floats {
-        let a = std::f32::consts::TAU * (t / f.period + f.phase);
+        let a = tau * (t / f.period + f.phase);
         tf.translation = Val2::px(f.sway * (a * 0.5).cos(), f.bob * a.sin());
-        tf.rotation = Rot2::degrees(f.tilt * (a * 0.5 + 0.8).sin());
+        tf.rotation = Rot2::degrees(f.tilt * (a * 0.5 + 0.8).sin() + f.spin * t);
+    }
+    for (p, mut img) in &mut pulses {
+        let w = 0.5 + 0.5 * (tau * (t / p.period + p.phase)).sin();
+        img.color = p.color.with_alpha(p.color.alpha() * (1.0 - p.depth * w));
+    }
+    // a bubble's place in its rise, 0 at the bottom to 1 at the top
+    let rise = |period: f32, phase: f32| (t / period + phase).fract();
+    for (b, mut tf) in &mut bubbles {
+        tf.translation = Val2::percent(0.0, -rise(b.period, b.phase) * b.rise * 100.0);
+    }
+    for (d, mut bg) in &mut dots {
+        let u = rise(d.period, d.phase);
+        let fade = if u < 0.15 { u / 0.15 } else { 1.0 - (u - 0.15) / 0.85 };
+        bg.0 = d.color.with_alpha(d.color.alpha() * fade);
     }
 }
 

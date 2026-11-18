@@ -1,7 +1,7 @@
-# Builds the Android app: an APK to install by hand. CI builds it once its checks pass
-# (ci.yml calls this workflow); it can also be started from the Actions tab ("Android", then
-# "Run workflow"), and pushing a v* tag builds it too. The APK is the run's artifact, kept
-# for 30 days.
+# Builds the Android app: an APK to install by hand. CI builds it once its checks pass, and
+# a release (a v* tag) builds it for the release (ci.yml and release.yml call this
+# workflow); it can also be started from the Actions tab ("Android", then "Run workflow").
+# The APK is the run's artifact, kept for 30 days.
 #
 # With the repository secret ANDROID_KEYSTORE (a keystore, base64-encoded) every build is
 # signed with the same key, so a new APK installs over the last and keeps the progress.
@@ -12,8 +12,6 @@ name: Android
 on:
   workflow_call:
   workflow_dispatch:
-  push:
-    tags: ["v*"]
 
 env:
   CARGO_TERM_COLOR: always

@@ -6,6 +6,7 @@
 // puts it in (see drag_drop.rs); dragging works as always. A double-tap on a tile puts it
 // straight into the vessel used last.
 use crate::ui::Interaction;
+use bevy::ecs::system::entity_command::observe;
 use bevy::prelude::*;
 
 use crate::components::{format_formula, Draggable, Ingredient};
@@ -37,10 +38,12 @@ pub struct SelectionOpenButton;
 #[derive(Component)]
 pub struct SelectionClearButton;
 
-/// Each shelf tile, as it spawns, gets the click that selects it.
+/// Each shelf tile and vessel chip, as it spawns, gets the click that selects it. A chip can
+/// be gone again before this lands (used up by a reaction in the same frame): it needs no
+/// click then, so that is not an error.
 pub fn attach_click_observers(mut commands: Commands, new_items: Query<Entity, (Added<Draggable>, With<Ingredient>)>) {
     for entity in &new_items {
-        commands.entity(entity).observe(on_item_click);
+        commands.entity(entity).queue_silenced(observe(on_item_click));
     }
 }
 
