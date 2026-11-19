@@ -63,13 +63,10 @@ pub fn current_view(codex: &CodexState, rlib: &ReactionLibState, tree: &TechTree
     }
 }
 
-/// The screen is taller than it is wide (a phone held upright): the vessel list becomes a
-/// strip above the shelf, the bench takes the full width, and the header keeps its icons.
+/// The screen is taller than it is wide (a phone held upright): the list-and-page views
+/// stack their list above the page, and the header keeps its icons.
 #[derive(Resource, Default, Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Portrait(pub bool);
-
-/// The vessel strip's height, upright.
-pub const STRIP_H: f32 = 66.0;
 
 /// The header's name, the nav tabs' words and the progress track: left out upright.
 #[derive(Component)]
@@ -96,38 +93,18 @@ pub fn portrait_system(windows: Query<&Window, With<bevy::window::PrimaryWindow>
     }
 }
 
-/// Lays the lab out for the way the screen is held (see Portrait). The bench's and the
-/// list's distance from the bottom is fit_dock_system's.
+/// Lays the views out for the way the screen is held (see Portrait). The lab is the same
+/// either way: the bench across the screen above the shelf (fit_dock_system sizes the two).
 #[allow(clippy::type_complexity)]
 pub fn portrait_layout_system(
     portrait: Res<Portrait>,
     mut nodes: Query<
-        (
-            &mut Node,
-            Has<crate::ui::process_toolbar::VesselSidebar>,
-            Has<crate::ui::process_toolbar::VesselSidebarHead>,
-            Has<crate::components::ui_markers::ReactionCanvasRoot>,
-            Has<HeaderWords>,
-            Has<crate::ui::toasts::ToastStack>,
-            (Has<SplitRoot>, Option<&SplitList>, Has<SplitPane>),
-        ),
-        Or<(
-            With<crate::ui::process_toolbar::VesselSidebar>,
-            With<crate::ui::process_toolbar::VesselSidebarHead>,
-            With<crate::components::ui_markers::ReactionCanvasRoot>,
-            With<HeaderWords>,
-            With<crate::ui::toasts::ToastStack>,
-            With<crate::ui::hint::HintRoot>,
-            With<crate::ui::discovery_card::DiscoveryCardRoot>,
-            With<SplitRoot>,
-            With<SplitList>,
-            With<SplitPane>,
-        )>,
+        (&mut Node, Has<HeaderWords>, (Has<SplitRoot>, Option<&SplitList>, Has<SplitPane>)),
+        Or<(With<HeaderWords>, With<SplitRoot>, With<SplitList>, With<SplitPane>)>,
     >,
 ) {
     let up = portrait.0;
-    let side = if up { 0.0 } else { theme::SIDEBAR_W };
-    for (mut n, list, head, bench, words, toasts, (split, split_list, split_pane)) in &mut nodes {
+    for (mut n, words, (split, split_list, split_pane)) in &mut nodes {
         let mut want = n.clone();
         if split {
             want.flex_direction = if up { FlexDirection::Column } else { FlexDirection::Row };
@@ -146,45 +123,8 @@ pub fn portrait_layout_system(
             } else {
                 UiRect::new(Val::Px(32.0), Val::Px(32.0), Val::Px(26.0), Val::Px(40.0))
             };
-        } else if list {
-            if up {
-                want.left = Val::Px(0.0);
-                want.right = Val::Px(0.0);
-                want.top = Val::Auto;
-                want.width = Val::Auto;
-                want.height = Val::Px(STRIP_H);
-                want.flex_direction = FlexDirection::Row;
-                want.align_items = AlignItems::Center;
-                want.column_gap = Val::Px(6.0);
-                want.padding = UiRect::all(Val::Px(6.0));
-                want.border = UiRect::top(Val::Px(1.0));
-                want.overflow = Overflow::scroll_x();
-            } else {
-                want.left = Val::Auto;
-                want.right = Val::Px(0.0);
-                want.top = Val::Px(theme::HEADER_H);
-                want.width = Val::Px(theme::SIDEBAR_W);
-                want.height = Val::Auto;
-                want.flex_direction = FlexDirection::Column;
-                want.align_items = AlignItems::Stretch;
-                want.column_gap = Val::Px(0.0);
-                want.padding = UiRect::all(Val::Px(12.0));
-                want.border = UiRect::left(Val::Px(1.0));
-                want.overflow = Overflow::scroll_y();
-            }
-        } else if head || words {
+        } else if words {
             want.display = if up { Display::None } else { Display::Flex };
-        } else if bench {
-            want.right = Val::Px(side);
-        } else {
-            // the overlays at the bench's right edge, over the shelf (and the strip, upright)
-            want.right = Val::Px(side + 14.0);
-            let lift = if up { STRIP_H + crate::ui::inventory::SHELF_ROW } else { 0.0 };
-            if toasts {
-                want.bottom = Val::Px(theme::DOCK_H + 14.0 + lift);
-            } else if n.bottom != Val::Auto {
-                want.bottom = Val::Px(theme::DOCK_H + 12.0 + lift);
-            }
         }
         if *n != want {
             *n = want;
@@ -325,11 +265,15 @@ pub fn nav_input_system(
     mut tree: ResMut<TechTreeState>,
     mut settings_ui: ResMut<SettingsUi>,
     mut journal_ui: ResMut<crate::ui::toasts::JournalUi>,
+    mut picker: ResMut<crate::ui::process_toolbar::VesselPicker>,
 ) {
     for tab in &tabs {
         codex.open = tab.0 == View::Substances;
         rlib.open = tab.0 == View::Reactions;
         tree.open = tab.0 == View::TechTree;
+        if picker.open {
+            picker.open = false;
+        }
     }
     if !gear.is_empty() {
         settings_ui.open = !settings_ui.open;
@@ -339,9 +283,10 @@ pub fn nav_input_system(
     }
 }
 
-/// Esc closes the shelf search's typing, then the credits, the settings dialog or the
-/// journal, then any open view, then lets go of a port picked to link from, then of the
-/// shelf selection; with nothing else to close it opens settings.
+/// Esc closes the lab's pop-ups (the "are you sure", the vessel picker, the shelf's category
+/// list), then the shelf search's typing, an open discovery card, the credits, the settings
+/// dialog or the journal, then any open view, then lets go of a port picked to link from,
+/// then of the shelf selection; with nothing else to close it opens the menu.
 #[allow(clippy::too_many_arguments)]
 pub fn escape_system(
     keys: Res<ButtonInput<KeyCode>>,
@@ -357,6 +302,13 @@ pub fn escape_system(
     mut menu: ResMut<crate::ui::main_menu::MainMenu>,
     mut pick: ResMut<crate::systems::drag_drop::LinkPick>,
     pads: Query<&Gamepad>,
+    lab: (
+        ResMut<crate::ui::bench_controls::Confirm>,
+        ResMut<crate::ui::process_toolbar::VesselPicker>,
+        ResMut<crate::ui::inventory::ShelfMenu>,
+        ResMut<crate::ui::discovery_card::DiscoveryCards>,
+        Res<Time<Real>>,
+    ),
 ) {
     // a controller's B and Start do what Esc does, and so does a phone's Back
     let pad = pads.iter().any(|g| g.just_pressed(GamepadButton::East) || g.just_pressed(GamepadButton::Start));
@@ -369,8 +321,17 @@ pub fn escape_system(
         // (main_menu_system moves past these on any key)
         return;
     }
-    if search.typing {
+    let (mut confirm, mut picker, mut shelf_menu, mut cards, time) = lab;
+    if confirm.0.is_some() {
+        confirm.0 = None;
+    } else if picker.open {
+        picker.open = false;
+    } else if shelf_menu.0 {
+        shelf_menu.0 = false;
+    } else if search.typing {
         search.typing = false;
+    } else if cards.is_open() {
+        cards.dismiss(time.elapsed_secs_f64());
     } else if credits.open {
         credits.open = false;
     } else if journal_ui.open {
@@ -539,7 +500,7 @@ pub fn decorate_bench_system(
                 h.spawn((
                     theme::label(
                         &fonts,
-                        "Place a vessel from the right, then tap or drag substances from the shelf into it.",
+                        "Add a vessel below, then tap or drag substances from the shelf into it.",
                         theme::SM,
                         Weight::Regular,
                         theme::TEXT_3,
@@ -551,8 +512,8 @@ pub fn decorate_bench_system(
             r.spawn((
                 Node {
                     position_type: PositionType::Absolute,
-                    left: Val::Px(12.0),
-                    bottom: Val::Px(12.0),
+                    right: Val::Px(12.0),
+                    top: Val::Px(12.0),
                     align_items: AlignItems::Center,
                     column_gap: Val::Px(2.0),
                     padding: UiRect::all(Val::Px(3.0)),
@@ -569,7 +530,7 @@ pub fn decorate_bench_system(
                     z,
                     &assets,
                     "minus",
-                    28.0,
+                    34.0,
                     theme::TEXT,
                     (
                         BenchZoomOut,
@@ -590,7 +551,7 @@ pub fn decorate_bench_system(
                     z,
                     &assets,
                     "plus",
-                    28.0,
+                    34.0,
                     theme::TEXT,
                     (BenchZoomIn, crate::ui::onboarding::Tip::Text("Zoom in", "Back toward full size.")),
                 );

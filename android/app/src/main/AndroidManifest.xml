@@ -7,7 +7,7 @@
         android:label="Curieosity"
         android:theme="@style/Theme.AppCompat.NoActionBar">
 
-        <!-- held sideways either way round; the layout is made for a landscape screen -->
+        <!-- held either way: the layout fits a landscape screen and an upright one -->
         <activity
             android:name=".MainActivity"
             android:configChanges="layoutDirection|locale|orientation|keyboardHidden|screenSize|smallestScreenSize|density|keyboard|navigation|screenLayout|uiMode"

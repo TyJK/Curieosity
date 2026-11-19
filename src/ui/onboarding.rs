@@ -17,7 +17,7 @@ use bevy::picking::pointer::{PointerId, PointerLocation, PointerPressState};
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 
-use crate::components::{InVessel, Ingredient, ProcessVessel, VesselCard, VesselReactButton};
+use crate::components::{InVessel, Ingredient, ProcessVessel, VesselCard};
 use crate::data::common::ProcessType;
 use crate::data::substances::Substances;
 use crate::resources::player_progress::PlayerProgress;
@@ -26,7 +26,7 @@ use crate::resources::ui_fonts::UiFonts;
 use crate::systems::autoplay::GameEvent;
 use crate::ui::codex::CodexState;
 use crate::ui::inventory::{InventoryScroll, ShelfTile};
-use crate::ui::process_toolbar::{roman, vessel_name, ProcessButton, ProcessUnlocks};
+use crate::ui::process_toolbar::{roman, vessel_name, AddVesselButton, PickFamily, ProcessUnlocks};
 use crate::ui::reaction_library::ReactionLibState;
 use crate::ui::settings::{Settings, SettingsUi};
 use crate::ui::tech_tree::TechTreeState;
@@ -227,8 +227,12 @@ pub fn tooltip_system(
     if y + 120.0 > h {
         y = (at.y - 130.0).max(8.0);
     }
-    node.left = Val::Px(x);
-    node.top = Val::Px(y);
+    // (only when it moves: a tooltip held still must let the screen settle)
+    let (left, top) = (Val::Px(x), Val::Px(y));
+    if node.left != left || node.top != top {
+        node.left = left;
+        node.top = top;
+    }
     if *vis != Visibility::Inherited {
         *vis = Visibility::Inherited;
     }
@@ -315,10 +319,11 @@ pub fn coach_input_system(
 /// What the coach marks can point at.
 #[derive(SystemParam)]
 pub struct CoachTargets<'w, 's> {
-    buttons: Query<'w, 's, (Entity, &'static ProcessButton)>,
+    add: Query<'w, 's, Entity, With<AddVesselButton>>,
+    families: Query<'w, 's, (Entity, &'static PickFamily)>,
     tiles: Query<'w, 's, (Entity, &'static Ingredient), With<ShelfTile>>,
     chips: Query<'w, 's, &'static InVessel, With<Ingredient>>,
-    reacts: Query<'w, 's, (Entity, &'static ChildOf), With<VesselReactButton>>,
+    reacts: Query<'w, 's, (Entity, &'static crate::ui::bench_controls::BenchButton)>,
     cards: Query<'w, 's, (Entity, &'static ProcessVessel), With<VesselCard>>,
     next_card: Query<'w, 's, (Entity, &'static Node), With<crate::ui::hint::HintRoot>>,
     shelf: Query<'w, 's, Entity, With<InventoryScroll>>,
@@ -335,15 +340,19 @@ impl CoachTargets<'_, '_> {
     fn target(&self, step: CoachStep, db: &RecipeDatabase, made: &[u32]) -> Option<Entity> {
         match step {
             CoachStep::Off => None,
-            CoachStep::Place => self.buttons.iter().find(|(_, b)| b.process == ProcessType::Heat).map(|(e, _)| e),
+            // the Fire in the vessel picker, or the button that opens it
+            CoachStep::Place => self
+                .families
+                .iter()
+                .find(|(e, f)| f.0 == "Heat" && self.rect(*e).is_some())
+                .map(|(e, _)| e)
+                .or_else(|| self.add.iter().next()),
             CoachStep::DragIn => {
                 let first = *db.start.first()?;
                 self.tiles.iter().find(|(_, i)| i.id == first).map(|(e, _)| e).or_else(|| self.shelf.iter().next())
             }
             CoachStep::React => {
-                let vessel =
-                    self.chips.iter().next().map(|c| c.0).or_else(|| self.cards.iter().next().map(|(e, _)| e))?;
-                self.reacts.iter().find(|(_, p)| p.parent() == vessel).map(|(e, _)| e)
+                self.reacts.iter().find(|(_, b)| b.0 == crate::ui::bench_controls::BenchAction::React).map(|(e, _)| e)
             }
             CoachStep::Discovery => self
                 .card()
@@ -472,7 +481,9 @@ pub fn coach_system(
     let subs = game_data.as_ref().and_then(|g| substances.get(&g.substances));
     let name = |id: u32| subs.and_then(|s| s.0.get(&id)).map(|s| s.name.clone()).unwrap_or_else(|| format!("#{id}"));
     let (title, text) = match coach.step {
-        CoachStep::Place => ("First steps  ·  1 of 4", "Click the Fire to put it on your bench.".to_string()),
+        CoachStep::Place => {
+            ("First steps  ·  1 of 4", "Tap Vessel, then the Fire, to put a fire on your bench.".to_string())
+        }
         CoachStep::DragIn => (
             "First steps  ·  2 of 4",
             format!("Drag {} from the shelf onto the Fire.", db.start.first().map(|id| name(*id)).unwrap_or_default()),
@@ -631,7 +642,7 @@ pub fn era_banner_system(
             Node {
                 position_type: PositionType::Absolute,
                 left: Val::Px(0.0),
-                right: Val::Px(theme::SIDEBAR_W),
+                right: Val::Px(0.0),
                 top: Val::Px(theme::HEADER_H + 48.0),
                 justify_content: JustifyContent::Center,
                 ..default()

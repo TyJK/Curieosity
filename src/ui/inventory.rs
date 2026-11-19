@@ -1,8 +1,11 @@
 // src/ui/inventory.rs
 //
-// The shelf: every discovered substance, filtered by category, as draggable tiles; and the
-// chips that stand for a substance inside a vessel. New tiles and products pop in. Only the
-// tiles in sight (and a screen either side) are built: see ui/virtual_list.rs.
+// The shelf: every discovered substance, filtered by category (or newest first), as
+// draggable tiles; and the chips that stand for a substance inside a vessel. New tiles and
+// products pop in. Only the tiles in sight (and a screen either side) are built: see
+// ui/virtual_list.rs. The grip on the shelf's top edge gives the bench more room or less;
+// while a phone's keyboard types into the search, the shelf sits on the keyboard with the
+// search box at its foot and the results just above, and the bench stays in sight.
 use crate::ui::{Button, Clicked};
 use bevy::picking::hover::Hovered;
 use bevy::prelude::*;
@@ -50,44 +53,60 @@ impl Default for Dock {
 }
 
 /// The shelf's bar and one full row of tiles.
-const DOCK_MIN: f32 = 156.0;
+pub const DOCK_MIN: f32 = 156.0;
+/// The least the bench keeps when the shelf is dragged up.
+const BENCH_MIN: f32 = 150.0;
 
-/// The dock's height on a screen this tall (interface pixels).
+/// The dock's height on a screen this tall (interface pixels), unless the player has set it
+/// with the grip.
 pub fn dock_height(screen_h: f32) -> f32 {
     (screen_h * 0.36).clamp(DOCK_MIN, theme::DOCK_H)
 }
 
-/// Below this width (interface pixels) the shelf's header leaves out its how-to lines, so
-/// the pills, the search and the selection still fit on one row.
+/// The tallest the shelf may be dragged on a screen this tall.
+pub fn dock_max(screen_h: f32) -> f32 {
+    (screen_h - theme::HEADER_H - BENCH_MIN).max(DOCK_MIN)
+}
+
+/// Below this width (interface pixels) the shelf's header leaves out its how-to line.
 pub const NARROW_W: f32 = 1240.0;
 
-/// Sizes the dock to the screen, and moves the bench and the vessel list to sit on it. On
-/// a narrow screen the shelf header drops its how-to lines. While a phone's keyboard types
-/// into the shelf search, the shelf has the screen.
+/// The grip on the shelf's top edge: drag it up for a bigger shelf, down for a bigger bench.
+#[derive(Component)]
+pub struct ShelfGrip;
+
+/// The shelf's height while the grip is being dragged (it is saved when the drag ends).
+#[derive(Resource, Default, Debug)]
+pub struct ShelfDrag {
+    pub live: Option<f32>,
+    start: f32,
+}
+
+/// Sizes the dock (the height the player set with the grip, or one to suit the screen) and
+/// moves the bench to sit on it. On a narrow screen the shelf header drops its how-to line.
+/// While a phone's keyboard types into the shelf search, the shelf sits on the keyboard,
+/// its search box at the foot and a couple of rows of results above, and the bench keeps
+/// the rest of the screen.
 #[allow(clippy::type_complexity)]
 pub fn fit_dock_system(
     windows: Query<&Window, With<bevy::window::PrimaryWindow>>,
     ui_scale: Res<UiScale>,
     mut dock: ResMut<Dock>,
     mut how_to: Query<
-        (&mut Node, Has<crate::ui::detail_panel::SelectionHint>),
+        &mut Node,
         (
             With<crate::ui::detail_panel::SelectionHint>,
             Without<ShelfDock>,
             Without<crate::components::ui_markers::ReactionCanvasRoot>,
-            Without<crate::ui::process_toolbar::VesselSidebar>,
         ),
     >,
-    selected: Res<crate::ui::detail_panel::SelectedSubstance>,
-    typing: (Res<ShelfSearch>, Res<crate::platform::SoftKeyboard>, Res<crate::ui::shell::Portrait>),
+    sizing: (Res<crate::ui::settings::Settings>, Res<ShelfDrag>),
+    typing: (Res<ShelfSearch>, Res<crate::platform::SoftKeyboard>, Res<crate::platform::KeyboardInset>),
     mut nodes: Query<
-        (&mut Node, &mut Visibility, Has<ShelfDock>, Has<crate::components::ui_markers::ReactionCanvasRoot>),
-        Or<(
-            With<ShelfDock>,
-            With<crate::components::ui_markers::ReactionCanvasRoot>,
-            With<crate::ui::process_toolbar::VesselSidebar>,
-        )>,
+        (&mut Node, Has<ShelfDock>),
+        Or<(With<ShelfDock>, With<crate::components::ui_markers::ReactionCanvasRoot>)>,
     >,
+    results: Query<(&VirtualList, &ComputedNode), With<InventoryContent>>,
 ) {
     let Ok(w) = windows.single() else { return };
     let screen = w.height() / ui_scale.0.max(0.01);
@@ -95,72 +114,197 @@ pub fn fit_dock_system(
         return;
     }
     let narrow = w.width() / ui_scale.0.max(0.01) < NARROW_W;
-    for (mut n, is_hint) in &mut how_to {
-        // the hint shows only with nothing selected (selection_view_system); narrow hides both
-        let want = if narrow || (is_hint && selected.0.is_some()) { Display::None } else { Display::Flex };
+    for mut n in &mut how_to {
+        let want = if narrow { Display::None } else { Display::Flex };
         if n.display != want {
             n.display = want;
         }
     }
-    let (search, soft, portrait) = typing;
-    // upright the header takes a second row, and the shelf grows by it to keep its tiles
-    let h = dock_height(screen) + if portrait.0 { SHELF_ROW } else { 0.0 };
-    let want = Dock { h, bench: screen - theme::HEADER_H - h };
+    let (settings, drag) = sizing;
+    let (search, soft, inset) = typing;
+    let set = drag.live.or((settings.shelf_h > 0.0).then_some(settings.shelf_h));
+    let mut h = set.map_or(dock_height(screen), |h| h.clamp(DOCK_MIN, dock_max(screen)));
+    let mut lift = 0.0;
+    // a phone's keyboard is up for the shelf search: on it, two rows of results and the box
+    let on_keys = soft.0 && search.typing;
+    if on_keys {
+        lift = inset.0.clamp(0.0, (screen - theme::HEADER_H - DOCK_MIN).max(0.0));
+        // as many rows as the results take, up to two, right above the box
+        let width = results.single().map(|(_, cn)| cn.size.x * cn.inverse_scale_factor()).unwrap_or(0.0);
+        let cols = (((width + TILE_GAP) / (TILE.x + TILE_GAP)).floor() as usize).max(1);
+        let n = results.single().map(|(l, _)| l.ids().len()).unwrap_or(0);
+        let rows = n.div_ceil(cols).clamp(1, 2) as f32;
+        let want = SHELF_HEAD_H + rows * (TILE.y + TILE_GAP) + 12.0;
+        h = want.min(screen - theme::HEADER_H - lift - 96.0).max(SHELF_HEAD_H + TILE.y + 12.0);
+    }
+    let want = Dock { h: h + lift, bench: screen - theme::HEADER_H - h - lift };
     if *dock != want {
         *dock = want;
     }
-    // a phone's keyboard is up for the shelf search: the shelf takes the screen under the
-    // header (its first rows of results sit above the keyboard) and the bench steps aside
-    let shelf_only = soft.0 && search.typing;
-    for (mut node, mut vis, is_dock, is_bench) in &mut nodes {
+    for (mut node, is_dock) in &mut nodes {
         if is_dock {
-            let height = Val::Px(if shelf_only { screen - theme::HEADER_H } else { h });
-            if node.height != height {
+            let (height, bottom) = (Val::Px(h), Val::Px(lift));
+            let dir = if on_keys { FlexDirection::ColumnReverse } else { FlexDirection::Column };
+            if node.height != height || node.bottom != bottom || node.flex_direction != dir {
                 node.height = height;
+                node.bottom = bottom;
+                node.flex_direction = dir;
             }
         } else {
-            // upright, the vessel strip sits between the bench and the shelf
-            let bottom = Val::Px(if is_bench && portrait.0 { h + crate::ui::shell::STRIP_H } else { h });
+            let bottom = Val::Px(h + lift);
             if node.bottom != bottom {
                 node.bottom = bottom;
-            }
-            let v = if shelf_only { Visibility::Hidden } else { Visibility::Inherited };
-            if *vis != v {
-                *vis = v;
             }
         }
     }
 }
 
-/// Lays the shelf's header out for the way the screen is held: one row, or upright two,
-/// the pills above (scrolling sideways) and the search across the row below.
-#[allow(clippy::type_complexity)]
-pub fn shelf_head_fit_system(
-    portrait: Res<crate::ui::shell::Portrait>,
-    mut nodes: Query<
-        (&mut Node, Has<ShelfHead>, Has<ShelfHeadLead>, Has<ShelfHeadTools>),
-        Or<(With<ShelfHead>, With<ShelfHeadLead>, With<ShelfHeadTools>, With<ShelfSearchBox>)>,
-    >,
+/// Dragging the grip resizes the shelf; letting go keeps the size (Settings: shelf_h).
+fn grip_drag_start(mut t: On<PointerDragStart>, dock: Res<Dock>, mut drag: ResMut<ShelfDrag>) {
+    t.propagate(false);
+    drag.start = dock.h;
+    drag.live = Some(dock.h);
+}
+
+fn grip_drag(
+    mut t: On<PointerDrag>,
+    mut drag: ResMut<ShelfDrag>,
+    ui_scale: Res<UiScale>,
+    windows: Query<&Window, With<bevy::window::PrimaryWindow>>,
 ) {
-    let up = portrait.0;
-    for (mut n, head, lead, tools) in &mut nodes {
-        let mut want = n.clone();
-        if head {
-            want.height = Val::Px(if up { SHELF_HEAD_H + SHELF_ROW } else { SHELF_HEAD_H });
-            want.flex_direction = if up { FlexDirection::Column } else { FlexDirection::Row };
-            want.align_items = if up { AlignItems::Stretch } else { AlignItems::Center };
-            want.justify_content = if up { JustifyContent::Center } else { JustifyContent::Default };
-        } else if lead || tools {
-            want.height = if up { Val::Px(30.0) } else { Val::Auto };
-            want.flex_shrink = if up { 0.0 } else { 1.0 };
-        } else {
-            // the search box: across the row upright
-            want.flex_grow = if up { 1.0 } else { 0.0 };
-            want.margin = UiRect::left(Val::Px(if up { 0.0 } else { 6.0 }));
+    t.propagate(false);
+    let screen = windows.single().map(|w| w.height() / ui_scale.0.max(0.01)).unwrap_or(720.0);
+    let h = (drag.start - t.distance.y / ui_scale.0.max(0.01)).clamp(DOCK_MIN, dock_max(screen));
+    if drag.live != Some(h) {
+        drag.live = Some(h);
+    }
+}
+
+fn grip_drag_end(
+    mut t: On<PointerDragEnd>,
+    mut drag: ResMut<ShelfDrag>,
+    mut settings: ResMut<crate::ui::settings::Settings>,
+) {
+    t.propagate(false);
+    if let Some(h) = drag.live.take() {
+        settings.shelf_h = h.round();
+    }
+}
+
+/// The shelf's category list (a dropdown), whether it is open.
+#[derive(Resource, Default, Debug)]
+pub struct ShelfMenu(pub bool);
+
+/// The button that opens the category list, its label, the list, and the backdrop around it.
+#[derive(Component)]
+pub struct ShelfCategoryButton;
+#[derive(Component)]
+pub struct ShelfCategoryLabel;
+#[derive(Component)]
+pub struct ShelfCategoryMenu;
+#[derive(Component)]
+pub struct ShelfMenuBackdrop;
+
+pub fn spawn_shelf_menu(mut commands: Commands, fonts: Res<UiFonts>) {
+    commands
+        .spawn((
+            ShelfMenuBackdrop,
+            GlobalZIndex(800),
+            crate::ui::Button,
+            crate::ui::focus::NoFocus,
+            Node {
+                position_type: PositionType::Absolute,
+                left: Val::Px(0.0),
+                right: Val::Px(0.0),
+                top: Val::Px(0.0),
+                bottom: Val::Px(0.0),
+                display: Display::None,
+                ..default()
+            },
+            Pickable::default(),
+            Name::new("ShelfMenu"),
+        ))
+        .with_children(|b| {
+            b.spawn((
+                ShelfCategoryMenu,
+                Node {
+                    position_type: PositionType::Absolute,
+                    left: Val::Px(0.0),
+                    bottom: Val::Px(0.0),
+                    width: Val::Px(176.0),
+                    flex_direction: FlexDirection::Column,
+                    row_gap: Val::Px(3.0),
+                    padding: UiRect::all(Val::Px(6.0)),
+                    border: UiRect::all(Val::Px(1.0)),
+                    border_radius: BorderRadius::all(Val::Px(theme::R_MD)),
+                    ..default()
+                },
+                BackgroundColor(theme::SURFACE),
+                BorderColor::all(theme::LINE_STRONG),
+                theme::shadow(20.0, 6.0, 0.6),
+            ))
+            .with_children(|list| {
+                for (cat, label) in TABS {
+                    list.spawn((
+                        theme::button(
+                            theme::Kind::Row,
+                            Node {
+                                height: Val::Px(38.0),
+                                padding: UiRect::horizontal(Val::Px(12.0)),
+                                align_items: AlignItems::Center,
+                                ..default()
+                            },
+                            theme::R_SM,
+                        ),
+                        CategoryTab(cat),
+                    ))
+                    .with_children(|r| {
+                        r.spawn((
+                            theme::label(&fonts, label, theme::SM, Weight::Semibold, theme::TEXT),
+                            Pickable::IGNORE,
+                        ));
+                    });
+                }
+            });
+        });
+}
+
+/// Opens and closes the category list, under (or rather over) its button.
+#[allow(clippy::type_complexity)]
+pub fn shelf_menu_system(
+    mut menu: ResMut<ShelfMenu>,
+    opener: Query<(), (With<Clicked>, With<ShelfCategoryButton>)>,
+    backdrop_tap: Query<(), (With<Clicked>, With<ShelfMenuBackdrop>)>,
+    chosen: Query<(), (With<Clicked>, With<CategoryTab>)>,
+    button: Query<(&ComputedNode, &UiGlobalTransform), With<ShelfCategoryButton>>,
+    windows: Query<&Window, With<bevy::window::PrimaryWindow>>,
+    ui_scale: Res<UiScale>,
+    mut backdrop: Query<&mut Node, (With<ShelfMenuBackdrop>, Without<ShelfCategoryMenu>)>,
+    mut list: Query<&mut Node, (With<ShelfCategoryMenu>, Without<ShelfMenuBackdrop>)>,
+) {
+    if !opener.is_empty() {
+        menu.0 = !menu.0;
+    } else if menu.0 && (!backdrop_tap.is_empty() || !chosen.is_empty()) {
+        menu.0 = false;
+    }
+    if let Ok(mut n) = backdrop.single_mut() {
+        let d = if menu.0 { Display::Flex } else { Display::None };
+        if n.display != d {
+            n.display = d;
         }
-        if *n != want {
-            *n = want;
-        }
+    }
+    if !menu.0 {
+        return;
+    }
+    // just above its button, lined up with it
+    let (Ok((cn, gt)), Ok(w), Ok(mut n)) = (button.single(), windows.single(), list.single_mut()) else { return };
+    let k = cn.inverse_scale_factor();
+    let top_left = (gt.translation - cn.size * 0.5) * k;
+    let screen_h = w.height() / ui_scale.0.max(0.01);
+    let (left, bottom) = (Val::Px(top_left.x.max(4.0)), Val::Px(screen_h - top_left.y + 4.0));
+    if n.left != left || n.bottom != bottom {
+        n.left = left;
+        n.bottom = bottom;
     }
 }
 
@@ -207,21 +351,13 @@ pub struct ShelfSearchDone;
 /// "SHELF", or "KIT" while a target's kit is showing.
 #[derive(Component)]
 pub struct ShelfTitle;
-/// The shelf's header: its title and category pills, then its search, count and the
-/// selection. One row, or held upright two (shelf_head_fit_system), the pills scrolling
-/// sideways under a finger.
+/// The shelf's header: its title, the category dropdown and the search, then the how-to
+/// line and the Library button. One row, held either way.
 #[derive(Component)]
 pub struct ShelfHead;
-#[derive(Component)]
-pub struct ShelfHeadLead;
-#[derive(Component)]
-pub struct ShelfPills;
-#[derive(Component)]
-pub struct ShelfHeadTools;
 
-/// The shelf header's height on one row, and what its second row adds upright.
-pub const SHELF_HEAD_H: f32 = 42.0;
-pub const SHELF_ROW: f32 = 34.0;
+/// The shelf header's height.
+pub const SHELF_HEAD_H: f32 = 46.0;
 
 /// Which category the inventory is currently filtered to. Also a Resource.
 #[derive(Resource, Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -238,9 +374,19 @@ pub enum InvCategory {
     Solid,
     /// Locked previews from later stages (the Substance Library only; never on the shelf).
     Coming,
+    /// Everything, newest discovery first (the shelf only).
+    New,
 }
 
-const TABS: [(InvCategory, &str); 9] = [
+impl InvCategory {
+    /// The shelf's word for it.
+    pub fn label(self) -> &'static str {
+        TABS.iter().find(|(c, _)| *c == self).map(|(_, l)| *l).unwrap_or("All")
+    }
+}
+
+const TABS: [(InvCategory, &str); 10] = [
+    (InvCategory::New, "Newest first"),
     (InvCategory::All, "All"),
     (InvCategory::Elements, "Elements"),
     (InvCategory::Compounds, "Compounds"),
@@ -279,7 +425,7 @@ fn distinct_elements(formula: &str) -> usize {
 pub fn matches_category(sub: &crate::data::substances::Substance, cat: InvCategory) -> bool {
     let is_element = distinct_elements(&sub.formula) == 1;
     match cat {
-        InvCategory::All => true,
+        InvCategory::All | InvCategory::New => true,
         InvCategory::Elements => is_element,
         InvCategory::Compounds => !is_element,
         InvCategory::Acids => sub.properties.contains(&Property::IsAcid),
@@ -362,7 +508,63 @@ pub fn spawn_inventory_panel(mut commands: Commands, fonts: Res<UiFonts>, assets
             Name::new("InventoryPanel"),
         ))
         .with_children(|panel| {
-            // --- shelf header: title, category pills; search, count, selection ---
+            // the grip on the top edge: drag it to share the screen between bench and shelf
+            panel
+                .spawn((
+                    ShelfGrip,
+                    // lit under the pointer like any button, but dragged, never focused
+                    theme::button(
+                        theme::Kind::Ghost,
+                        Node {
+                            position_type: PositionType::Absolute,
+                            top: Val::Px(-13.0),
+                            left: Val::Percent(50.0),
+                            margin: UiRect::left(Val::Px(-34.0)),
+                            width: Val::Px(68.0),
+                            height: Val::Px(26.0),
+                            align_items: AlignItems::Center,
+                            justify_content: JustifyContent::Center,
+                            ..default()
+                        },
+                        99.0,
+                    ),
+                    crate::ui::focus::NoFocus,
+                    // over the bench's edge as well as the shelf's (under every pop-up)
+                    GlobalZIndex(550),
+                    Pickable::default(),
+                    crate::ui::onboarding::Tip::Text("Resize", "Drag up for a bigger shelf, down for a bigger bench."),
+                    Name::new("ShelfGrip"),
+                ))
+                .observe(grip_drag_start)
+                .observe(grip_drag)
+                .observe(grip_drag_end)
+                .with_children(|g| {
+                    g.spawn((
+                        Node {
+                            width: Val::Px(52.0),
+                            height: Val::Px(14.0),
+                            border: UiRect::all(Val::Px(1.0)),
+                            border_radius: BorderRadius::all(Val::Px(99.0)),
+                            align_items: AlignItems::Center,
+                            justify_content: JustifyContent::Center,
+                            ..default()
+                        },
+                        BackgroundColor(theme::SURFACE),
+                        BorderColor::all(theme::LINE_STRONG),
+                        Pickable::IGNORE,
+                    ))
+                    .with_child((
+                        Node {
+                            width: Val::Px(26.0),
+                            height: Val::Px(3.0),
+                            border_radius: BorderRadius::all(Val::Px(99.0)),
+                            ..default()
+                        },
+                        BackgroundColor(theme::TEXT_3),
+                        Pickable::IGNORE,
+                    ));
+                });
+            // --- shelf header: title, category, search; the how-to line and Library ---
             panel
                 .spawn((
                     ShelfHead,
@@ -372,157 +574,128 @@ pub fn spawn_inventory_panel(mut commands: Commands, fonts: Res<UiFonts>, assets
                         flex_shrink: 0.0,
                         flex_direction: FlexDirection::Row,
                         align_items: AlignItems::Center,
-                        column_gap: Val::Px(6.0),
-                        row_gap: Val::Px(4.0),
+                        column_gap: Val::Px(8.0),
                         padding: UiRect::axes(Val::Px(14.0), Val::Px(4.0)),
                         ..default()
                     },
                     Name::new("InventoryTabs"),
                 ))
                 .with_children(|bar| {
+                    bar.spawn(Node {
+                        align_items: AlignItems::Center,
+                        flex_shrink: 0.0,
+                        column_gap: Val::Px(7.0),
+                        ..default()
+                    })
+                    .with_children(|t| {
+                        t.spawn(theme::icon(&assets, "flask", 16.0, theme::CYAN));
+                        t.spawn((ShelfTitle, theme::label(&fonts, "SHELF", theme::XS, Weight::Bold, theme::TEXT_2)));
+                    });
+                    // the category: a dropdown
                     bar.spawn((
-                        ShelfHeadLead,
-                        Node { align_items: AlignItems::Center, min_width: Val::Px(0.0), ..default() },
-                    ))
-                    .with_children(|lead| {
-                        lead.spawn(Node {
-                            align_items: AlignItems::Center,
-                            flex_shrink: 0.0,
-                            column_gap: Val::Px(7.0),
-                            margin: UiRect::right(Val::Px(10.0)),
-                            ..default()
-                        })
-                        .with_children(|t| {
-                            t.spawn(theme::icon(&assets, "flask", 16.0, theme::CYAN));
-                            t.spawn((
-                                ShelfTitle,
-                                theme::label(&fonts, "SHELF", theme::XS, Weight::Bold, theme::TEXT_2),
-                            ));
-                        });
-                        // the pills: when they don't fit (upright), a finger or the wheel
-                        // scrolls them sideways
-                        lead.spawn((
-                            ShelfPills,
-                            ScrollPosition::default(),
+                        theme::button(
+                            theme::Kind::Secondary,
                             Node {
+                                height: Val::Px(34.0),
+                                padding: UiRect::new(Val::Px(12.0), Val::Px(9.0), Val::Px(0.0), Val::Px(0.0)),
+                                column_gap: Val::Px(7.0),
                                 align_items: AlignItems::Center,
-                                column_gap: Val::Px(6.0),
-                                min_width: Val::Px(0.0),
-                                padding: UiRect::vertical(Val::Px(3.0)),
-                                overflow: Overflow::scroll_x(),
+                                flex_shrink: 0.0,
                                 ..default()
                             },
-                        ))
-                        .with_children(|pills| {
-                            for (cat, label) in TABS {
-                                pills
-                                    .spawn((
-                                        theme::button(
-                                            theme::Kind::Tab,
-                                            Node {
-                                                height: Val::Px(26.0),
-                                                flex_shrink: 0.0,
-                                                padding: UiRect::horizontal(Val::Px(11.0)),
-                                                align_items: AlignItems::Center,
-                                                justify_content: JustifyContent::Center,
-                                                ..default()
-                                            },
-                                            99.0,
-                                        ),
-                                        CategoryTab(cat),
-                                    ))
-                                    .with_children(|b| {
-                                        b.spawn((
-                                            theme::label(&fonts, label, 12.0, Weight::Semibold, theme::TEXT),
-                                            Pickable::IGNORE,
-                                        ));
-                                    });
-                            }
-                        });
-                    });
-                    bar.spawn((
-                        ShelfHeadTools,
-                        Node { flex_grow: 1.0, align_items: AlignItems::Center, column_gap: Val::Px(6.0), ..default() },
+                            theme::R_MD,
+                        ),
+                        ShelfCategoryButton,
+                        crate::ui::onboarding::Tip::Text(
+                            "Show",
+                            "Pick which substances the shelf shows, or the newest first.",
+                        ),
                     ))
-                    .with_children(|bar| {
-                        // the search: tap to type (a phone's keyboard comes up), the x clears it
-                        bar.spawn((
+                    .with_children(|b| {
+                        b.spawn((
+                            ShelfCategoryLabel,
+                            theme::label(&fonts, "All", theme::SM, Weight::Semibold, theme::TEXT),
+                            TextLayout::no_wrap(),
+                            Pickable::IGNORE,
+                        ));
+                        b.spawn(theme::icon_down(&assets, 12.0, theme::TEXT_2));
+                    });
+                    // the search: tap to type (a phone's keyboard comes up), the x clears it
+                    bar.spawn((
+                        theme::button(
+                            theme::Kind::Secondary,
+                            Node {
+                                height: Val::Px(34.0),
+                                min_width: Val::Px(110.0),
+                                max_width: Val::Px(360.0),
+                                flex_grow: 1.0,
+                                flex_shrink: 1.0,
+                                padding: UiRect::new(Val::Px(10.0), Val::Px(3.0), Val::Px(0.0), Val::Px(0.0)),
+                                column_gap: Val::Px(7.0),
+                                align_items: AlignItems::Center,
+                                ..default()
+                            },
+                            99.0,
+                        ),
+                        ShelfSearchBox,
+                        crate::ui::onboarding::Tip::Text(
+                            "Search the shelf",
+                            "Tap and type part of a name or a formula.",
+                        ),
+                    ))
+                    .with_children(|b| {
+                        b.spawn(theme::icon(&assets, "search", 14.0, theme::TEXT_3));
+                        b.spawn((
+                            ShelfSearchText,
+                            theme::label(&fonts, "Search", theme::SM, Weight::Regular, theme::TEXT_3),
+                            TextLayout::no_wrap(),
+                            Node { flex_grow: 1.0, overflow: Overflow::clip(), ..default() },
+                            Pickable::IGNORE,
+                        ));
+                        b.spawn((
                             theme::button(
-                                theme::Kind::Secondary,
+                                theme::Kind::Ghost,
                                 Node {
-                                    height: Val::Px(26.0),
-                                    min_width: Val::Px(120.0),
-                                    padding: UiRect::new(Val::Px(9.0), Val::Px(4.0), Val::Px(0.0), Val::Px(0.0)),
-                                    column_gap: Val::Px(6.0),
+                                    width: Val::Px(30.0),
+                                    height: Val::Px(30.0),
+                                    flex_shrink: 0.0,
                                     align_items: AlignItems::Center,
-                                    margin: UiRect::left(Val::Px(6.0)),
-                                    ..default()
-                                },
-                                99.0,
-                            ),
-                            ShelfSearchBox,
-                            crate::ui::onboarding::Tip::Text(
-                                "Search the shelf",
-                                "Tap and type part of a name or a formula.",
-                            ),
-                        ))
-                        .with_children(|b| {
-                            b.spawn(theme::icon(&assets, "search", 13.0, theme::TEXT_3));
-                            b.spawn((
-                                ShelfSearchText,
-                                theme::label(&fonts, "Search", 12.0, Weight::Regular, theme::TEXT_3),
-                                Node { flex_grow: 1.0, ..default() },
-                                Pickable::IGNORE,
-                            ));
-                            b.spawn((
-                                theme::button(
-                                    theme::Kind::Ghost,
-                                    Node {
-                                        width: Val::Px(20.0),
-                                        height: Val::Px(20.0),
-                                        align_items: AlignItems::Center,
-                                        justify_content: JustifyContent::Center,
-                                        display: Display::None,
-                                        ..default()
-                                    },
-                                    99.0,
-                                ),
-                                ShelfSearchClear,
-                            ))
-                            .with_children(|x| {
-                                x.spawn(theme::icon(&assets, "close", 11.0, theme::TEXT_2));
-                            });
-                        });
-                        // a phone's keyboard covers the bench anyway: while it is up the shelf
-                        // has the screen, and Done (or a tap on a substance) gives the bench back
-                        bar.spawn((
-                            theme::button(
-                                theme::Kind::Primary,
-                                Node {
-                                    height: Val::Px(26.0),
-                                    padding: UiRect::horizontal(Val::Px(14.0)),
-                                    align_items: AlignItems::Center,
+                                    justify_content: JustifyContent::Center,
                                     display: Display::None,
                                     ..default()
                                 },
                                 99.0,
                             ),
-                            ShelfSearchDone,
+                            ShelfSearchClear,
+                            crate::ui::onboarding::Tip::Text("Clear", "Clear the search."),
                         ))
-                        .with_children(|d| {
-                            d.spawn((
-                                theme::label(&fonts, "Done", 12.0, Weight::Semibold, theme::BG),
-                                Pickable::IGNORE,
-                            ));
+                        .with_children(|x| {
+                            x.spawn(theme::icon(&assets, "close", 14.0, theme::TEXT));
                         });
-                        // the count and the selection sit at the far end
-                        bar.spawn((
-                            ShelfCount,
-                            theme::label(&fonts, "", theme::XS, Weight::Regular, theme::TEXT_3),
-                            Node { margin: UiRect::left(Val::Auto), ..default() },
-                        ));
-                        crate::ui::detail_panel::spawn_selection_bar(bar, &fonts, &assets);
                     });
+                    // a phone's keyboard: Done puts it away
+                    bar.spawn((
+                        theme::button(
+                            theme::Kind::Primary,
+                            Node {
+                                height: Val::Px(34.0),
+                                padding: UiRect::horizontal(Val::Px(16.0)),
+                                align_items: AlignItems::Center,
+                                flex_shrink: 0.0,
+                                display: Display::None,
+                                ..default()
+                            },
+                            theme::R_MD,
+                        ),
+                        ShelfSearchDone,
+                    ))
+                    .with_children(|d| {
+                        d.spawn((
+                            theme::label(&fonts, "Done", theme::SM, Weight::Semibold, theme::BG),
+                            Pickable::IGNORE,
+                        ));
+                    });
+                    crate::ui::detail_panel::spawn_selection_bar(bar, &fonts, &assets);
                 });
 
             // --- scrolling viewport ---
@@ -580,10 +753,6 @@ impl ShelfTile {
     }
 }
 
-/// "N on the shelf" in the shelf header.
-#[derive(Component)]
-pub struct ShelfCount;
-
 pub fn shelf_hover_system(
     mut q: Query<(&Hovered, &ShelfTile, &Ingredient, &mut BorderColor, &mut BackgroundColor), Changed<Hovered>>,
     selected: Res<crate::ui::detail_panel::SelectedSubstance>,
@@ -616,8 +785,9 @@ pub fn shelf_selection_outline_system(
 /// The shelf's search box: a tap starts typing into it (and brings up a phone's keyboard),
 /// another tap, Enter or Esc (see shell::escape_system) stops; the x clears it. Typing
 /// letters and digits adds to it, Backspace takes away. With a phone's keyboard up the shelf
-/// has the screen (fit_dock_system): a tap on the box brings the keyboard back if it was put
-/// away, the x clears and carries on typing, and Done or a tap on a substance ends it.
+/// sits on it (fit_dock_system): a tap on the box brings the keyboard back if it was put
+/// away, the x clears and carries on typing, each result tapped goes into the selected
+/// vessel (detail_panel), and Done ends it.
 #[allow(clippy::too_many_arguments)]
 pub fn shelf_search_system(
     keys: Res<ButtonInput<KeyCode>>,
@@ -634,10 +804,13 @@ pub fn shelf_search_system(
         Query<(), (With<Clicked>, With<ShelfSearchDone>)>,
     ),
     soft: Res<crate::platform::SoftKeyboard>,
-    selected: Res<crate::ui::detail_panel::SelectedSubstance>,
     mut text_q: Query<(&mut Text, &mut TextColor), With<ShelfSearchText>>,
     mut clear_q: Query<&mut Node, (With<ShelfSearchClear>, Without<ShelfSearchDone>)>,
-    mut done_q: Query<&mut Node, With<ShelfSearchDone>>,
+    mut done_q: Query<&mut Node, (With<ShelfSearchDone>, Without<crate::ui::detail_panel::SelectionOpenButton>)>,
+    mut library_q: Query<
+        &mut Node,
+        (With<crate::ui::detail_panel::SelectionOpenButton>, Without<ShelfSearchDone>, Without<ShelfSearchClear>),
+    >,
 ) {
     let (boxes, clears, done) = pressed;
     if !done.is_empty() {
@@ -654,33 +827,14 @@ pub fn shelf_search_system(
             crate::platform::keyboard_show(&search.text);
         }
     }
-    // a substance picked from the results goes back to the bench with it
-    if soft.0 && search.typing && selected.is_changed() && selected.0.is_some() {
-        search.typing = false;
-    }
     let (codex, rlib, tree) = views;
     if search.typing && (codex.open || rlib.open || tree.open) {
         search.typing = false;
     }
     if search.typing {
-        let mut text = search.text.clone();
-        for k in keys.get_just_pressed() {
-            match k {
-                KeyCode::Backspace | KeyCode::Delete => {
-                    text.pop();
-                }
-                KeyCode::Enter | KeyCode::NumpadEnter => search.typing = false,
-                KeyCode::Space => text.push(' '),
-                _ => {
-                    if let Some(c) = crate::ui::codex::keycode_to_char(*k) {
-                        text.push(c);
-                    }
-                }
-            }
-        }
-        // a phone's keyboard keeps its own text: that is what was typed, whatever keys it sent
-        if let Some(t) = crate::platform::keyboard_text() {
-            text = t;
+        let (text, enter) = crate::ui::codex::typed(&search.text, &keys, crate::platform::keyboard_text());
+        if enter {
+            search.typing = false;
         }
         if text != search.text {
             search.text = text;
@@ -703,8 +857,16 @@ pub fn shelf_search_system(
     if !(search.is_changed() || soft.is_changed()) {
         return;
     }
+    // on a phone's keyboard Done takes the Library button's place
+    let on_keys = soft.0 && search.typing;
     if let Ok(mut n) = done_q.single_mut() {
-        let d = if soft.0 && search.typing { Display::Flex } else { Display::None };
+        let d = if on_keys { Display::Flex } else { Display::None };
+        if n.display != d {
+            n.display = d;
+        }
+    }
+    if let Ok(mut n) = library_q.single_mut() {
+        let d = if on_keys { Display::None } else { Display::Flex };
         if n.display != d {
             n.display = d;
         }
@@ -753,7 +915,7 @@ pub fn populate_inventory_system(
     substances_assets: Res<Assets<Substances>>,
     mut content_query: Query<&mut VirtualList, With<InventoryContent>>,
     mut tabs: Query<(&CategoryTab, &mut theme::Skin)>,
-    mut count_q: Query<&mut Text, With<ShelfCount>>,
+    mut cat_label: Query<&mut Text, (With<ShelfCategoryLabel>, Without<ShelfTitle>)>,
     settings: Option<Res<crate::ui::settings::Settings>>,
     mut scroll_q: Query<&mut ScrollPosition, With<InventoryScroll>>,
     progress: Res<PlayerProgress>,
@@ -761,7 +923,7 @@ pub fn populate_inventory_system(
     recipe_db: Option<Res<crate::resources::recipe_database::RecipeDatabase>>,
     dragging: Query<(), With<DragGhost>>,
     narrowing: (Res<ShelfSearch>, Res<crate::ui::hint::HintState>),
-    mut title_q: Query<(&mut Text, &mut TextColor), (With<ShelfTitle>, Without<ShelfCount>)>,
+    mut title_q: Query<(&mut Text, &mut TextColor), (With<ShelfTitle>, Without<ShelfCategoryLabel>)>,
     mut layout: Local<Option<(InvCategory, bool, String, Option<u32>)>>,
     mut pending: Local<bool>,
 ) {
@@ -779,7 +941,9 @@ pub fn populate_inventory_system(
     let kit_ids: Option<std::collections::HashSet<u32>> = kit.map(|k| k.shelf().collect());
     let key = (*filter, names_first, search.text.trim().to_lowercase(), kit.map(|k| k.target));
     let rebuild = layout.as_ref() != Some(&key);
-    if !(rebuild || progress.is_changed() || *pending) {
+    // newest first: a discovery goes to the front, so the list is laid out again
+    let reorder = *filter == InvCategory::New && progress.is_changed();
+    if !(rebuild || reorder || progress.is_changed() || *pending) {
         return;
     }
     let Ok(mut list) = content_query.single_mut() else {
@@ -798,12 +962,11 @@ pub fn populate_inventory_system(
                 && kit_ids.as_ref().is_none_or(|k| k.contains(&s.id))
         })
         .collect();
-    items.sort_by_key(|s| shelf_key(s));
-    if let Ok(mut t) = count_q.single_mut() {
-        t.0 = match kit {
-            Some(_) => format!("{} in the kit", items.len()),
-            None => format!("{} on the shelf", items.len()),
-        };
+    if *filter == InvCategory::New {
+        let rank = progress.recency();
+        items.sort_by_key(|s| (std::cmp::Reverse(rank.get(&s.id).copied().unwrap_or(0)), shelf_key(s)));
+    } else {
+        items.sort_by_key(|s| shelf_key(s));
     }
     if let Ok((mut t, mut c)) = title_q.single_mut() {
         let (text, color) = if kit.is_some() { ("KIT", theme::GOLD) } else { ("SHELF", theme::TEXT_2) };
@@ -818,13 +981,13 @@ pub fn populate_inventory_system(
 
     // Removing tiles (a new game) or rebuilding despawns tiles, possibly one being
     // dragged: its drag would never end. Hold off until the drag is over.
-    if (rebuild || gone) && !dragging.is_empty() {
+    if (rebuild || reorder || gone) && !dragging.is_empty() {
         *pending = true;
         return;
     }
     *pending = false;
 
-    if rebuild {
+    if rebuild || reorder {
         // A new category, search or kit: jump back to the top so a short list doesn't open
         // parked below its content.
         if layout.as_ref().is_some_and(|l| l.0 != key.0 || l.2 != key.2 || l.3 != key.3) {
@@ -832,6 +995,9 @@ pub fn populate_inventory_system(
                 sp.0.y = 0.0;
             }
         }
+        // laid out again because a discovery jumped the queue: the newcomers still pop in
+        let had: std::collections::HashSet<u32> =
+            if reorder && !rebuild { list.ids().iter().copied().collect() } else { Default::default() };
         *layout = Some(key);
         for (tab, mut skin) in &mut tabs {
             let active = tab.0 == *filter;
@@ -839,10 +1005,18 @@ pub fn populate_inventory_system(
                 skin.active = active;
             }
         }
+        if let Ok(mut t) = cat_label.single_mut() {
+            let words = if *filter == InvCategory::New { "Newest" } else { filter.label() };
+            if t.0 != words {
+                t.0 = words.to_string();
+            }
+        }
         for e in list.clear() {
             commands.entity(e).despawn();
         }
-        list.set(ids, []);
+        let fresh: Vec<u32> =
+            if had.is_empty() { Vec::new() } else { ids.iter().copied().filter(|id| !had.contains(id)).collect() };
+        list.set(ids, fresh);
         info!("Inventory: {} shown ({:?}), {} discovered", items.len(), *filter, progress.discovered.len());
         return;
     }
@@ -1146,9 +1320,6 @@ pub fn element_tile_color(formula: &str) -> Color {
     block_color(z)
 }
 
-/// The x on a substance in a vessel: tapping it takes the substance out.
-#[derive(Component)]
-pub struct VesselChipRemove;
 /// A chip's picture (the bench's overview leaves it out).
 #[derive(Component)]
 pub struct ChipIcon;
@@ -1158,29 +1329,6 @@ pub struct ChipFormulaText;
 /// A chip's name line (the bench's overview leaves it out).
 #[derive(Component)]
 pub struct ChipNameText;
-
-/// A tap on a chip's x takes the chip out of its vessel (and goes no further: it neither
-/// selects the substance nor puts the selection in the vessel).
-fn remove_chip_on_click(mut t: On<PointerClick>, mut commands: Commands, parents: Query<&ChildOf>) {
-    t.propagate(false);
-    if t.button != PointerButton::Primary {
-        return;
-    }
-    if let Ok(c) = parents.get(t.entity) {
-        commands.entity(c.parent()).try_despawn();
-    }
-}
-
-/// A drag that starts on the x is not a drag of the chip.
-fn keep_drag_start_on_x(mut t: On<PointerDragStart>) {
-    t.propagate(false);
-}
-fn keep_drag_on_x(mut t: On<PointerDrag>) {
-    t.propagate(false);
-}
-fn keep_drag_end_on_x(mut t: On<PointerDragEnd>) {
-    t.propagate(false);
-}
 
 /// What a chip is doing inside a vessel (the Entity is the VesselCard).
 #[derive(Clone, Copy)]
@@ -1297,30 +1445,6 @@ pub fn spawn_vessel_chip(
                     Pickable::IGNORE,
                 ));
             });
-        // tap the x to take it out (dragging it off the card still works too)
-        chip.spawn((
-            theme::button(
-                theme::Kind::Ghost,
-                Node {
-                    width: Val::Px(24.0),
-                    height: Val::Px(24.0),
-                    flex_shrink: 0.0,
-                    align_items: AlignItems::Center,
-                    justify_content: JustifyContent::Center,
-                    ..default()
-                },
-                99.0,
-            ),
-            VesselChipRemove,
-            crate::ui::onboarding::Tip::Text("Take it out", "Tap the x to take this out of the vessel."),
-        ))
-        .observe(remove_chip_on_click)
-        .observe(keep_drag_start_on_x)
-        .observe(keep_drag_on_x)
-        .observe(keep_drag_end_on_x)
-        .with_children(|x| {
-            x.spawn(theme::icon(asset_server, "close", 11.0, theme::TEXT_2));
-        });
     });
     chip_cmd.id()
 }

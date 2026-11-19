@@ -22,9 +22,7 @@ use crate::ui::hint::{
     base_materials, choose, decoy_count, plan_kit, targets, HintButton, HintChange, HintKitToggle, HintLine, HintMore,
     HintPick, HintShowTree, HintState, Target as Goal,
 };
-use crate::ui::inventory::{
-    ShelfSearch, ShelfSearchBox, ShelfSearchClear, ShelfSearchDone, ShelfTitle, VesselChipRemove,
-};
+use crate::ui::inventory::{ShelfSearch, ShelfSearchBox, ShelfSearchClear, ShelfSearchDone, ShelfTitle};
 use crate::ui::settings::SettingsRoot;
 use crate::ui::shell::JournalButton;
 use crate::ui::theme::Skin;
@@ -32,11 +30,8 @@ use crate::ui::toasts::{Journal, JournalRow, JournalUi};
 use bevy::ui::ComputedStackIndex;
 
 use crate::systems::drag_drop::BenchZoom;
-use crate::systems::reaction_check::VesselChainButton;
-use crate::ui::detail_panel::SelectionName;
 use crate::ui::hint::{HintButtonText, HintSuggestedTag};
 use crate::ui::main_menu::{MainMenu, MenuPlay, MenuRoot, MenuSettings, MenuStage};
-use crate::ui::process_toolbar::VesselSidebar;
 use crate::ui::shell::{BenchZoomIn, BenchZoomOut};
 
 // ---------------------------------------------------------------------------------------
@@ -771,10 +766,10 @@ pub(super) fn polish_checks() -> Vec<Check> {
                         .next()
                         .is_some_and(|n| n.display != Display::None);
                     let links = w.query::<&CreditLink>().iter(w).count();
-                    let causes = crate::ui::credits::shown_causes().filter(|c| c.url.is_some()).count();
+                    let causes = crate::ui::credits::GIVING.iter().filter(|c| c.url.is_some()).count();
                     let want: usize = SECTIONS.iter().map(|(_, c)| c.len()).sum::<usize>() + 1 + causes;
                     let soon = w.query::<&Text>().iter(w).filter(|t| t.0 == "Coming soon").count();
-                    let pending = crate::ui::credits::shown_causes().count() - causes;
+                    let pending = crate::ui::credits::GIVING.len() - causes;
                     if shown && links == want && soon == pending {
                         Ok(())
                     } else {
@@ -785,7 +780,7 @@ pub(super) fn polish_checks() -> Vec<Check> {
             ),
             Op::Wait(10),
             Op::Shot("the About screen"),
-            // and its end: free for good, where to give, privacy
+            // and its end: the licence, where to give, privacy
             setup(|w| {
                 let Some(root) = first::<CreditsRoot>(w, |_| true) else { return };
                 let panels: Vec<Entity> = w.get::<Children>(root).map(|c| c.iter().collect()).unwrap_or_default();
@@ -796,7 +791,7 @@ pub(super) fn polish_checks() -> Vec<Check> {
                 }
             }),
             Op::Wait(10),
-            Op::Shot("the end of the About screen: free, giving, privacy"),
+            Op::Shot("the end of the About screen: licence, giving, privacy"),
             Op::Click(target("the Wikipedia credit's link", |w| {
                 let e = first::<CreditLink>(w, |l| l.0 == SECTIONS[0].1[0].url)?;
                 point_in(w, e, 0.5, 0.5)
@@ -1259,17 +1254,16 @@ fn play_checks() -> Vec<Check> {
             Op::Click(marked::<HintKitToggle>("the card's shelf switch")),
             Op::Until(
                 verify(|w| {
-                    let n = w.resource::<PlayerProgress>().discovered.len();
-                    let count = w
-                        .query_filtered::<&Text, With<crate::ui::inventory::ShelfCount>>()
+                    let title = w
+                        .query_filtered::<&Text, With<ShelfTitle>>()
                         .iter(w)
                         .next()
                         .map(|t| t.0.clone())
                         .unwrap_or_default();
-                    if !w.resource::<Settings>().kit && count == format!("{n} on the shelf") {
+                    if !w.resource::<Settings>().kit && title == "SHELF" {
                         Ok(())
                     } else {
-                        Err(format!("the shelf says {count:?} with {n} discovered"))
+                        Err(format!("the shelf is titled {title:?}, kits {}", w.resource::<Settings>().kit))
                     }
                 }),
                 60,
@@ -1511,10 +1505,10 @@ fn play_checks() -> Vec<Check> {
         ],
     ));
 
-    // --- the x on a substance in a vessel ---
+    // --- taking a substance back out of a vessel ---
     v.push(check(
         "Lab: vessels",
-        "The x on a substance in a vessel takes it out, and puts nothing in",
+        "A tap on a substance in a vessel selects it; a double-tap takes it out, and puts nothing in",
         vec![
             setup(new_game),
             setup(|w| place(w, Heat, 0)),
@@ -1523,15 +1517,16 @@ fn play_checks() -> Vec<Check> {
             Op::Until(has_chip(Heat, "Wood"), 30),
             Op::Click(tile("Water")),
             Op::Until(selected_is(Some("Water")), 30),
-            Op::Click(target("the x on the Wood in the Fire", |w| {
-                let c = card(w, Heat)?;
-                let x = descendant::<VesselChipRemove>(w, c)?;
-                point_in(w, x, 0.5, 0.5)
-            })),
+            Op::Click(card_part(Heat, FirstChip)),
+            Op::Until(selected_is(Some("Wood")), 30),
+            Op::Expect(chip_count(Heat, 1)),
+            Op::Pause(crate::ui::detail_panel::DOUBLE_TAP + 0.15),
+            Op::DoubleClick(card_part(Heat, FirstChip)),
             Op::Until(chip_count(Heat, 0), 30),
             Op::Wait(5),
             Op::Expect(chip_count(Heat, 0)),
-            Op::Expect(selected_is(Some("Water"))),
+            // the selection is as it was before the double-tap
+            Op::Expect(selected_is(Some("Wood"))),
         ],
     ));
 
@@ -1560,11 +1555,7 @@ fn play_checks() -> Vec<Check> {
             Op::Until(chip_count(Heat, 2), 30),
             Op::Wait(3),
             Op::Expect(contents_drawn_over_cards()),
-            Op::Click(target("the x on a substance in the Fire", |w| {
-                let c = card(w, Heat)?;
-                let x = descendant::<VesselChipRemove>(w, c)?;
-                point_in(w, x, 0.5, 0.5)
-            })),
+            Op::DoubleClick(card_part(Heat, FirstChip)),
             Op::Until(chip_count(Heat, 1), 30),
         ],
     ));
@@ -1705,12 +1696,73 @@ fn card_shows<C: Component>(p: ProcessType, what: &'static str, want: bool) -> V
     })
 }
 
-fn chain_button(p: ProcessType) -> Target {
-    let label = format!("the {}'s run-chain button", vessel_name(&p));
-    target(label, move |w| {
-        let c = card(w, p.clone())?;
-        let b = descendant::<VesselChainButton>(w, c)?;
-        point_in(w, b, 0.5, 0.5)
+/// One of the bench's buttons (React, Empty, Remove).
+fn bench_button(action: crate::ui::bench_controls::BenchAction) -> Target {
+    target(format!("the bench's {action:?} button"), move |w| {
+        let e = first::<crate::ui::bench_controls::BenchButton>(w, |b| b.0 == action)?;
+        point_in(w, e, 0.5, 0.5)
+    })
+}
+
+/// The pop-up's yes or no.
+fn confirm_button(yes: bool) -> Target {
+    target(if yes { "the pop-up's yes" } else { "the pop-up's Cancel" }, move |w| {
+        let root = first::<crate::ui::bench_controls::ConfirmRoot>(w, |_| true)?;
+        let e = if yes {
+            first::<crate::ui::bench_controls::ConfirmYes>(w, |_| true)?
+        } else {
+            w.query_filtered::<Entity, With<crate::ui::bench_controls::ConfirmNo>>().iter(w).find(|e| *e != root)?
+        };
+        point_in(w, e, 0.5, 0.5)
+    })
+}
+
+/// The middle of the first link on the bench.
+fn link_middle() -> Target {
+    target("the middle of the link", |w| {
+        let window = w.query_filtered::<&Window, With<PrimaryWindow>>().iter(w).next().cloned()?;
+        let l = w.query::<&ReactionLink>().iter(w).next().map(|l| (l.from_port, l.to_port))?;
+        let mut q = w.query::<(&UiGlobalTransform, &ComputedNode)>();
+        let (a, b) = (q.get(w, l.0).ok()?, q.get(w, l.1).ok()?);
+        let (a, b) = crate::systems::link_renderer::link_ends(a, b, &window);
+        Some(crate::systems::link_renderer::link_midpoint(a, b))
+    })
+}
+
+fn selected_vessel_is(p: Option<ProcessType>) -> Verify {
+    verify(move |w| {
+        let want = match &p {
+            Some(p) => Some(card(w, p.clone()).ok_or("no such vessel")?),
+            None => None,
+        };
+        let now = w.resource::<crate::systems::drag_drop::ActiveVessel>().0;
+        if now == want {
+            Ok(())
+        } else {
+            Err(format!("the selected vessel is {now:?}, not {want:?}"))
+        }
+    })
+}
+
+fn links_on_bench(n: usize) -> Verify {
+    verify(move |w| {
+        let k = w.query::<&ReactionLink>().iter(w).count();
+        if k == n {
+            Ok(())
+        } else {
+            Err(format!("{k} links on the bench"))
+        }
+    })
+}
+
+fn vessels_on_bench(n: usize) -> Verify {
+    verify(move |w| {
+        let k = w.query::<&VesselCard>().iter(w).count();
+        if k == n {
+            Ok(())
+        } else {
+            Err(format!("{k} vessels on the bench"))
+        }
     })
 }
 
@@ -1850,23 +1902,34 @@ fn menu_and_bench_checks() -> Vec<Check> {
         ],
     ));
 
-    // --- running a chain ---
+    // --- the bench's buttons, and what is selected ---
+    use crate::ui::bench_controls::BenchAction;
     v.push(check(
-        "Lab: links",
-        "The run-chain button shows only on a vessel something feeds",
+        "Lab: bench",
+        "A tap selects a vessel (it wears an outline); a tap on the empty bench lets go",
         vec![
             setup(|w| place(w, Heat, 0)),
             setup(|w| place(w, Mix, 1)),
             Op::Wait(5),
-            Op::Expect(card_shows::<VesselChainButton>(Mix, "the run-chain button", false)),
-            Op::Drag(card_part(Heat, OutPort), card_part(Mix, InPort)),
-            Op::Until(card_shows::<VesselChainButton>(Mix, "the run-chain button", true), 30),
-            Op::Expect(card_shows::<VesselChainButton>(Heat, "the run-chain button (on the first vessel)", false)),
+            Op::Click(card_part(Mix, Title)),
+            Op::Until(selected_vessel_is(Some(Mix)), 30),
+            Op::Wait(2),
+            Op::Expect(verify(|w| {
+                let c = card(w, Mix).ok_or("no Mortar")?;
+                let o = w.get::<Outline>(c).ok_or("no outline")?;
+                if o.width != Val::Px(0.0) && o.color != Color::NONE {
+                    Ok(())
+                } else {
+                    Err("the selected Mortar wears no outline".into())
+                }
+            })),
+            Op::Click(bench_spot()),
+            Op::Until(selected_vessel_is(None), 30),
         ],
     ));
     v.push(check(
-        "Lab: links",
-        "Run chain reacts the chain from its start: Fire makes Charcoal, which reaches the Mortar",
+        "Lab: bench",
+        "React with nothing selected reacts every vessel, upstream first: Fire makes Charcoal, which reaches the Mortar",
         vec![
             setup(new_game),
             setup(|w| place(w, Heat, 0)),
@@ -1875,8 +1938,105 @@ fn menu_and_bench_checks() -> Vec<Check> {
             setup(|w| link(w, Heat, Mix)),
             Op::Drag(tile("Wood"), card_part(Heat, Art)),
             Op::Until(has_chip(Heat, "Wood"), 30),
-            Op::Click(chain_button(Mix)),
+            Op::Click(bench_spot()),
+            Op::Until(selected_vessel_is(None), 30),
+            Op::Wait(2),
+            Op::Expect(verify(|w| {
+                let t = w
+                    .query::<(&crate::ui::bench_controls::BenchButtonLabel, &Text)>()
+                    .iter(w)
+                    .find(|(l, _)| l.0 == BenchAction::React)
+                    .map(|(_, t)| t.0.clone())
+                    .unwrap_or_default();
+                if t == "React all" {
+                    Ok(())
+                } else {
+                    Err(format!("the React button says {t:?}"))
+                }
+            })),
+            Op::Click(bench_button(BenchAction::React)),
             Op::Until(has_chip(Mix, "Charcoal"), WAIT),
+        ],
+    ));
+    v.push(check(
+        "Lab: bench",
+        "Empty and Remove act on the selected vessel alone",
+        vec![
+            setup(new_game),
+            setup(|w| place(w, Heat, 0)),
+            setup(|w| place(w, Mix, 1)),
+            Op::Wait(5),
+            setup(|w| link(w, Heat, Mix)),
+            Op::Drag(tile("Wood"), card_part(Heat, Art)),
+            Op::Until(has_chip(Heat, "Wood"), 30),
+            Op::Drag(tile("Water"), card_part(Mix, Art)),
+            Op::Until(has_chip(Mix, "Water"), 30),
+            Op::Click(card_part(Mix, Title)),
+            Op::Until(selected_vessel_is(Some(Mix)), 30),
+            Op::Click(bench_button(BenchAction::Empty)),
+            Op::Until(chip_count(Mix, 0), 30),
+            Op::Expect(chip_count(Heat, 1)),
+            Op::Click(bench_button(BenchAction::Remove)),
+            Op::Until(vessels_on_bench(1), 30),
+            Op::Expect(verify(|w| card(w, Heat).map(|_| ()).ok_or_else(|| "the Fire went too".to_string()))),
+            Op::Until(links_on_bench(0), 30),
+        ],
+    ));
+    v.push(check(
+        "Lab: bench",
+        "With nothing selected, Empty and Remove ask first; Cancel keeps everything, yes does it to every vessel",
+        vec![
+            setup(new_game),
+            setup(|w| place(w, Heat, 0)),
+            setup(|w| place(w, Mix, 1)),
+            Op::Wait(5),
+            setup(|w| link(w, Heat, Mix)),
+            Op::Drag(tile("Wood"), card_part(Heat, Art)),
+            Op::Until(has_chip(Heat, "Wood"), 30),
+            Op::Drag(tile("Water"), card_part(Mix, Art)),
+            Op::Until(has_chip(Mix, "Water"), 30),
+            Op::Click(bench_spot()),
+            Op::Until(selected_vessel_is(None), 30),
+            Op::Click(bench_button(BenchAction::Empty)),
+            Op::Until(state("it asks", |w| w.resource::<crate::ui::bench_controls::Confirm>().0.is_some()), 30),
+            Op::Wait(3),
+            Op::Shot("the pop-up asking before emptying every vessel"),
+            Op::Click(confirm_button(false)),
+            Op::Until(state("it closed", |w| w.resource::<crate::ui::bench_controls::Confirm>().0.is_none()), 30),
+            Op::Expect(chip_count(Heat, 1)),
+            Op::Expect(chip_count(Mix, 1)),
+            Op::Click(bench_button(BenchAction::Empty)),
+            Op::Until(state("it asks again", |w| w.resource::<crate::ui::bench_controls::Confirm>().0.is_some()), 30),
+            Op::Click(confirm_button(true)),
+            Op::Until(chip_count(Heat, 0), 30),
+            Op::Expect(chip_count(Mix, 0)),
+            Op::Expect(vessels_on_bench(2)),
+            Op::Click(bench_button(BenchAction::Remove)),
+            Op::Until(
+                state("it asks to remove", |w| w.resource::<crate::ui::bench_controls::Confirm>().0.is_some()),
+                30,
+            ),
+            Op::Click(confirm_button(true)),
+            Op::Until(vessels_on_bench(0), 30),
+            Op::Expect(links_on_bench(0)),
+        ],
+    ));
+    v.push(check(
+        "Lab: links",
+        "One tap on a link lights it and says how to cut it; a double-tap cuts it",
+        vec![
+            setup(|w| place(w, Heat, 0)),
+            setup(|w| place(w, Mix, 1)),
+            Op::Wait(5),
+            setup(|w| link(w, Heat, Mix)),
+            Op::Wait(3),
+            Op::Click(link_middle()),
+            Op::Until(toast_says("Double-tap a link to cut it."), 30),
+            Op::Expect(links_on_bench(1)),
+            Op::Pause(crate::ui::detail_panel::DOUBLE_TAP + 0.15),
+            Op::DoubleClick(link_middle()),
+            Op::Until(links_on_bench(0), 30),
+            Op::Expect(vessels_on_bench(2)),
         ],
     ));
 
@@ -1891,7 +2051,7 @@ fn menu_and_bench_checks() -> Vec<Check> {
             Op::Wait(5),
             Op::Drag(tile("Water"), card_part(Mix, Zone)),
             Op::Until(has_chip(Mix, "Water"), 30),
-            Op::Expect(card_shows::<VesselReactButton>(Mix, "the React button", true)),
+            Op::Expect(card_shows::<EquationText>(Mix, "the status line", true)),
             Op::Click(marked::<BenchZoomOut>("zoom out")),
             Op::Until(zoom_is(0.8), 30),
             Op::Wait(5),
@@ -1900,8 +2060,7 @@ fn menu_and_bench_checks() -> Vec<Check> {
             Op::Until(has_chip(Mix, "Wood"), 30),
             Op::Click(marked::<BenchZoomOut>("zoom out")),
             Op::Until(zoom_is(0.6), 30),
-            Op::Until(card_shows::<VesselReactButton>(Mix, "the React button", false), 30),
-            Op::Expect(card_shows::<EquationText>(Mix, "the equation", false)),
+            Op::Until(card_shows::<EquationText>(Mix, "the equation", false), 30),
             Op::Expect(verify(|w| {
                 let c = card(w, Mix).ok_or("no Mortar")?;
                 let scale = w.get::<UiGlobalTransform>(c).map(|t| t.to_scale_angle_translation().0.x).unwrap_or(1.0);
@@ -1922,7 +2081,7 @@ fn menu_and_bench_checks() -> Vec<Check> {
             Op::Click(marked::<BenchZoomIn>("zoom in")),
             Op::Click(marked::<BenchZoomIn>("zoom in")),
             Op::Until(zoom_is(1.0), 30),
-            Op::Until(card_shows::<VesselReactButton>(Mix, "the React button", true), 30),
+            Op::Until(card_shows::<EquationText>(Mix, "the status line", true), 30),
             Op::Expect(has_chip(Mix, "Wood")),
         ],
     ));
@@ -1961,31 +2120,102 @@ fn menu_and_bench_checks() -> Vec<Check> {
         ],
     ));
 
-    // --- the selection bar ---
+    // --- the shelf's grip ---
+    let dock_h = |w: &mut World| w.resource::<crate::ui::inventory::Dock>().h;
     v.push(check(
         "Lab: shelf",
-        "The selection bar keeps the name on one line, and its book opens the library there",
+        "Dragging the shelf's grip up gives the shelf more room, down gives it back; the size is kept",
+        vec![
+            Op::Wait(3),
+            setup(move |w| {
+                let h = dock_h(w);
+                w.resource_mut::<Scratch>().0.insert("h", h);
+            }),
+            Op::DragBy(marked::<crate::ui::inventory::ShelfGrip>("the shelf's grip"), Vec2::new(0.0, -90.0)),
+            Op::Until(
+                verify(move |w| {
+                    let was = w.resource::<Scratch>().0.get("h").copied().unwrap_or(0.0);
+                    let (now, kept) = (dock_h(w), w.resource::<Settings>().shelf_h);
+                    if now > was + 60.0 && (kept - now).abs() < 1.0 {
+                        Ok(())
+                    } else {
+                        Err(format!("the shelf was {was:.0}, is {now:.0}, kept {kept:.0}"))
+                    }
+                }),
+                30,
+            ),
+            Op::Wait(3),
+            Op::DragBy(marked::<crate::ui::inventory::ShelfGrip>("the shelf's grip"), Vec2::new(0.0, 90.0)),
+            Op::Until(
+                verify(move |w| {
+                    let was = w.resource::<Scratch>().0.get("h").copied().unwrap_or(0.0);
+                    let now = dock_h(w);
+                    if (now - was).abs() < 12.0 {
+                        Ok(())
+                    } else {
+                        Err(format!("the shelf was {was:.0}, is back to {now:.0}"))
+                    }
+                }),
+                30,
+            ),
+        ],
+    ));
+    v.push(check(
+        "Lab: shelf",
+        "Newest first puts the latest discovery at the front of the shelf",
+        vec![
+            setup(new_game),
+            Op::Wait(3),
+            setup(|w| discover(w, &["Quicklime"])),
+            Op::Wait(3),
+            setup(|w| *w.resource_mut::<InvCategory>() = InvCategory::New),
+            Op::Until(
+                verify(|w| {
+                    let want = sub_id(w, "Quicklime").ok_or("no Quicklime")?;
+                    let first = w
+                        .query_filtered::<&crate::ui::virtual_list::VirtualList, With<crate::ui::inventory::InventoryContent>>()
+                        .iter(w)
+                        .next()
+                        .and_then(|l| l.ids().first().copied());
+                    if first == Some(want) {
+                        Ok(())
+                    } else {
+                        Err(format!("the shelf starts with {first:?}, not Quicklime ({want})"))
+                    }
+                }),
+                30,
+            ),
+            setup(|w| *w.resource_mut::<InvCategory>() = InvCategory::All),
+        ],
+    ));
+
+    // --- the Library button ---
+    let library_is = |on: bool| {
+        verify(move |w| {
+            let e = first::<SelectionOpenButton>(w, |_| true).ok_or("no Library button")?;
+            let kind = w.get::<crate::ui::theme::Skin>(e).map(|s| s.kind).ok_or("no skin")?;
+            let off = matches!(kind, crate::ui::theme::Kind::Disabled);
+            if off != on {
+                Ok(())
+            } else {
+                Err(format!("the Library button is {}", if off { "off" } else { "on" }))
+            }
+        })
+    };
+    v.push(check(
+        "Lab: shelf",
+        "The Library button is off with nothing selected, and opens the selection's page",
         vec![
             setup(|w| discover(w, &["Chloroauric Acid"])),
             Op::Wait(5),
+            Op::Expect(library_is(false)),
             Op::Click(tile("Chloroauric Acid")),
             Op::Until(selected_is(Some("Chloroauric Acid")), 30),
+            Op::Until(library_is(true), 30),
             Op::MoveTo(bench_spot()),
-            Op::Wait(15),
-            Op::Expect(verify(|w| {
-                let e = first::<SelectionName>(w, |_| true).ok_or("no name")?;
-                let (h, font) = (
-                    w.get::<ComputedNode>(e).map(|n| n.size.y * n.inverse_scale_factor()).unwrap_or(0.0),
-                    w.get::<TextFont>(e).map(|f| f.font_size),
-                );
-                if h > 0.0 && h < 30.0 {
-                    Ok(())
-                } else {
-                    Err(format!("the name is {h:.0} px tall ({font:?}): it wrapped"))
-                }
-            })),
-            Op::Shot("the selection bar"),
-            Op::Click(marked::<SelectionOpenButton>("the selection's book")),
+            Op::Wait(5),
+            Op::Shot("the shelf header with something selected"),
+            Op::Click(marked::<SelectionOpenButton>("the Library button")),
             Op::Until(
                 verify(|w| {
                     let open = w.resource::<CodexState>().open;
@@ -2007,23 +2237,12 @@ fn menu_and_bench_checks() -> Vec<Check> {
 // ---------------------------------------------------------------------------------------
 // Buttons fire on a tap, not a swipe; linking by tap and onto a whole card
 // ---------------------------------------------------------------------------------------
-/// How far the vessel list is scrolled along its length (down it, or across the strip it
-/// is upright).
-fn sidebar_scroll(w: &mut World) -> f32 {
-    w.query_filtered::<&ScrollPosition, With<VesselSidebar>>().iter(w).next().map_or(0.0, |s| s.0.x.max(s.0.y))
-}
-
-/// 100 px along the vessel list from its Mortar button: up the list, or across the strip.
-fn along_sidebar() -> Target {
-    target("100 px along the vessel list", |w| {
-        let e = first::<ProcessButton>(w, |b| b.process == ProcessType::Mix)?;
+/// 100 px down from the Mortar's card in the vessel picker.
+fn along_picker() -> Target {
+    target("100 px down the vessel picker", |w| {
+        let e = first::<crate::ui::process_toolbar::PickFamily>(w, |f| f.0 == "Mix")?;
         let from = point_in(w, e, 0.5, 0.5)?;
-        let across = w
-            .query_filtered::<&Node, With<VesselSidebar>>()
-            .iter(w)
-            .next()
-            .is_some_and(|n| n.overflow.x == OverflowAxis::Scroll && n.overflow.y != OverflowAxis::Scroll);
-        Some(from + if across { Vec2::new(-100.0, 0.0) } else { Vec2::new(0.0, -100.0) })
+        Some(from + Vec2::new(0.0, 100.0))
     })
 }
 
@@ -2054,11 +2273,12 @@ fn picked(want: bool) -> Verify {
     })
 }
 
-/// The shelf has the screen (a phone's keyboard is up): it reaches up to the header, the
-/// bench is hidden and Done shows; or it is back to normal.
-fn shelf_only(want: bool) -> Verify {
+/// The shelf sits on a phone's keyboard (KeyboardInset), its search box at the foot and
+/// Done showing, with the bench still in sight above it; or it is back to normal.
+fn shelf_on_keys(want: bool) -> Verify {
     verify(move |w| {
         let typing = w.resource::<ShelfSearch>().typing;
+        let inset = w.resource::<crate::platform::KeyboardInset>().0;
         let bench = w
             .query_filtered::<&InheritedVisibility, With<ReactionCanvasRoot>>()
             .iter(w)
@@ -2067,20 +2287,18 @@ fn shelf_only(want: bool) -> Verify {
         let done = first::<ShelfSearchDone>(w, |_| true)
             .and_then(|e| w.get::<ComputedNode>(e))
             .is_some_and(|n| n.size.x > 0.0);
-        let dock_h = first::<crate::ui::inventory::ShelfDock>(w, |_| true)
-            .and_then(|e| w.get::<ComputedNode>(e).map(|n| n.size.y * n.inverse_scale_factor()))
-            .unwrap_or(0.0);
-        let screen = w
-            .query_filtered::<&Window, With<PrimaryWindow>>()
-            .iter(w)
-            .next()
-            .map_or(0.0, |win| win.height() / w.resource::<UiScale>().0);
-        let tall = dock_h > screen - crate::ui::theme::HEADER_H - 2.0;
-        let got = (typing, !bench, done, tall);
-        if got == (want, want, want, want) {
+        let (bottom, foot) = first::<crate::ui::inventory::ShelfDock>(w, |_| true)
+            .and_then(|e| w.get::<Node>(e))
+            .map(|n| (n.bottom, n.flex_direction == FlexDirection::ColumnReverse))
+            .unwrap_or((Val::Auto, false));
+        let on = bottom == Val::Px(inset) && foot;
+        let got = (typing, done, on);
+        if !bench {
+            Err("the bench is hidden".into())
+        } else if got == (want, want, want || inset == 0.0 && !foot) {
             Ok(())
         } else {
-            Err(format!("typing, bench hidden, Done showing, shelf full height: {got:?}"))
+            Err(format!("typing, Done showing, on the keyboard with the box at the foot: {got:?}"))
         }
     })
 }
@@ -2091,34 +2309,16 @@ fn tap_and_link_checks() -> Vec<Check> {
     let mut v = Vec::new();
     v.push(check(
         "Touch",
-        "A finger swiping the vessel list scrolls it and puts no vessel on the bench",
-        vec![
-            setup(new_game),
-            Op::Wait(5),
-            setup(|w| {
-                for mut sp in w.query_filtered::<&mut ScrollPosition, With<VesselSidebar>>().iter_mut(w) {
-                    sp.0 = Vec2::ZERO;
-                }
-            }),
-            Op::Wait(2),
-        ]
-        .into_iter()
-        .chain(finger_slide(sidebar_button(Mix), Slide::To(along_sidebar()), 0.0))
-        .chain([
-            Op::Until(
-                verify(|w| match sidebar_scroll(w) {
-                    y if y > 20.0 => Ok(()),
-                    y => Err(format!("the vessel list is at {y:.0}")),
-                }),
-                30,
-            ),
-            Op::Expect(no_vessels()),
-        ])
-        .collect(),
+        "A finger swiping across the vessel picker puts no vessel on the bench",
+        vec![setup(new_game), Op::Wait(5)]
+            .into_iter()
+            .chain(finger_slide(sidebar_button(Mix), Slide::To(along_picker()), 0.0))
+            .chain([Op::Wait(5), Op::Expect(no_vessels())])
+            .collect(),
     ));
     v.push(check(
         "Lab: vessels",
-        "Pressing a vessel button and sliding off it before letting go places nothing",
+        "Pressing a vessel in the picker and sliding off it before letting go places nothing",
         vec![
             setup(new_game),
             Op::Wait(5),
@@ -2160,27 +2360,38 @@ fn tap_and_link_checks() -> Vec<Check> {
     ));
     v.push(check(
         "Touch",
-        "With a phone's keyboard up the shelf has the screen; a substance tapped, or Done, gives the bench back",
+        "With a phone's keyboard up the shelf sits on it, search box at the foot; each result tapped goes in, and the keyboard stays until Done",
         vec![
             setup(new_game),
-            setup(|w| *w.resource_mut::<crate::platform::SoftKeyboard>() = crate::platform::SoftKeyboard(true)),
-            Op::Wait(3),
+            setup(|w| {
+                *w.resource_mut::<crate::platform::SoftKeyboard>() = crate::platform::SoftKeyboard(true);
+                // as a phone's keyboard would cover it (the review has none to ask)
+                w.resource_mut::<crate::platform::KeyboardInset>().0 = 250.0;
+            }),
+            setup(|w| place(w, Mix, 0)),
+            Op::Wait(5),
+            Op::Click(card_part(Mix, Title)),
             Op::Click(marked::<ShelfSearchBox>("the shelf's search box")),
-            Op::Until(shelf_only(true), 30),
+            Op::Until(shelf_on_keys(true), 30),
             Op::Key(KeyCode::KeyW),
             Op::Key(KeyCode::KeyO),
-            Op::Wait(3),
-            Op::Shot("the shelf alone while a phone's keyboard is up"),
+            Op::Wait(4),
+            Op::Shot("the shelf on a phone's keyboard, its search at the foot"),
             Op::Click(tile("Wood")),
-            Op::Until(shelf_only(false), 30),
-            Op::Expect(verify(|w| match (w.resource::<SelectedSubstance>().0, sub_id(w, "Wood")) {
-                (Some(a), Some(b)) if a == b => Ok(()),
-                (s, _) => Err(format!("selected {s:?} after tapping Wood")),
-            })),
-            Op::Click(marked::<ShelfSearchBox>("the shelf's search box")),
-            Op::Until(shelf_only(true), 30),
+            Op::Until(has_chip(Mix, "Wood"), 30),
+            Op::Expect(state("still typing", |w| w.resource::<ShelfSearch>().typing)),
+            Op::Key(KeyCode::Backspace),
+            Op::Key(KeyCode::Backspace),
+            Op::Key(KeyCode::KeyW),
+            Op::Key(KeyCode::KeyA),
+            Op::Key(KeyCode::KeyT),
+            Op::Wait(4),
+            Op::Click(tile("Water")),
+            Op::Until(has_chip(Mix, "Water"), 30),
+            Op::Expect(chip_count(Mix, 2)),
+            Op::Expect(state("still typing", |w| w.resource::<ShelfSearch>().typing)),
             Op::Click(marked::<ShelfSearchDone>("Done")),
-            Op::Until(shelf_only(false), 30),
+            Op::Until(shelf_on_keys(false), 30),
         ],
     ));
     v.push(check(
@@ -2345,6 +2556,48 @@ fn tap_and_link_checks() -> Vec<Check> {
         }
     })));
     v.push(check("Lab: moving", "Zooming out to the least and back in comes back to the same view", ops));
+    v
+}
+
+/// With nothing moving and no finger down, the lab stops changing: the game can then sleep
+/// between ticks instead of drawing a still screen 60 times a second.
+pub fn battery_checks() -> Vec<Check> {
+    let settles = || {
+        Op::Expect(verify(|w| {
+            let d = w.resource::<crate::platform::Drawing>();
+            if d.quiet_frames >= 30 {
+                Ok(())
+            } else {
+                Err(format!("still changing after 90 frames: {}", d.changed.join(", ")))
+            }
+        }))
+    };
+    // (notifications left over from the checks before still fade out: they go first)
+    let no_toasts = || {
+        setup(|w| {
+            w.resource_mut::<Toasts>().0.clear();
+            let up: Vec<Entity> = w.query_filtered::<Entity, With<crate::ui::toasts::Toast>>().iter(w).collect();
+            for e in up {
+                w.entity_mut(e).despawn();
+            }
+        })
+    };
+    let mut v = vec![check(
+        "Battery",
+        "A still lab settles: nothing on screen changes, so the game stops drawing every frame",
+        vec![no_toasts(), setup(|w| place(w, ProcessType::Mix, 0)), Op::Wait(90), settles()],
+    )];
+    type Open = fn(&mut World);
+    let views: [(&str, Open); 4] = [
+        ("the Tech Tree", |w| w.resource_mut::<TechTreeState>().open = true),
+        ("the Substance Library", |w| w.resource_mut::<crate::ui::codex::CodexState>().open = true),
+        ("the Reaction Library", |w| w.resource_mut::<crate::ui::reaction_library::ReactionLibState>().open = true),
+        ("Settings", |w| w.resource_mut::<SettingsUi>().open = true),
+    ];
+    for (name, open) in views {
+        let name: &'static str = Box::leak(format!("{name}, left alone, settles too").into_boxed_str());
+        v.push(check("Battery", name, vec![no_toasts(), setup(open), Op::Wait(90), settles()]));
+    }
     v
 }
 
@@ -2561,7 +2814,37 @@ pub(super) fn teaching_checks() -> Vec<Check> {
             Op::Shot("a sealed discovery card"),
             Op::Click(marked::<crate::ui::discovery_card::DiscoveryCardSealed>("the sealed card")),
             Op::Until(cards_showing(Some(true)), 30),
+            Op::Wait(3),
+            // open, it has the whole lab under the header
+            Op::Expect(verify(|w| {
+                let root = first::<crate::ui::discovery_card::DiscoveryCardRoot>(w, |_| true).ok_or("no card")?;
+                let cn = w.get::<ComputedNode>(root).ok_or("no size")?;
+                let size = cn.size * cn.inverse_scale_factor();
+                let win = w
+                    .query_filtered::<&Window, With<PrimaryWindow>>()
+                    .iter(w)
+                    .next()
+                    .map(|win| Vec2::new(win.width(), win.height()) / w.resource::<UiScale>().0)
+                    .ok_or("no window")?;
+                if size.x >= win.x - 2.0 && size.y >= win.y - crate::ui::theme::HEADER_H - 2.0 {
+                    Ok(())
+                } else {
+                    Err(format!("the open card is {size:.0}, the lab {:.0}", win - Vec2::Y * crate::ui::theme::HEADER_H))
+                }
+            })),
             Op::Shot("an open discovery card"),
+            Op::Click(marked::<crate::ui::discovery_card::DiscoveryCardWiki>("the card's Wikipedia button")),
+            Op::Until(
+                verify(|_| {
+                    let last = URL_SINK.lock().ok().and_then(|s| s.as_ref().and_then(|v| v.last().cloned()));
+                    match last {
+                        Some(u) if u.contains("wikipedia.org/wiki/") => Ok(()),
+                        u => Err(format!("opened {u:?}")),
+                    }
+                }),
+                30,
+            ),
+            Op::Expect(cards_showing(Some(true))),
             Op::Click(marked::<crate::ui::discovery_card::DiscoveryCardGotIt>("Got it")),
             Op::Until(cards_showing(None), 30),
         ],
@@ -2613,6 +2896,49 @@ pub(super) fn teaching_checks() -> Vec<Check> {
                 }),
                 30,
             ),
+        ],
+    ));
+    v.push(check(
+        "Teaching",
+        "With hints off there is no Hint button, and a mix that doesn't react says only that",
+        vec![
+            setup(new_game),
+            setup(|w| {
+                let mut s = w.resource_mut::<Settings>();
+                s.next_step = true;
+                s.hints = false;
+            }),
+            setup(|w| place(w, ProcessType::Mix, 0)),
+            Op::Wait(5),
+            Op::Expect(verify(|w| {
+                let shown = first::<crate::ui::hint::HintRoot>(w, |_| true)
+                    .and_then(|e| w.get::<Node>(e))
+                    .is_some_and(|n| n.display != Display::None);
+                if shown {
+                    Err("the Hint button shows with hints off".into())
+                } else {
+                    Ok(())
+                }
+            })),
+            // wood in the Mortar: a hint would say to try a Fire
+            Op::Drag(tile("Wood"), card_part(ProcessType::Mix, Zone)),
+            Op::Until(has_chip(ProcessType::Mix, "Wood"), 30),
+            Op::Click(card_part(ProcessType::Mix, React)),
+            Op::Until(status_says(ProcessType::Mix, "No reaction."), 30),
+            Op::Expect(verify(|w| {
+                let tips = w
+                    .query::<(&Text, &ChildOf)>()
+                    .iter(w)
+                    .filter(|(t, parent)| {
+                        w.get::<crate::ui::toasts::Toast>(parent.parent()).is_some() && t.0.contains("try")
+                    })
+                    .count();
+                if tips == 0 {
+                    Ok(())
+                } else {
+                    Err(format!("{tips} tip(s) shown with hints off"))
+                }
+            })),
         ],
     ));
     // one ingredient short of a two-ingredient recipe in the Mortar

@@ -133,6 +133,54 @@ pub fn keyboard_hide() {
     }
 }
 
+/// How much of the bottom of the screen the on-screen keyboard covers, in interface pixels
+/// (0 while it is down, and on a desktop). The shelf search sits just above it.
+#[derive(Resource, Default, Debug, Clone, Copy, PartialEq)]
+pub struct KeyboardInset(pub f32);
+
+/// While a search box is listening on a phone, keeps KeyboardInset in step with the keyboard:
+/// on Android its height is asked of the window (its IME inset) a few times a second; iOS
+/// gives no height to ask for here, so a typical keyboard's share of the screen stands in.
+pub fn keyboard_inset_system(
+    typing: Res<crate::ui::inventory::TypingBox>,
+    windows: Query<&Window, With<bevy::window::PrimaryWindow>>,
+    ui_scale: Res<UiScale>,
+    time: Res<Time<Real>>,
+    mut inset: ResMut<KeyboardInset>,
+    mut last_ask: Local<f64>,
+) {
+    if !PHONE {
+        return;
+    }
+    let Ok(w) = windows.single() else { return };
+    let interface = |physical: f32| physical / w.scale_factor() / ui_scale.0.max(0.01);
+    let want = if *typing == crate::ui::inventory::TypingBox::None {
+        0.0
+    } else {
+        let now = time.elapsed_secs_f64();
+        if now - *last_ask < 0.15 {
+            return;
+        }
+        *last_ask = now;
+        // (no answer: a keyboard's usual share of a phone's screen)
+        keyboard_height().map(|h| interface(h as f32)).unwrap_or_else(|| {
+            let upright = w.height() > w.width();
+            interface(w.physical_height() as f32) * if upright { 0.40 } else { 0.55 }
+        })
+    };
+    if (inset.0 - want).abs() > 0.5 {
+        inset.0 = want;
+    }
+}
+
+/// The on-screen keyboard's height in physical pixels, where the system says (Android).
+fn keyboard_height() -> Option<i32> {
+    #[cfg(target_os = "android")]
+    return android::keyboard_height();
+    #[cfg(not(target_os = "android"))]
+    None
+}
+
 /// What the on-screen keyboard has typed so far (None on a desktop, where typing arrives as
 /// key presses).
 pub fn keyboard_text() -> Option<String> {
@@ -184,6 +232,67 @@ pub fn ios_keyboard_system(
         }
     }
     keys.clear_just_pressed(KeyCode::Backspace);
+}
+
+/// How long the game sleeps between ticks while nothing on screen changes. A still screen
+/// drawn 60 times a second runs a phone's battery down for nothing; this is often enough for
+/// timers (a pop-up's time running out) and slow enough to cost next to nothing.
+pub const IDLE_TICK: std::time::Duration = std::time::Duration::from_millis(250);
+
+/// Whether the screen changed this frame, and for how many frames it hasn't.
+#[derive(Resource, Default, Debug)]
+pub struct Drawing {
+    pub quiet_frames: u32,
+    /// what changed this frame (for the review, when the screen won't settle)
+    pub changed: Vec<&'static str>,
+}
+
+/// While anything on screen moves, or a finger or the mouse is down, ask for the next frame
+/// straight away; otherwise the game sleeps until the next input or `IDLE_TICK`. Runs last,
+/// so it sees every change the frame made.
+#[allow(clippy::type_complexity)]
+pub fn keep_drawing_system(
+    nodes: (
+        Query<(), Changed<Node>>,
+        Query<(), Changed<UiTransform>>,
+        Query<(), Changed<BackgroundColor>>,
+        Query<(), Changed<BorderColor>>,
+        Query<(), Changed<TextColor>>,
+        Query<(), Changed<Text>>,
+        Query<(), Changed<ImageNode>>,
+        Query<(), Changed<ScrollPosition>>,
+        Query<(), Changed<Visibility>>,
+    ),
+    mouse: Res<ButtonInput<MouseButton>>,
+    touches: Res<Touches>,
+    mut drawing: ResMut<Drawing>,
+    mut redraw: MessageWriter<bevy::window::RequestRedraw>,
+) {
+    let (node, transform, background, border, text_color, text, image, scroll, visibility) = nodes;
+    let mut changed = Vec::new();
+    for (what, any) in [
+        ("layout", !node.is_empty()),
+        ("transform", !transform.is_empty()),
+        ("background", !background.is_empty()),
+        ("border", !border.is_empty()),
+        ("text colour", !text_color.is_empty()),
+        ("text", !text.is_empty()),
+        ("image", !image.is_empty()),
+        ("scroll", !scroll.is_empty()),
+        ("visibility", !visibility.is_empty()),
+        ("pointer down", mouse.get_pressed().next().is_some() || touches.iter().next().is_some()),
+    ] {
+        if any {
+            changed.push(what);
+        }
+    }
+    if changed.is_empty() {
+        drawing.quiet_frames = drawing.quiet_frames.saturating_add(1);
+    } else {
+        drawing.quiet_frames = 0;
+        redraw.write(bevy::window::RequestRedraw);
+    }
+    drawing.changed = changed;
 }
 
 #[cfg(target_os = "android")]
@@ -247,5 +356,32 @@ mod android {
 
     pub fn keyboard_text() -> Option<String> {
         ANDROID_APP.get().map(|app| app.text_input_state().text)
+    }
+
+    /// The keyboard's height in physical pixels: the window's IME inset,
+    /// `getWindow().getDecorView().getRootWindowInsets().getInsets(WindowInsets.Type.ime()).bottom`
+    /// (API 30 and up; the game needs 31). None if the window can't say.
+    pub fn keyboard_height() -> Option<i32> {
+        let app = ANDROID_APP.get()?;
+        // SAFETY: as in open_url: both pointers come from the running activity.
+        let vm = unsafe { JavaVM::from_raw(app.vm_as_ptr() as *mut jni::sys::JavaVM) }.ok()?;
+        let activity = unsafe { JObject::from_raw(app.activity_as_ptr() as jni::sys::jobject) };
+        let mut env = vm.attach_current_thread().ok()?;
+        let result = (|| -> jni::errors::Result<i32> {
+            let window = env.call_method(&activity, "getWindow", "()Landroid/view/Window;", &[])?.l()?;
+            let decor = env.call_method(&window, "getDecorView", "()Landroid/view/View;", &[])?.l()?;
+            let insets = env.call_method(&decor, "getRootWindowInsets", "()Landroid/view/WindowInsets;", &[])?.l()?;
+            if insets.is_null() {
+                return Ok(0);
+            }
+            let ime = env.call_static_method("android/view/WindowInsets$Type", "ime", "()I", &[])?.i()?;
+            let ins =
+                env.call_method(&insets, "getInsets", "(I)Landroid/graphics/Insets;", &[JValue::Int(ime)])?.l()?;
+            env.get_field(&ins, "bottom", "I")?.i()
+        })();
+        if result.is_err() && env.exception_check().unwrap_or(false) {
+            let _ = env.exception_clear();
+        }
+        result.ok()
     }
 }

@@ -1,7 +1,7 @@
 api_name,name,description,icon,art
 MILESTONE_COPPER,"Copper","Copper! The furnace becomes a smelter, and new ores are found.",MILESTONE_COPPER_ACHIEVED.png,vessel:bloomery
 MILESTONE_BRONZE,"Bronze","The Bronze Age, and the brewers and vintners of Sumer and Egypt: the Fermenter is unlocked.",MILESTONE_BRONZE_ACHIEVED.png,vessel:fermenter
-MILESTONE_BRASS,"Brass","Bronze and brass buy gold, silver ore, cinnabar and kohl from the traders.",MILESTONE_BRASS_ACHIEVED.png,substance:111:CuZn
+MILESTONE_BRASS,"Brass","Bronze and brass buy gold-bearing gravel and quartz, silver ore, cinnabar and kohl from the traders.",MILESTONE_BRASS_ACHIEVED.png,substance:111:CuZn
 MILESTONE_IRON,"Iron","The Iron Age. Distillation is invented, and the markets of antiquity open.",MILESTONE_IRON_ACHIEVED.png,vessel:still
 MILESTONE_GLASS,"Glass","Glass vessels: you can now chill and crystallise in an ice bath.",MILESTONE_GLASS_ACHIEVED.png,vessel:ice_bath
 MILESTONE_ETHANOL,"Ethanol","Spirit of wine. The perfumers turn the still on the herb garden.",MILESTONE_ETHANOL_ACHIEVED.png,substance:205:C2H6O
@@ -22,7 +22,7 @@ MILESTONE_DRY_ICE,"Dry Ice","Thilorier's dry ice at -78 C. The race to liquefy e
 MILESTONE_BENZENE,"Benzene","Charles Mansfield fractionates coal tar into pure benzene (1849): the Fractionating Column is unlocked.",MILESTONE_BENZENE_ACHIEVED.png,vessel:column
 MILESTONE_UREA,"Urea","Wohler's urea: organic chemistry is just chemistry. The apothecary's shelf opens.",MILESTONE_UREA_ACHIEVED.png,substance:6588:CH4N2O
 MILESTONE_QUININE,"Quinine","Quinine from cinchona bark: chemists race to extract every plant's secret.",MILESTONE_QUININE_ACHIEVED.png,substance:3250:C20H24N2O2
-MILESTONE_DYNAMO,"Dynamo","Siemens' dynamo makes electricity by the ton: the Electrolytic Cell is unlocked, and oil, bauxite and copper ore are worth digging.",MILESTONE_DYNAMO_ACHIEVED.png,vessel:electrolytic_cell
+MILESTONE_DYNAMO,"Dynamo","Siemens' dynamo makes electricity by the ton: the Electrolytic Cell is unlocked, and oil, bauxite, copper ore and gold telluride are worth digging.",MILESTONE_DYNAMO_ACHIEVED.png,vessel:electrolytic_cell
 MILESTONE_SODIUM_BICARBONATE,"Sodium bicarbonate","Solvay's ammonia soda (1861) founds the heavy chemical industry.",MILESTONE_SODIUM_BICARBONATE_ACHIEVED.png,substance:3704:NaHCO3
 MILESTONE_FLUORINE,"Fluorine","Henri Moissan isolated fluorine (1886); his electric arc furnace (1892) reaches 3,500 C. The Arc Furnace is unlocked.",MILESTONE_FLUORINE_ACHIEVED.png,vessel:arc_furnace
 MILESTONE_GASOLINE,"Gasoline","Gasoline for the motor car. Catalytic crackers will make more of it from heavy oil: the Catalytic Cracker is unlocked.",MILESTONE_GASOLINE_ACHIEVED.png,vessel:cracker
@@ -91,4 +91,4 @@ ERA_INDUSTRY,"A new era: Industry","Dynamos, furnaces and fertiliser: chemistry 
 ERA_MODERN,"A new era: Modern","Plastics, antibiotics, the atom and the transistor.",ERA_MODERN_ACHIEVED.png,era:VI
 ERA_FRONTIER,"A new era: Frontier","Chips, genes and materials built one atomic layer at a time.",ERA_FRONTIER_ACHIEVED.png,era:VII
 EVERY_VESSEL,"Fully equipped","Unlock all 27 vessels.",EVERY_VESSEL_ACHIEVED.png,count:27
-EVERY_SUBSTANCE,"The whole of chemistry","Discover all 2910 substances in the game.",EVERY_SUBSTANCE_ACHIEVED.png,count:2910
+EVERY_SUBSTANCE,"The whole of chemistry","Discover all 2916 substances in the game.",EVERY_SUBSTANCE_ACHIEVED.png,count:2916

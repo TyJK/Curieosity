@@ -70,7 +70,7 @@ const fn v(
     VesselSpec { name, process, category, tier, art, catalyst_slot, why }
 }
 
-/// Every vessel, in the order the vessel list shows them (roughly the order they unlock).
+/// Every vessel, in the order the vessel picker shows their families (roughly the order they unlock).
 pub const VESSEL_SPECS: &[VesselSpec] = &[
     v("Mortar", ProcessType::Mix, "Mix", 1, "mortar", false, "Grinding and mixing by hand: the oldest chemistry there is."),
     v("Fire", ProcessType::Heat, "Heat", 1, "fire", false, "An open fire: the first way people changed what things are made of."),

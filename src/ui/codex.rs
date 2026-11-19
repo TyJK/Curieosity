@@ -99,7 +99,7 @@ pub struct CodexReactionLink(pub u32);
 // Android); the review run's URL sink lives there too.
 pub use crate::platform::{open_url, URL_SINK};
 
-fn state_name(s: MatterState) -> &'static str {
+pub(crate) fn state_name(s: MatterState) -> &'static str {
     match s {
         MatterState::Solid => "Solid",
         MatterState::Liquid => "Liquid",
@@ -120,7 +120,7 @@ fn state_color(s: MatterState) -> Color {
 }
 
 /// (label, value) cards for a substance's physical data.
-fn facts(sub: &Substance) -> Vec<(&'static str, String)> {
+pub(crate) fn facts(sub: &Substance) -> Vec<(&'static str, String)> {
     let mut f = Vec::new();
     if let Some(ei) = &sub.element_info {
         f.push(("Atomic number", ei.atomic_number.to_string()));
@@ -289,7 +289,12 @@ const WORLD_NOTE: &str = "World figures are rough estimates, rounded: totals thi
 track precisely.";
 
 /// A wrapping grid of (label, value) cards; the industry ones carry `CodexIndustryCard`.
-fn spawn_fact_grid(p: &mut ChildSpawnerCommands, fonts: &UiFonts, facts: Vec<(&'static str, String)>, industry: bool) {
+pub(crate) fn spawn_fact_grid(
+    p: &mut ChildSpawnerCommands,
+    fonts: &UiFonts,
+    facts: Vec<(&'static str, String)>,
+    industry: bool,
+) {
     p.spawn(Node { flex_wrap: FlexWrap::Wrap, column_gap: Val::Px(10.0), row_gap: Val::Px(10.0), ..default() })
         .with_children(|grid| {
             for (k, v) in facts {
@@ -774,6 +779,31 @@ pub fn codex_category_tab_system(
 }
 
 /// Map a physical key to the character it types (lowercase; search is case-insensitive).
+/// What a search box's text becomes this frame, and whether Enter was pressed. On a desktop
+/// key presses edit it. A phone's on-screen keyboard keeps its own copy of the text (pass it
+/// as `keyboard` while the keyboard is typing for this box), and that copy is the truth: its
+/// delete key also arrives as a Backspace press, so applying both took two letters away.
+pub fn typed(text: &str, keys: &ButtonInput<KeyCode>, keyboard: Option<String>) -> (String, bool) {
+    let enter = keys.any_just_pressed([KeyCode::Enter, KeyCode::NumpadEnter]);
+    if let Some(t) = keyboard {
+        return (t, enter);
+    }
+    let mut out = text.to_string();
+    for k in keys.get_just_pressed() {
+        match k {
+            KeyCode::Backspace | KeyCode::Delete => {
+                out.pop();
+            }
+            _ => {
+                if let Some(c) = keycode_to_char(*k) {
+                    out.push(c);
+                }
+            }
+        }
+    }
+    (out, enter)
+}
+
 pub fn keycode_to_char(k: KeyCode) -> Option<char> {
     use KeyCode::*;
     Some(match k {
@@ -851,27 +881,11 @@ pub fn codex_search_input_system(
         *typing = TypingBox::Codex;
         crate::platform::keyboard_show(&filter.search);
     }
-    if *typing == TypingBox::Codex {
-        if let Some(t) = crate::platform::keyboard_text() {
-            if t != filter.search {
-                filter.search = t;
-                changed = true;
-            }
-        }
-    }
-    for k in keys.get_just_pressed() {
-        match k {
-            KeyCode::Backspace | KeyCode::Delete => {
-                filter.search.pop();
-                changed = true;
-            }
-            _ => {
-                if let Some(c) = keycode_to_char(*k) {
-                    filter.search.push(c);
-                    changed = true;
-                }
-            }
-        }
+    let keyboard = crate::platform::keyboard_text().filter(|_| *typing == TypingBox::Codex);
+    let (text, _) = typed(&filter.search, &keys, keyboard);
+    if text != filter.search {
+        filter.search = text;
+        changed = true;
     }
     if changed {
         if let Ok((mut text, mut color)) = text_q.single_mut() {
@@ -1300,6 +1314,18 @@ pub fn codex_link_click_system(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A phone keyboard's delete arrives twice: in its own text and as a Backspace press.
+    /// One letter goes, not two; on a desktop the key press is all there is.
+    #[test]
+    fn a_phone_delete_takes_one_letter() {
+        let mut keys = ButtonInput::<KeyCode>::default();
+        keys.press(KeyCode::Backspace);
+        assert_eq!(typed("abc", &keys, Some("ab".into())), ("ab".into(), false));
+        assert_eq!(typed("abc", &keys, None), ("ab".into(), false));
+        keys.press(KeyCode::Enter);
+        assert!(typed("ab", &keys, None).1);
+    }
 
     #[test]
     fn index_names_skip_locants_and_descriptors() {

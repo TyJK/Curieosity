@@ -1393,6 +1393,10 @@
   "id": 1360,
   "lib": false
  },
+ "Calaverite": {
+  "id": 1528,
+  "lib": false
+ },
  "Camphene": {
   "id": 8248,
   "lib": true,
@@ -1583,6 +1587,10 @@
  },
  "Chymosin": {
   "id": 602,
+  "lib": false
+ },
+ "Cider": {
+  "id": 1527,
   "lib": false
  },
  "Cinchona": {
@@ -3274,6 +3282,18 @@
  },
  "Goethite": {
   "id": 27,
+  "lib": false
+ },
+ "GoldAmalgam": {
+  "id": 1526,
+  "lib": false
+ },
+ "GoldGravel": {
+  "id": 1524,
+  "lib": false
+ },
+ "GoldQuartz": {
+  "id": 1525,
   "lib": false
  },
  "GoreTex": {
@@ -7350,6 +7370,10 @@
   "id": 8235,
   "lib": true,
   "name": "1,1,2,2-Tetrachloroethane"
+ },
+ "TeO2": {
+  "id": 1529,
+  "lib": false
  },
  "TeaLeaves": {
   "id": 397,

@@ -12,7 +12,7 @@
 //     disabled skin), in tree order;
 //   * while a view or dialog covers the lab (`FocusCover`), only what sits in the topmost
 //     cover or above it (the header stays reachable from a view; nothing behind Settings);
-//   * a long list or grid (`FocusGroup`: the shelf, the vessel list, the library lists,
+//   * a long list or grid (`FocusGroup`: the shelf, the vessel picker, the library lists,
 //     the tech tree) is one Tab stop; the arrow keys move inside it.
 use crate::ui::{Button, Clicked};
 use bevy::camera::NormalizedRenderTarget;
@@ -28,7 +28,7 @@ use crate::components::{Draggable, VesselCard};
 use crate::ui::codex::{CodexListContent, CodexRoot, CodexState};
 use crate::ui::credits::CreditsRoot;
 use crate::ui::inventory::{InventoryContent, ShelfTile};
-use crate::ui::process_toolbar::VesselSidebar;
+use crate::ui::process_toolbar::{VesselPickerGrid, VesselPickerRoot};
 use crate::ui::reaction_library::{ReactionLibListContent, ReactionLibRoot, ReactionLibState};
 use crate::ui::settings::{SettingsBackdrop, SettingsRoot};
 use crate::ui::tech_tree::{TechGraphContent, TechListContent, TechRoot};
@@ -97,7 +97,7 @@ fn mark_focus_roles(
         (
             Or<(
                 With<InventoryContent>,
-                With<VesselSidebar>,
+                With<VesselPickerGrid>,
                 With<CodexListContent>,
                 With<ReactionLibListContent>,
                 With<TechListContent>,
@@ -116,6 +116,8 @@ fn mark_focus_roles(
                 With<SettingsRoot>,
                 With<CreditsRoot>,
                 With<crate::ui::main_menu::MenuRoot>,
+                With<VesselPickerRoot>,
+                With<crate::ui::bench_controls::ConfirmRoot>,
             )>,
             Without<FocusCover>,
         ),

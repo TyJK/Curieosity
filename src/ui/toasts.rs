@@ -128,7 +128,7 @@ pub fn spawn_toast_stack(mut commands: Commands) {
         // at the bottom, older ones rising above it
         Node {
             position_type: PositionType::Absolute,
-            right: Val::Px(theme::SIDEBAR_W + 14.0),
+            right: Val::Px(14.0),
             bottom: Val::Px(theme::DOCK_H + 14.0),
             width: Val::Px(460.0),
             flex_direction: FlexDirection::Column,

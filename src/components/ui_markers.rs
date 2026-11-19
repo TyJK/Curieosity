@@ -33,10 +33,6 @@ pub struct ProcessVessel {
 #[derive(Component, Clone, Debug)]
 pub struct InVessel(pub Entity);
 
-/// Marks a button that triggers a reaction for its vessel
-#[derive(Component)]
-pub struct VesselReactButton;
-
 /// Marks the container node inside a vessel where ingredients are dropped
 #[derive(Component)]
 pub struct VesselIngredientZone;
@@ -85,16 +81,6 @@ pub struct ReactionLink {
 /// holding the products before they are propagated.
 #[derive(Component)]
 pub struct ReactionOutput(pub Vec<Ingredient>);
-
-// --- NEW: Markers for vessel utility buttons ---
-
-/// Marks a button that clears a vessel's contents
-#[derive(Component)]
-pub struct VesselClearButton;
-
-/// Marks a button that deletes a vessel
-#[derive(Component)]
-pub struct VesselDeleteButton;
 
 #[derive(Component)]
 pub struct PendingReaction {

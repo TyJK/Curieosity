@@ -10,6 +10,7 @@ use bevy::platform::collections::HashMap;
 use bevy::prelude::{ChildOf, Node};
 use bevy::ui::Pressed;
 
+pub mod bench_controls;
 pub mod codex;
 pub mod credits;
 pub mod detail_panel;

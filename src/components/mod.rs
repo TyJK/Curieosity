@@ -11,6 +11,6 @@ pub mod ui_markers;
 pub use ingredient::{format_formula, Ingredient};
 pub use ui_markers::{
     CanvasScrollingPane, Draggable, DropTarget, InCatalystZone, InVessel, InputPort, OnCanvas, OutputPort, PortFilter,
-    ProcessVessel, ReactionCanvasRoot, ReactionLink, ReactionOutput, VesselCard, VesselCatalystZone, VesselClearButton,
-    VesselDeleteButton, VesselIngredientZone, VesselReactButton,
+    ProcessVessel, ReactionCanvasRoot, ReactionLink, ReactionOutput, VesselCard, VesselCatalystZone,
+    VesselIngredientZone,
 };

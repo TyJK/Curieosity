@@ -1,5 +1,4 @@
 // src/systems/reaction_check.rs
-use crate::ui::{Button, Clicked};
 use bevy::platform::collections::{HashMap, HashSet};
 use bevy::prelude::*;
 
@@ -7,10 +6,7 @@ use crate::components::ui_markers::{
     CanvasScrollingPane, InCatalystZone, InputPort, OutputPort, PendingReaction, PortFilter, ProcessVessel,
     ReactionLink, ReactionOutput, VesselCard, VesselCatalystZone,
 };
-use crate::components::{
-    format_formula, Draggable, DropTarget, InVessel, Ingredient, VesselClearButton, VesselDeleteButton,
-    VesselIngredientZone, VesselReactButton,
-};
+use crate::components::{format_formula, Draggable, DropTarget, InVessel, Ingredient, VesselIngredientZone};
 use crate::data::common::{ProcessType, StoichPoint};
 use crate::data::reactions::Reaction;
 use crate::data::substances::Substances;
@@ -21,7 +17,7 @@ use crate::resources::{
 use crate::systems::autoplay::GameEvent;
 use crate::ui::inventory::{spawn_vessel_chip, ChipRole};
 use crate::ui::onboarding::Tip;
-use crate::ui::process_toolbar::{vessel_art_path, vessel_name, ProcessButton};
+use crate::ui::process_toolbar::{vessel_art_path, vessel_name, PlaceVessel};
 use crate::ui::settings::Settings;
 use crate::ui::theme;
 use crate::ui::toasts::{ToastKind, Toasts};
@@ -60,16 +56,9 @@ pub struct VesselArtSmall;
 /// The vessel's name in its header (larger in the overview form).
 #[derive(Component)]
 pub struct VesselTitleText;
-/// The header's buttons (left out of the overview form).
-#[derive(Component)]
-pub struct VesselHeaderButtons;
-/// The "in · drag out to chain · out" line between the ports (left out of the overview).
-#[derive(Component)]
-pub struct VesselPortLabel;
 
-/// The run-chain button in a card's header: shown while something feeds the vessel.
-#[derive(Component)]
-pub struct VesselChainButton;
+/// A vessel's status line while it is ready for something to go in.
+pub const READY_TEXT: &str = "Put substances in, then React.";
 
 const ART_SIZE: f32 = 104.0;
 const ART_SMALL: f32 = 30.0;
@@ -222,13 +211,22 @@ pub fn vessel_art_system(
         let Some(v) = vessel_of(e, &parents, &cards) else { continue };
         let Ok((pv, reacting)) = vessels.get(v) else { continue };
         let alpha = if reacting { 0.65 + 0.35 * (t * 9.0).sin().abs() * (0.6 + 0.4 * (t * 23.0).sin()) } else { 0.3 };
-        img.color = accent_glow(&pv.process).with_alpha(alpha);
+        // (only when it changes: an idle vessel's glow stays put, and the screen can rest)
+        let want = accent_glow(&pv.process).with_alpha(alpha);
+        if img.color != want {
+            img.color = want;
+        }
     }
 }
 
+/// A port's dot: big enough to say what it is inside it.
+pub const PORT_DOT: f32 = 30.0;
+/// A port's touch area (the port node itself), around its dot.
+pub const PORT_HIT: f32 = 44.0;
+
 /// A port's touch area: wider than its dot, overhanging the row by the difference.
 fn port_hit_area() -> Node {
-    let (dot, hit) = (18.0, 38.0);
+    let (dot, hit) = (PORT_DOT, PORT_HIT);
     Node {
         width: Val::Px(hit),
         height: Val::Px(hit),
@@ -239,21 +237,24 @@ fn port_hit_area() -> Node {
     }
 }
 
-/// The dot a port shows.
-fn port_dot(fill: Color, edge: Color) -> impl Bundle {
-    (
+/// The dot a port shows, with what it is ("IN", "OUT") inside it.
+fn spawn_port_dot(port: &mut ChildSpawnerCommands, fonts: &UiFonts, fill: Color, edge: Color, text: &str, ink: Color) {
+    port.spawn((
         Node {
-            border_radius: BorderRadius::all(Val::Px(9.0)),
-            width: Val::Px(18.0),
-            height: Val::Px(18.0),
+            border_radius: BorderRadius::all(Val::Px(PORT_DOT / 2.0)),
+            width: Val::Px(PORT_DOT),
+            height: Val::Px(PORT_DOT),
             border: UiRect::all(Val::Px(2.0)),
             flex_shrink: 0.0,
+            align_items: AlignItems::Center,
+            justify_content: JustifyContent::Center,
             ..default()
         },
         BackgroundColor(fill),
         BorderColor::all(edge),
         Pickable::IGNORE,
-    )
+    ))
+    .with_child((theme::label(fonts, text, 8.5, theme::Weight::Bold, ink), Pickable::IGNORE));
 }
 
 fn dim(c: Color, f: f32) -> Color {
@@ -261,11 +262,12 @@ fn dim(c: Color, f: f32) -> Color {
     Color::srgb(s.red * f, s.green * f, s.blue * f)
 }
 
-/// Clicking an unlocked vessel in the sidebar puts a fresh vessel on the bench, in the next
-/// free slot of the visible area.
-pub fn process_button_system(
+/// A vessel picked in the vessel picker goes on the bench, in the next free slot of the
+/// visible area, and becomes the selected one.
+#[allow(clippy::too_many_arguments)]
+pub fn place_vessel_system(
+    mut asks: MessageReader<PlaceVessel>,
     vessels_q: Query<(), With<VesselCard>>,
-    clicked: Query<&ProcessButton, (With<Clicked>, With<Button>)>,
     unlocks: Res<crate::ui::process_toolbar::ProcessUnlocks>,
     mut commands: Commands,
     scrolling_panes: Query<(Entity, &Node), With<CanvasScrollingPane>>,
@@ -280,19 +282,19 @@ pub fn process_button_system(
     // a compact card starts higher, so the whole of it fits a short bench
     let margin = if dock.bench < COMPACT_BENCH { 10.0 } else { 24.0 };
     let Some(fonts) = fonts.as_ref() else { return };
-
-    for button in &clicked {
-        if !unlocks.0.contains(&button.process) {
+    let mut count = vessels_q.iter().count();
+    for ask in asks.read() {
+        if !unlocks.0.contains(&ask.0) {
             continue;
         }
-        let count = vessels_q.iter().count();
         // what the bench shows, in the pane's own units (it may be zoomed)
         let z = zoom.0.max(0.01);
         let shown = -crate::systems::drag_drop::pane_offset(pane_node) / z;
         let view = crate::systems::drag_drop::bench_view(&bench) / z;
         let at = vessel_slot(count, shown, view, margin);
-        let card = spawn_vessel_card(&mut commands, pane, &button.process, &button.name, at, fonts, &asset_server);
-        active.0 = Some(card); // a double-tap fills the vessel just placed
+        let card = spawn_vessel_card(&mut commands, pane, &ask.0, vessel_name(&ask.0), at, fonts, &asset_server);
+        active.0 = Some(card); // what goes in next goes into the vessel just placed
+        count += 1;
     }
 }
 
@@ -337,59 +339,26 @@ pub fn spawn_vessel_card(
                 Name::new(format!("Vessel_{:?}", process)),
             ))
             .with_children(|vessel| {
-                // --- header: title + clear / remove ---
+                // --- header: the title (and, on a short bench, the small picture) ---
                 vessel
-                    .spawn(Node {
-                        width: Val::Percent(100.0),
-                        justify_content: JustifyContent::SpaceBetween,
-                        align_items: AlignItems::Center,
-                        ..default()
-                    })
-                    .with_children(|hdr| {
-                        hdr.spawn((
-                            Node { align_items: AlignItems::Center, column_gap: Val::Px(7.0), ..default() },
+                    .spawn((
+                        Node { width: Val::Percent(100.0), align_items: AlignItems::Center, column_gap: Val::Px(7.0), ..default() },
+                        Pickable::IGNORE,
+                    ))
+                    .with_children(|t| {
+                        // the small picture (a short bench shows this instead of the big one)
+                        t.spawn((
+                            VesselArtSmall,
+                            Node { width: Val::Px(ART_SMALL), height: Val::Px(ART_SMALL), display: Display::None, ..default() },
                             Pickable::IGNORE,
                         ))
-                        .with_children(|t| {
-                            // the small picture (a short bench shows this instead of the big one)
-                            t.spawn((
-                                VesselArtSmall,
-                                Node {
-                                    width: Val::Px(ART_SMALL),
-                                    height: Val::Px(ART_SMALL),
-                                    display: Display::None,
-                                    ..default()
-                                },
-                                Pickable::IGNORE,
-                            ))
-                            .with_children(|art| spawn_art_layers(art, process, asset_server));
-                            t.spawn((
-                                VesselTitleText,
-                                theme::label(fonts, name, theme::LG, theme::Weight::Semibold, accent),
-                                TextLayout::no_wrap(),
-                                Pickable::IGNORE,
-                            ));
-                        });
-                        // spaced apart, so a finger going for one doesn't land on its neighbour
-                        // (Clear and Close sit side by side)
-                        hdr.spawn((VesselHeaderButtons, Node { column_gap: Val::Px(8.0), ..default() })).with_children(|btns| {
-                            theme::spawn_icon_button(
-                                btns,
-                                asset_server,
-                                "chain",
-                                26.0,
-                                theme::GOLD,
-                                (
-                                    VesselChainButton,
-                                    Tip::Text(
-                                        "Run the chain",
-                                        "React every vessel at the start of what feeds this one. Their products flow on through the links, and each vessel reacts as they arrive.",
-                                    ),
-                                ),
-                            );
-                            theme::spawn_icon_button(btns, asset_server, "clear", 26.0, theme::TEXT_2, VesselClearButton);
-                            theme::spawn_icon_button(btns, asset_server, "close", 26.0, theme::TEXT_2, VesselDeleteButton);
-                        });
+                        .with_children(|art| spawn_art_layers(art, process, asset_server));
+                        t.spawn((
+                            VesselTitleText,
+                            theme::label(fonts, name, theme::LG, theme::Weight::Semibold, accent),
+                            TextLayout::no_wrap(),
+                            Pickable::IGNORE,
+                        ));
                     });
 
                 // --- the vessel itself: outline, contents and accent layers ---
@@ -428,25 +397,20 @@ pub fn spawn_vessel_card(
                         Name::new("PortWrapper"),
                     ))
                     .with_children(|row| {
-                        // each port is an 18 px dot in a 38 px touch area that overhangs the
-                        // row, so a finger finds it without the card growing
+                        // each port is a dot in a touch area that overhangs the row, so a
+                        // finger finds it without the card growing
                         row.spawn((
                             InputPort, DropTarget, Pickable::default(), port_hit_area(),
                             Tip::Text("Input port", "Products of the vessel linked here flow in and react. Link by dragging from another vessel's output port onto this vessel, or tap that port and then this vessel."),
                             Name::new("InputPort"),
                         ))
-                        .with_child(port_dot(theme::BG, theme::CYAN));
-                        row.spawn((
-                            VesselPortLabel,
-                            theme::label(fonts, "in  ·  drag or tap out to chain  ·  out", 9.5, theme::Weight::Regular, theme::TEXT_3),
-                            Pickable::IGNORE,
-                        ));
+                        .with_children(|p| spawn_port_dot(p, fonts, theme::BG, theme::CYAN, "IN", theme::CYAN));
                         row.spawn((
                             OutputPort { filter: PortFilter::Any }, Draggable, Pickable::default(), port_hit_area(),
-                            Tip::Text("Output port", "Drag from here onto another vessel to chain them, or tap here and then tap the vessel to feed."),
+                            Tip::Text("Output port", "Drag from here onto another vessel to chain them, or tap here and then tap the vessel to feed. Double-tap a link to cut it."),
                             Name::new("OutputPort"),
                         ))
-                        .with_child(port_dot(theme::GOLD.with_alpha(0.35), theme::GOLD));
+                        .with_children(|p| spawn_port_dot(p, fonts, theme::GOLD.with_alpha(0.3), theme::GOLD, "OUT", theme::TEXT));
                     });
 
                 // --- ingredient zone ---
@@ -456,7 +420,7 @@ pub fn spawn_vessel_card(
                     Pickable::default(),
                     Tip::Text(
                         "Contents",
-                        "Put substances here, then press React. Tap a substance's x to take it out, or drag it onto another vessel to move it.",
+                        "Put substances here, then press React. Double-tap a substance to take it out, or drag it onto another vessel to move it.",
                     ),
                     Node { border_radius: BorderRadius::all(Val::Px(theme::R_MD)),
                         width: Val::Percent(100.0),
@@ -507,35 +471,13 @@ pub fn spawn_vessel_card(
                 // --- equation / status ---
                 vessel.spawn((
                     EquationText,
-                    Text::new("Drop ingredients in, then React."),
+                    Text::new(READY_TEXT),
                     TextFont { font: fonts.symbols.clone().into(), font_size: FontSize::Px(12.0), ..default() },
                     TextColor(theme::TEXT_3),
                     Node { max_width: Val::Px(VESSEL_W - 24.0), ..default() },
                     Pickable::IGNORE,
                 ));
 
-                // --- react button ---
-                vessel
-                    .spawn((
-                        theme::button(
-                            theme::Kind::Accent(accent),
-                            Node {
-                                width: Val::Percent(100.0),
-                                height: Val::Px(34.0),
-                                align_items: AlignItems::Center,
-                                justify_content: JustifyContent::Center,
-                                column_gap: Val::Px(7.0),
-                                ..default()
-                            },
-                            theme::R_MD,
-                        ),
-                        VesselReactButton,
-                        Tip::Text("React", "Run whatever is in the vessel. If nothing happens, the status line says why."),
-                    ))
-                    .with_children(|btn| {
-                        btn.spawn(theme::icon(asset_server, "spark", 15.0, theme::TEXT));
-                        btn.spawn((theme::label(fonts, "React", theme::MD, theme::Weight::Semibold, theme::TEXT), Pickable::IGNORE));
-                    });
             })
             .id();
     });
@@ -563,12 +505,12 @@ fn spawn_art_layers(art: &mut ChildSpawnerCommands, process: &ProcessType, asset
 }
 
 /// On a short bench (a phone held sideways), or zoomed out, vessel cards go compact: the
-/// small picture beside the title instead of the big one, a shorter contents area and
-/// button, less padding. Zoomed out to the overview (drag_drop::OVERVIEW and below) they
-/// fold down to what they hold: the name and the formulas of the contents, in larger type
-/// so they stay readable small, and the ports (the links stay put); the buttons, the art,
-/// the equation and each substance's name and x step aside. Applied to new cards and new
-/// contents, and to everything when the bench changes size or zoom.
+/// small picture beside the title instead of the big one, a shorter contents area, less
+/// padding. Zoomed out to the overview (drag_drop::OVERVIEW and below) they fold down to
+/// what they hold: the name and the formulas of the contents, in larger type so they stay
+/// readable small, and the ports (the links stay put); the art, the equation and each
+/// substance's name step aside. Applied to new cards and new contents, and to everything
+/// when the bench changes size or zoom.
 #[allow(clippy::type_complexity)]
 pub fn vessel_fit_system(
     dock: Res<crate::ui::inventory::Dock>,
@@ -582,26 +524,18 @@ pub fn vessel_fit_system(
             Has<VesselArtBig>,
             Has<VesselArtSmall>,
             Has<VesselIngredientZone>,
-            Has<VesselReactButton>,
-            Has<VesselHeaderButtons>,
-            Has<VesselPortLabel>,
             Has<EquationText>,
             Has<crate::ui::inventory::ChipIcon>,
             Has<crate::ui::inventory::ChipNameText>,
-            Has<crate::ui::inventory::VesselChipRemove>,
         ),
         Or<(
             With<VesselCard>,
             With<VesselArtBig>,
             With<VesselArtSmall>,
             With<VesselIngredientZone>,
-            With<VesselReactButton>,
-            With<VesselHeaderButtons>,
-            With<VesselPortLabel>,
             With<EquationText>,
             With<crate::ui::inventory::ChipIcon>,
             With<crate::ui::inventory::ChipNameText>,
-            With<crate::ui::inventory::VesselChipRemove>,
         )>,
     >,
     mut fonts: Query<
@@ -614,11 +548,9 @@ pub fn vessel_fit_system(
     }
     let overview = zoom.overview();
     let compact = dock.bench < COMPACT_BENCH || zoom.0 < 0.99;
-    let (pad, gap, zone_h, react_h) = if compact { (8.0, 4.0, 44.0, 30.0) } else { (10.0, 7.0, 84.0, 34.0) };
+    let (pad, gap, zone_h) = if compact { (8.0, 4.0, 44.0) } else { (10.0, 7.0, 84.0) };
     let shown = |on: bool| if on { Display::Flex } else { Display::None };
-    for (mut n, card, big, small, zone, react, buttons, port_label, equation, chip_icon, chip_name, chip_x) in
-        &mut nodes
-    {
+    for (mut n, card, big, small, zone, equation, chip_icon, chip_name) in &mut nodes {
         let display = if card {
             if n.row_gap != Val::Px(gap) {
                 n.row_gap = Val::Px(gap);
@@ -635,12 +567,7 @@ pub fn vessel_fit_system(
                 n.min_height = Val::Px(h);
             }
             None
-        } else if react {
-            if n.height != Val::Px(react_h) {
-                n.height = Val::Px(react_h);
-            }
-            Some(shown(!overview))
-        } else if buttons || port_label || equation || chip_icon || chip_name || chip_x {
+        } else if equation || chip_icon || chip_name {
             Some(shown(!overview))
         } else {
             None
@@ -664,16 +591,7 @@ pub fn vessel_fit_system(
     }
 }
 
-pub fn vessel_react_button_system(
-    clicked: Query<&ChildOf, (With<Clicked>, With<VesselReactButton>, With<Button>)>,
-    mut ev_check: MessageWriter<CheckVesselReaction>,
-) {
-    for parent in &clicked {
-        ev_check.write(CheckVesselReaction(parent.0));
-    }
-}
-
-/// Walk up from a vessel button to its VesselCard.
+/// Walk up from a node inside a vessel card to the card.
 fn vessel_of(mut e: Entity, parents: &Query<&ChildOf>, cards: &Query<(), With<VesselCard>>) -> Option<Entity> {
     for _ in 0..6 {
         if cards.contains(e) {
@@ -684,98 +602,8 @@ fn vessel_of(mut e: Entity, parents: &Query<&ChildOf>, cards: &Query<(), With<Ve
     None
 }
 
-/// The vessels at the start of everything that feeds `vessel` through the links (those
-/// nothing feeds), in a steady order. A vessel nothing feeds is its own start. Loops are
-/// walked once.
-pub fn chain_starts(vessel: Entity, links: &[(Entity, Entity)]) -> Vec<Entity> {
-    let mut seen = vec![vessel];
-    let mut todo = vec![vessel];
-    while let Some(v) = todo.pop() {
-        for &(from, to) in links {
-            if to == v && !seen.contains(&from) {
-                seen.push(from);
-                todo.push(from);
-            }
-        }
-    }
-    let mut starts: Vec<Entity> =
-        seen.into_iter().filter(|v| !links.iter().any(|&(from, to)| to == *v && from != *v)).collect();
-    // in the order they were made (Entity's own ordering is not by index)
-    starts.sort_by_key(|v| v.index().index());
-    starts
-}
-
-/// The run-chain button shows on a vessel while something feeds it; pressing it reacts the
-/// vessels at the start of the chain. The links carry their products on, and every vessel
-/// downstream reacts as they arrive (propagate_products_system).
-pub fn vessel_chain_button_system(
-    mut buttons: Query<(Entity, Has<Clicked>, &mut Node), With<VesselChainButton>>,
-    links: Query<&ReactionLink>,
-    parents: Query<&ChildOf>,
-    cards: Query<(), With<VesselCard>>,
-    mut ev_check: MessageWriter<CheckVesselReaction>,
-) {
-    let pairs: Vec<(Entity, Entity)> = links.iter().map(|l| (l.from_vessel, l.to_vessel)).collect();
-    for (b, clicked, mut node) in &mut buttons {
-        let Some(vessel) = vessel_of(b, &parents, &cards) else { continue };
-        let fed = pairs.iter().any(|&(from, to)| to == vessel && from != vessel);
-        let d = if fed { Display::Flex } else { Display::None };
-        if node.display != d {
-            node.display = d;
-        }
-        if fed && clicked {
-            for start in chain_starts(vessel, &pairs) {
-                ev_check.write(CheckVesselReaction(start));
-            }
-        }
-    }
-}
-
-pub fn vessel_clear_button_system(
-    mut commands: Commands,
-    button_q: Query<Entity, (With<Clicked>, With<VesselClearButton>)>,
-    parent_q: Query<&ChildOf>,
-    cards: Query<(), With<VesselCard>>,
-    ingredients_q: Query<(Entity, &InVessel)>,
-    catalysts_q: Query<(Entity, &InCatalystZone)>,
-    mut eq_q: Query<(&mut Text, &mut TextColor, &ChildOf), With<EquationText>>,
-) {
-    for btn in &button_q {
-        let Some(vessel) = vessel_of(btn, &parent_q, &cards) else { continue };
-        for (e, in_vessel) in &ingredients_q {
-            if in_vessel.0 == vessel {
-                commands.entity(e).try_despawn();
-            }
-        }
-        for (e, in_zone) in &catalysts_q {
-            if in_zone.0 == vessel {
-                commands.entity(e).despawn();
-            }
-        }
-        set_status(&mut eq_q, vessel, "Drop ingredients in, then React.", Color::srgb(0.6, 0.64, 0.75));
-    }
-}
-
-pub fn vessel_delete_button_system(
-    mut commands: Commands,
-    button_q: Query<Entity, (With<Clicked>, With<VesselDeleteButton>)>,
-    parent_q: Query<&ChildOf>,
-    cards: Query<(), With<VesselCard>>,
-    links_q: Query<(Entity, &ReactionLink)>,
-) {
-    for btn in &button_q {
-        let Some(vessel) = vessel_of(btn, &parent_q, &cards) else { continue };
-        commands.entity(vessel).despawn();
-        for (link_entity, link) in &links_q {
-            if link.from_vessel == vessel || link.to_vessel == vessel {
-                commands.entity(link_entity).despawn();
-            }
-        }
-    }
-}
-
 /// Set a vessel's status line (the EquationText under its contents).
-fn set_status(
+pub(crate) fn set_status(
     eq_q: &mut Query<(&mut Text, &mut TextColor, &ChildOf), With<EquationText>>,
     vessel: Entity,
     text: &str,
@@ -810,6 +638,8 @@ pub fn reaction_check_system(
 ) {
     let speed = settings.as_ref().map(|s| s.reaction_speed).unwrap_or(1.0).max(0.05);
     let balanced = settings.as_ref().is_some_and(|s| s.balanced_amounts);
+    // hints off: a mix that doesn't react says only that
+    let hints = settings.as_ref().is_none_or(|s| s.hints);
     let (fonts, assets, zones) = hand_back;
     let Some(recipe_db) = recipe_db else {
         ev_check.clear();
@@ -848,26 +678,30 @@ pub fn reaction_check_system(
 
         let found = recipe_db.lookup(process, reactant_ids.clone());
         let Lookup::Runs(reaction) = found else {
-            // --- fizzle: say why if we can ---
-            let hint = match &found {
-                Lookup::NeedsTier(p) => Some(format!(
-                    "Too much for the {}: this needs the {} ({} {}){}.",
-                    vessel_name(process),
-                    vessel_name(p),
-                    p.family(),
-                    crate::ui::process_toolbar::roman(p.tier()),
-                    if unlocks.0.contains(p) { "" } else { ", which you haven't unlocked yet" },
-                )),
-                Lookup::OtherVessel(p) => {
-                    let other = vessel_name(p);
-                    Some(format!(
-                        "These don't react in the {}, but try {} {other}.",
+            // --- fizzle: say why if we can (and hints are on) ---
+            let hint = if !hints {
+                None
+            } else {
+                match &found {
+                    Lookup::NeedsTier(p) => Some(format!(
+                        "Too much for the {}: this needs the {} ({} {}){}.",
                         vessel_name(process),
-                        crate::data::common::article(other)
-                    ))
+                        vessel_name(p),
+                        p.family(),
+                        crate::ui::process_toolbar::roman(p.tier()),
+                        if unlocks.0.contains(p) { "" } else { ", which you haven't unlocked yet" },
+                    )),
+                    Lookup::OtherVessel(p) => {
+                        let other = vessel_name(p);
+                        Some(format!(
+                            "These don't react in the {}, but try {} {other}.",
+                            vessel_name(process),
+                            crate::data::common::article(other)
+                        ))
+                    }
+                    // what the chemistry, or the recipes, can tell
+                    _ => crate::systems::lessons::why_not(&recipe_db, process, &reactant_ids, substances_db),
                 }
-                // what the chemistry, or the recipes, can tell
-                _ => crate::systems::lessons::why_not(&recipe_db, process, &reactant_ids, substances_db),
             };
             let status = hint.clone().unwrap_or_else(|| "No reaction.".to_string());
             set_status(&mut eq_q, vessel_entity, &status, theme::RED);
@@ -885,14 +719,20 @@ pub fn reaction_check_system(
 
         if let Some(needed) = reaction.required_catalyst() {
             if catalyst_id != Some(needed) {
-                let msg = format!("Almost: this needs {} in the catalyst slot.", name_of(needed));
-                set_status(&mut eq_q, vessel_entity, &msg, theme::GOLD);
+                let msg = if hints {
+                    format!("Almost: this needs {} in the catalyst slot.", name_of(needed))
+                } else {
+                    "No reaction.".to_string()
+                };
+                set_status(&mut eq_q, vessel_entity, &msg, if hints { theme::GOLD } else { theme::RED });
                 events.write(GameEvent::Fizzle {
                     process: process.clone(),
                     reactants: reactant_ids.clone(),
                     reason: msg.clone(),
                 });
-                toasts.push(ToastKind::Hint, msg);
+                if hints {
+                    toasts.push(ToastKind::Hint, msg);
+                }
                 commands.entity(vessel_entity).insert(Fizzle(Timer::from_seconds(0.6, TimerMode::Once)));
                 continue;
             }
@@ -1280,23 +1120,6 @@ fn build_equation_string(reaction: &Reaction, substances: &Substances) -> String
 
 #[cfg(test)]
 mod tests {
-    use super::chain_starts;
-    use bevy::prelude::Entity;
-
-    fn e(n: u32) -> Entity {
-        Entity::from_raw_u32(n).unwrap()
-    }
-
-    #[test]
-    fn a_chain_starts_where_nothing_feeds_it() {
-        // 1 -> 2 -> 4, 3 -> 4, 4 -> 5
-        let links = [(e(1), e(2)), (e(2), e(4)), (e(3), e(4)), (e(4), e(5))];
-        assert_eq!(chain_starts(e(5), &links), vec![e(1), e(3)]);
-        assert_eq!(chain_starts(e(2), &links), vec![e(1)]);
-        assert_eq!(chain_starts(e(1), &links), vec![e(1)], "nothing feeds it: it is its own start");
-        assert_eq!(chain_starts(e(9), &links), vec![e(9)]);
-    }
-
     #[test]
     fn each_family_has_its_own_colour_and_every_vessel_wears_it() {
         use super::{family_color, process_color};
@@ -1318,15 +1141,5 @@ mod tests {
         for s in VESSEL_SPECS {
             assert_eq!(process_color(&s.process), family_color(s.category), "{} wears another colour", s.name);
         }
-    }
-
-    #[test]
-    fn a_loop_is_walked_once() {
-        // 1 -> 2 -> 3 -> 2: the loop has no start of its own; 1 feeds it
-        let links = [(e(1), e(2)), (e(2), e(3)), (e(3), e(2))];
-        assert_eq!(chain_starts(e(3), &links), vec![e(1)]);
-        // a closed loop with nothing feeding it: no start, nothing reacts
-        let ring = [(e(1), e(2)), (e(2), e(1))];
-        assert!(chain_starts(e(1), &ring).is_empty());
     }
 }

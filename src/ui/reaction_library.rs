@@ -17,7 +17,7 @@ use crate::resources::player_progress::PlayerProgress;
 use crate::resources::recipe_database::RecipeDatabase;
 use crate::resources::ui_fonts::UiFonts;
 use crate::systems::reaction_check::accent_glow;
-use crate::ui::codex::{equation_text, keycode_to_char, open_url, CodexState};
+use crate::ui::codex::{equation_text, open_url, CodexState};
 use crate::ui::inventory::{element_tile_color, is_element_formula};
 use crate::ui::process_toolbar::{vessel_art_path, vessel_name};
 use crate::ui::theme::{self, Kind, Skin, Weight};
@@ -257,28 +257,12 @@ pub fn reaction_lib_search_system(
         }
         return;
     }
-    let mut search = state.search.clone();
     if !boxes.is_empty() {
         *typing = TypingBox::Reactions;
         crate::platform::keyboard_show(&state.search);
     }
-    if *typing == TypingBox::Reactions {
-        if let Some(t) = crate::platform::keyboard_text() {
-            search = t;
-        }
-    }
-    for k in keys.get_just_pressed() {
-        match k {
-            KeyCode::Backspace | KeyCode::Delete => {
-                search.pop();
-            }
-            _ => {
-                if let Some(c) = keycode_to_char(*k) {
-                    search.push(c);
-                }
-            }
-        }
-    }
+    let keyboard = crate::platform::keyboard_text().filter(|_| *typing == TypingBox::Reactions);
+    let (search, _) = crate::ui::codex::typed(&state.search, &keys, keyboard);
     if search != state.search {
         state.search = search;
         if let Ok((mut text, mut color)) = text_q.single_mut() {

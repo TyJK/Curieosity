@@ -151,8 +151,6 @@ You never need to. If you want to, I'd rather it went to one of these:
 3. [IACFS/ME](https://www.iacfsme.org/55671-2/): the International Association for Chronic
    Fatigue Syndrome/Myalgic Encephalomyelitis, clinicians and scientists advancing research
    and care.
-4. [Ko-fi](https://ko-fi.com/T5T52AWOGC): to give to me directly. (The phone versions leave
-   this one out: the app stores only allow links out to give to charities.)
 
 ## Privacy
 

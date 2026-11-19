@@ -1245,6 +1245,47 @@ N("TiN", "Titanium Nitride", "TiN", "Solid", "A golden ceramic coating, a few mi
 N("Xanthan", "Xanthan Gum", "mixture", "Solid", "A slime made by Xanthomonas bacteria (USDA, 1960s) that thickens sauces and drilling mud.", "Xanthan_gum", balance="C", props=["IsPolymer"])
 N("Galactose", "Galactose", "C6H12O6", "Solid", "The other half of milk sugar; people who can't digest lactose can digest the two halves.", "Galactose", smiles="OC[C@H]1OC(O)[C@H](O)[C@@H](O)[C@H]1O")
 
+# --- gold as people actually won it, and cider (Nex, 2026-11-19) ------------------------
+N("GoldGravel", "Gold-Bearing Gravel", "mixture", "Solid", "River gravel with flakes and nuggets of native gold, washed down from quartz veins upstream.", "Placer_mining", color="#c8a048", balance="SiO2")
+N("GoldQuartz", "Gold-Bearing Quartz", "mixture", "Solid", "Vein quartz with gold too fine to see, a few grams in every tonne of rock: the kind of ore most of the world's gold now comes from.", "Gold_mining", color="#d8d0b8", balance="SiO2")
+N("GoldAmalgam", "Gold Amalgam", "mixture", "Solid", "Gold dissolved in mercury: a soft, silvery paste. Fire-gilders painted it onto bronze and drove the mercury off with heat.", "Amalgam_(chemistry)", color="#c8c0a8", balance="AuHg")
+N("Cider", "Cider", "mixture", "Liquid", "Fermented apple juice, usually 4 to 8% alcohol.", "Cider", color="#e0a838", balance="C")
+N("Calaverite", "Calaverite", "AuTe2", "Solid", "Gold telluride, about 40% gold, yet brassy enough to pass for fool's gold. Kalgoorlie's miners threw it on the dumps and paved paths with it until 1896, when it was recognised and the streets were dug up.", "Calaverite", color="#c8b070")
+N("TeO2", "Tellurium Dioxide", "TeO2", "Solid", "The white oxide tellurium burns to; in the tellurite glass of some optical fibres.", "Tellurium_dioxide", color="#f0eee0")
+
+E0.reactions += [
+    R("Panning for Gold", "GoldGravel + H2O -> Au + Sand", MIX,
+      "Swirled in a pan of water, heavy gold sinks while the lighter gravel washes over the rim. Gold lies in streams as the bare metal, so it was the first metal people worked: the Varna graves in Bulgaria (about 4500 BCE) hold some three thousand gold objects.",
+      wiki="Gold_panning", exact=False),
+]
+E1.reactions += [
+    R("Mercury Amalgamation", "GoldQuartz + Hg -> GoldAmalgam + Sand", MIX,
+      "Crushed ore ground with mercury: the gold dissolves into it as a soft amalgam and the rock does not. Rome used it, and so did the mines of Spanish America; small-scale gold mining still puts more mercury into the world than any other trade.",
+      wiki="Gold_extraction#Mercury_process", exact=False),
+    R("Roasting the Amalgam", "GoldAmalgam -> Au + Hg", HEAT,
+      "Heated, the amalgam gives off its mercury as vapour and leaves spongy gold. In the open the vapour poisons whoever stands over it; a retort catches the mercury to use again.",
+      wiki="Amalgam_(chemistry)#Gold_amalgam", exact=False),
+    R("Fermenting Cider", "Apples -> Cider", FERM,
+      "Crushed apples ferment on their own yeasts into cider. Pliny wrote of wine made from apples, and English farm labourers were once paid partly in cider.",
+      wiki="Cider#History", exact=False),
+    R("Cider Vinegar", "Cider + O2 -> AcOH", FERM,
+      "Left open to the air, cider sours as acetic acid bacteria turn its alcohol into vinegar, just as they do with wine.",
+      wiki="Apple_cider_vinegar", exact=False),
+    R("Salt Cementation", "Electrum + NaCl -> Au + AgCl", HEAT,
+      "Natural gold carries silver. Lydia's refiners at Sardis (about 600 BCE) packed electrum foil in salt and brick dust and kept it hot for days: the silver turned to chloride and soaked into the brick, leaving gold pure enough for Croesus's coins.",
+      wiki="Gold_parting", exact=False, T=800),
+]
+E3.reactions += [
+    R("Kipp's Hydrogen Sulfide", "FeS + H2SO4 -> FeSO4 + H2S", MIX,
+      "Dilute sulfuric acid on iron sulfide gives the same rotten-egg gas as spirit of salt does. Petrus Kipp's apparatus (1844) let a laboratory turn the supply on and off like a tap.",
+      wiki="Kipp%27s_apparatus", dh=-30),
+]
+E4.reactions += [
+    R("Roasting Calaverite", "Calaverite + 2 O2 -> Au + 2 TeO2", HEAT,
+      "Gold locked up with tellurium will not dissolve in cyanide. Roasted, the tellurium burns off as its oxide and leaves porous gold the cyanide can reach: the treatment that made Kalgoorlie's Golden Mile pay.",
+      wiki="Calaverite", T=600),
+]
+
 E1.reactions += [
     R("Orleans Vinegar", "Wine + O2 -> AcOH", FERM,
       "Wine left in half-filled barrels grows a 'mother' of acetic bacteria; the Orleans method has made wine vinegar since the Middle Ages.",
@@ -1371,8 +1412,8 @@ C.MILESTONES = [
               message="Copper! The furnace becomes a smelter, and new ores are found."),
     Milestone("Bronze", unlock=(FERM,), grant=("Grapes", "Honey", "Barley", "Milk"),
               message="The Bronze Age, and the brewers and vintners of Sumer and Egypt: the Fermenter is unlocked."),
-    Milestone("Brass", grant=("Au", "Acanthite", "Cinnabar", "Stibnite", "FeS2", "Natron"),
-              message="Bronze and brass buy gold, silver ore, cinnabar and kohl from the traders."),
+    Milestone("Brass", grant=("GoldGravel", "GoldQuartz", "Acanthite", "Cinnabar", "Stibnite", "FeS2", "Natron"),
+              message="Bronze and brass buy gold-bearing gravel and quartz, silver ore, cinnabar and kohl from the traders."),
     Milestone("Fe", unlock=(DISTIL,),
               grant=("Tallow", "Potash", "Seawater", "VolcanicAsh", "Alum", "KNO3", "S", "GreenVitriol",
                      "MnO2", "Indican"),
@@ -1419,8 +1460,8 @@ C.MILESTONES = [
     Milestone("Quinine", grant=("Tarragon", "Buckwheat", "Lemongrass", "Yeast", "Comfrey", "Rowan", "Valerian",
                                "Nutmeg", "LinseedOil", "CastorBeans", "Cork"),
               message="Quinine from cinchona bark: chemists race to extract every plant's secret."),
-    Milestone("Dynamo", unlock=(ECELL,), grant=("CrudeOil", "Bauxite", "Chalcopyrite"),
-              message="Siemens' dynamo makes electricity by the ton: the Electrolytic Cell is unlocked, and oil, bauxite and copper ore are worth digging."),
+    Milestone("Dynamo", unlock=(ECELL,), grant=("CrudeOil", "Bauxite", "Chalcopyrite", "Calaverite"),
+              message="Siemens' dynamo makes electricity by the ton: the Electrolytic Cell is unlocked, and oil, bauxite, copper ore and gold telluride are worth digging."),
     Milestone("NaHCO3", grant=("Kieselguhr", "Sphalerite", "Samarskite", "Lepidolite", "MineralWater", "Argyrodite",
                                "Sugarcane"),
               message="Solvay's ammonia soda (1861) founds the heavy chemical industry."),
