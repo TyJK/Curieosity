@@ -175,7 +175,7 @@ X("Galena", "Galena", "PbS", "Solid", "Lead sulfide, heavy and metallic grey, of
 X("PbO", "Litharge", "PbO", "Solid", "Lead(II) oxide, a yellow-orange powder. Used in glazes and crystal glass, and the oxide that cupellation skims off to free silver.", "Lead(II)_oxide", id=0, color="#e8a830")
 X("Cinnabar", "Cinnabar (vermilion)", "HgS", "Solid", "Mercury sulfide: scarlet ore of mercury and, ground fine, the pigment vermilion that coloured Roman walls and Chinese lacquer.", "Cinnabar", id=0, color="#d02818")
 X("Stibnite", "Stibnite", "Sb2S3", "Solid", "Antimony sulfide in long grey needles. Ancient Egyptians used it as kohl eyeliner.", "Stibnite", id=0, color="#5c6068")
-X("FeS", "Iron(II) Sulfide", "FeS", "Solid", "A black solid formed when iron and sulfur are heated together. With acid it releases rotten-egg hydrogen sulfide.", "Iron(II)_sulfide", id=0, color="#2a2420")
+X("FeS", "Iron(II) Sulfide", "FeS", "Solid", "A black solid formed when iron and sulfur are heated together. Hydrochloric or sulfuric acid on it releases rotten-egg hydrogen sulfide.", "Iron(II)_sulfide", id=0, color="#2a2420")
 X("Pb3O4", "Red Lead", "Pb3O4", "Solid", "Minium, a brilliant red lead oxide: the original 'miniature' paint for manuscripts and the rust-proof primer on old ironwork.", "Lead(II,IV)_oxide", id=0, color="#e8381c")
 X("Pewter", "Pewter", "Sn4Pb", "Solid", "A soft, silvery alloy of mostly tin. Medieval plates, tankards and spoons were pewter; modern pewter replaces the lead with antimony and copper.", "Pewter", id=0, props=["IsMetal"], color="#a8acb0")
 X("EgyptianBlue", "Egyptian Blue", "CaCuSi4O10", "Solid", "Calcium copper silicate, the first synthetic pigment (around 2500 BCE). It glows in infrared, which lets archaeologists find traces of it on ancient statues.", "Egyptian_blue", id=0, color="#2850c8")
@@ -1071,9 +1071,9 @@ E4 = Epoch("Industry", "1850 to 1920", [
     R("Castner's Cyanide", "2 Na + 2 Graphite + 2 NH3 -> 2 NaCN + 3 H2", HEAT,
       "Hamilton Castner (1894) made sodium cyanide from sodium, carbon and ammonia, for the new gold fields.",
       wiki="Sodium_cyanide#Production", T=600, dh=-200),
-    R("Cyanide Leaching", "4 Au + 8 NaCN + O2 + 2 H2O -> 4 NaAuCN2 + 4 NaOH", MIX,
-      "MacArthur and the Forrest brothers (1887): dilute cyanide and air dissolve fine gold from crushed ore that no other method could reach.",
-      wiki="Gold_cyanidation", dh=-200),
+    R("Cyanide Leaching", "GoldQuartz + NaCN + O2 + H2O -> NaAuCN2 + NaOH + Sand", MIX,
+      "MacArthur and the Forrest brothers (1887): dilute cyanide and air dissolve the fine gold out of crushed ore too poor to pan or amalgamate. It made the Witwatersrand the world's great goldfield, and most gold mined today is still won this way.",
+      wiki="Gold_cyanidation", exact=False, dh=-200),
     R("Zinc Dust Precipitation", "2 NaAuCN2 + Zn -> 2 Au + Na2ZnCN4", MIX,
       "Zinc dust swapped for gold in the cyanide liquor (Merrill-Crowe), throwing down a black gold sludge.",
       wiki="Merrill-Crowe_process", dh=-80),

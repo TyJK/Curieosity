@@ -51,9 +51,8 @@ use crate::{
         drag_drop::DragDropPlugin,
         link_renderer::draw_links_system,
         reaction_check::{
-            fizzle_system, handle_reaction_timers_system, process_button_system, propagate_products_system,
-            reaction_check_system, vessel_art_system, vessel_clear_button_system, vessel_delete_button_system,
-            vessel_react_button_system, CheckVesselReaction,
+            fizzle_system, handle_reaction_timers_system, place_vessel_system, propagate_products_system,
+            reaction_check_system, vessel_art_system, CheckVesselReaction,
         },
         sound::{SoundOutput, SoundPlugin},
     },
@@ -80,9 +79,15 @@ pub fn run() -> AppExit {
     }
 
     let mut app = App::new();
-    if crate::platform::PHONE {
-        // draw when something changes, at most 60 times a second, and barely in the background
-        app.insert_resource(bevy::winit::WinitSettings::mobile());
+    // Draw only while something changes (keep_drawing_system asks for each frame), and tick
+    // slowly otherwise: a phone or laptop then barely spends battery on a still screen. A
+    // review drives its own frames, so it runs flat out; and Steam's overlay draws over the
+    // game's frames, so a Steam build keeps drawing too.
+    if autoplay.is_none() && !cfg!(feature = "steam") {
+        app.insert_resource(bevy::winit::WinitSettings {
+            focused_mode: bevy::winit::UpdateMode::reactive(crate::platform::IDLE_TICK),
+            unfocused_mode: bevy::winit::UpdateMode::reactive_low_power(std::time::Duration::from_secs(1)),
+        });
     }
     // A UI tile or chip despawned in the same frame a command targets it is harmless;
     // log it instead of crashing the game.
@@ -97,6 +102,8 @@ pub fn run() -> AppExit {
             crate::ui::discovery_card::DiscoveryCardPlugin,
             CreditsPlugin,
             AchievementsPlugin,
+            crate::ui::bench_controls::BenchControlsPlugin,
+            process_toolbar::VesselPickerPlugin,
         ))
         .insert_resource(Persistence(autoplay.is_none()))
         // the review run is silent unless asked (`--sound`); its cues are still logged
@@ -135,6 +142,9 @@ pub fn run() -> AppExit {
         .init_resource::<crate::platform::SoftKeyboard>()
         .init_resource::<crate::ui::shell::Portrait>()
         .init_resource::<crate::ui::inventory::Dock>()
+        .init_resource::<crate::ui::inventory::ShelfDrag>()
+        .init_resource::<crate::ui::inventory::ShelfMenu>()
+        .init_resource::<crate::platform::KeyboardInset>()
         .add_message::<CheckVesselReaction>()
         .add_message::<GameEvent>()
         .add_message::<shell::TouchScroll>()
@@ -154,7 +164,9 @@ pub fn run() -> AppExit {
                     shell::spawn_header,
                     spawn_inventory_panel,
                     reaction_canvas::spawn_reaction_canvas,
-                    process_toolbar::spawn_process_toolbar,
+                    crate::ui::inventory::spawn_shelf_menu,
+                    process_toolbar::spawn_vessel_picker,
+                    crate::ui::bench_controls::spawn_confirm,
                     spawn_codex,
                     spawn_reaction_library,
                     spawn_tech_tree,
@@ -174,6 +186,7 @@ pub fn run() -> AppExit {
                 build_recipe_database,
                 load_or_seed_progress_system,
                 process_toolbar::milestone_system,
+                crate::resources::player_progress::discovery_order_system,
                 save_progress_system,
             )
                 .chain(),
@@ -182,8 +195,8 @@ pub fn run() -> AppExit {
             Update,
             (
                 (populate_inventory_system, crate::ui::inventory::shelf_window_system).chain(),
-                (crate::ui::inventory::fit_dock_system, crate::ui::inventory::shelf_head_fit_system),
-                category_tab_system,
+                (crate::platform::keyboard_inset_system, crate::ui::inventory::fit_dock_system).chain(),
+                (category_tab_system, crate::ui::inventory::shelf_menu_system).chain(),
                 crate::ui::inventory::shelf_search_system,
                 shelf_hover_system,
                 crate::ui::inventory::shelf_selection_outline_system,
@@ -192,10 +205,7 @@ pub fn run() -> AppExit {
                 selection_view_system,
                 selection_button_system,
                 ApplyDeferred,
-                vessel_clear_button_system,
-                vessel_delete_button_system,
-                process_button_system,
-                vessel_react_button_system,
+                place_vessel_system,
                 (
                     reaction_check_system,
                     handle_reaction_timers_system,
@@ -211,7 +221,6 @@ pub fn run() -> AppExit {
                 ),
                 vessel_art_system,
                 crate::systems::reaction_check::vessel_fit_system,
-                crate::systems::reaction_check::vessel_chain_button_system,
             ),
         )
         .add_systems(
@@ -252,9 +261,6 @@ pub fn run() -> AppExit {
         .add_systems(
             Update,
             (
-                process_toolbar::gate_process_buttons_system,
-                process_toolbar::locked_vessel_tap_system,
-                process_toolbar::sidebar_fit_system,
                 process_toolbar::new_game_button_system,
                 (
                     crate::ui::hint::spawn_hint_ui,
@@ -299,7 +305,9 @@ pub fn run() -> AppExit {
                 .chain(),
         )
         .add_systems(PostUpdate, draw_links_system.after(UiSystems::Layout))
-        .add_systems(Last, save_on_exit_system);
+        .add_systems(Last, save_on_exit_system)
+        .init_resource::<crate::platform::Drawing>()
+        .add_systems(Last, crate::platform::keep_drawing_system);
 
     #[cfg(not(any(target_os = "android", target_os = "ios")))]
     app.add_systems(Update, crate::platform::window_icon_system);

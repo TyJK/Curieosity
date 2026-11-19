@@ -1,15 +1,16 @@
 // src/ui/process_toolbar.rs
 //
-// The vessel sidebar on the right of the lab: one card per vessel. Unlocked vessels are
-// buttons that put a fresh vessel on the bench; locked ones stay visible, dimmed, with the
-// discovery that unlocks them, so the player can see what they are working towards.
-// Also: the data-driven milestones, and the New Game button's two-click logic (the button
-// itself lives in Settings).
-use crate::ui::{Button, Clicked, Look};
-use bevy::picking::hover::Hovered;
+// The vessel picker: the bench's Add vessel button opens it over the lab, one card per
+// family of vessels (Heat, Mix, Pressure...). A card shows the family's best vessel
+// unlocked so far, and a tap puts that one on the bench; where the family has more than one
+// unlocked, its tier button opens the list of them to pick a lower tier (a lower tier makes
+// the plainer product where two tiers know the same mix). A family with nothing unlocked
+// stays in the grid, dimmed, with the discovery that unlocks it, so the player can see what
+// they are working towards. Also: the data-driven milestones, and the New Game button's
+// two-click logic (the button itself lives in Settings).
+use crate::ui::{Button, Clicked};
 use bevy::platform::collections::HashSet;
 use bevy::prelude::*;
-use bevy::ui::Pressed;
 
 use crate::data::common::ProcessType;
 use crate::data::substances::Substances;
@@ -19,33 +20,17 @@ use crate::resources::player_progress::{
 use crate::resources::recipe_database::RecipeDatabase;
 use crate::resources::ui_fonts::UiFonts;
 use crate::systems::autoplay::GameEvent;
-use crate::ui::theme::{self, Kind, Skin, Weight};
+use crate::ui::theme::{self, Kind, Weight};
 use crate::ui::toasts::{ToastKind, Toasts};
 use crate::GameData;
-
-/// Component on each vessel button. Carries the underlying `process` (used for reaction
-/// matching) plus the player-facing vessel `name` (the innovation, e.g. "Bloomery").
-#[derive(Component, Clone)]
-pub struct ProcessButton {
-    pub process: ProcessType,
-    pub name: String,
-}
-
-/// The "Needs ... · why?" line on a locked vessel button (a tap says why).
-#[derive(Component)]
-pub struct VesselLockText(pub ProcessType);
-
-/// The vessel art on a sidebar button (dimmed while locked).
-#[derive(Component)]
-pub struct VesselButtonArt(pub ProcessType);
-
-/// The lock icon on a locked vessel button.
-#[derive(Component)]
-pub struct VesselLockIcon(pub ProcessType);
 
 /// Sent once a new game has wiped the progress (the main menu closes on it).
 #[derive(Message, Clone, Copy, Debug)]
 pub struct NewGameStarted;
+
+/// Put a fresh vessel of this kind on the bench (reaction_check::place_vessel_system).
+#[derive(Message, Clone, Debug)]
+pub struct PlaceVessel(pub ProcessType);
 
 /// The New Game button (in Settings and the main menu): asks for a second click before
 /// wiping progress.
@@ -101,113 +86,429 @@ impl Default for ProcessUnlocks {
     }
 }
 
-/// The vessel sidebar (scrolls with the wheel when the list is taller than the window).
-#[derive(Component)]
-pub struct VesselSidebar;
+/// The families in the order they first unlock (the order of VESSELS).
+pub fn families() -> Vec<&'static str> {
+    let mut out: Vec<&'static str> = Vec::new();
+    for v in VESSELS {
+        if !out.contains(&v.category) {
+            out.push(v.category);
+        }
+    }
+    out
+}
 
-/// The list's "VESSELS · tap to place" line (left out when the list is a strip, upright).
-#[derive(Component)]
-pub struct VesselSidebarHead;
+/// A family's vessels, highest tier first.
+pub fn family_vessels(family: &str) -> Vec<&'static VesselDef> {
+    let mut m: Vec<&'static VesselDef> = VESSELS.iter().filter(|v| v.category == family).collect();
+    m.sort_by_key(|v| std::cmp::Reverse(v.tier));
+    m
+}
 
-pub fn spawn_process_toolbar(mut commands: Commands, fonts: Res<UiFonts>, assets: Res<AssetServer>) {
+/// The vessel a family's card offers: its highest unlocked tier, or (nothing unlocked yet)
+/// its first.
+pub fn family_pick(family: &str, unlocks: &ProcessUnlocks) -> Option<&'static VesselDef> {
+    let m = family_vessels(family);
+    m.iter().copied().find(|v| unlocks.0.contains(&v.process)).or_else(|| m.last().copied())
+}
+
+/// The bench's Add vessel button (bench_controls spawns it).
+#[derive(Component)]
+pub struct AddVesselButton;
+
+/// Whether the picker is up, and which family's tier list is open in it.
+#[derive(Resource, Default, Debug)]
+pub struct VesselPicker {
+    pub open: bool,
+    pub tiers: Option<&'static str>,
+}
+
+#[derive(Component)]
+pub struct VesselPickerRoot;
+/// The grid of family cards (rebuilt when the picker opens or changes).
+#[derive(Component)]
+pub struct VesselPickerGrid;
+#[derive(Component)]
+pub struct VesselPickerClose;
+/// A family's card: a tap places its best unlocked vessel (or says what unlocks it).
+#[derive(Component, Clone, Copy, Debug)]
+pub struct PickFamily(pub &'static str);
+/// A family card's tier button: opens or closes its list of vessels.
+#[derive(Component, Clone, Copy, Debug)]
+pub struct PickTiers(pub &'static str);
+/// One vessel in an open tier list.
+#[derive(Component, Clone, Debug)]
+pub struct PickVessel(pub ProcessType);
+
+pub struct VesselPickerPlugin;
+
+impl Plugin for VesselPickerPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<VesselPicker>()
+            .add_message::<PlaceVessel>()
+            // (the picker is spawned with the rest of the interface, once the fonts are in)
+            .add_systems(Update, (vessel_picker_input_system, vessel_picker_view_system).chain());
+    }
+}
+
+pub fn spawn_vessel_picker(mut commands: Commands, fonts: Res<UiFonts>, assets: Res<AssetServer>) {
     commands
         .spawn((
+            VesselPickerRoot,
+            GlobalZIndex(850),
             Node {
                 position_type: PositionType::Absolute,
+                left: Val::Px(0.0),
                 right: Val::Px(0.0),
                 top: Val::Px(theme::HEADER_H),
-                bottom: Val::Px(theme::DOCK_H),
-                width: Val::Px(theme::SIDEBAR_W),
-                flex_direction: FlexDirection::Column,
-                row_gap: Val::Px(6.0),
-                padding: UiRect::new(Val::Px(12.0), Val::Px(12.0), Val::Px(12.0), Val::Px(12.0)),
-                border: UiRect::left(Val::Px(1.0)),
-                overflow: Overflow::scroll_y(),
+                bottom: Val::Px(0.0),
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::FlexStart,
+                padding: UiRect::all(Val::Px(12.0)),
+                display: Display::None,
                 ..default()
             },
-            BackgroundColor(theme::SURFACE),
-            BorderColor::all(theme::LINE),
-            ScrollPosition::default(),
-            VesselSidebar,
-            Name::new("VesselSidebar"),
+            BackgroundColor(Color::srgba(0.0, 0.0, 0.03, 0.78)),
+            // a tap on the backdrop closes it, and reaches nothing underneath
+            Pickable::default(),
+            Button,
+            crate::ui::focus::NoFocus,
+            VesselPickerClose,
+            Name::new("VesselPicker"),
         ))
-        .with_children(|parent| {
-            parent
-                .spawn((
-                    VesselSidebarHead,
-                    Node {
+        .with_children(|root| {
+            root.spawn((
+                Node {
+                    width: Val::Percent(100.0),
+                    max_width: Val::Px(960.0),
+                    max_height: Val::Percent(100.0),
+                    flex_direction: FlexDirection::Column,
+                    row_gap: Val::Px(12.0),
+                    padding: UiRect::all(Val::Px(16.0)),
+                    border: UiRect::all(Val::Px(1.0)),
+                    border_radius: BorderRadius::all(Val::Px(theme::R_LG)),
+                    ..default()
+                },
+                BackgroundColor(theme::SURFACE),
+                BorderColor::all(theme::LINE_STRONG),
+                theme::shadow(28.0, 10.0, 0.6),
+                Pickable::default(),
+                Button,
+                crate::ui::focus::NoFocus,
+            ))
+            .with_children(|panel| {
+                panel
+                    .spawn(Node {
                         justify_content: JustifyContent::SpaceBetween,
                         align_items: AlignItems::Center,
-                        margin: UiRect::bottom(Val::Px(4.0)),
+                        flex_shrink: 0.0,
+                        ..default()
+                    })
+                    .with_children(|h| {
+                        h.spawn(theme::label(&fonts, "Add a vessel", theme::XL, Weight::Semibold, theme::TEXT));
+                        theme::spawn_icon_button(h, &assets, "close", 40.0, theme::TEXT_2, VesselPickerClose);
+                    });
+                panel.spawn((
+                    VesselPickerGrid,
+                    ScrollPosition::default(),
+                    Node {
+                        flex_wrap: FlexWrap::Wrap,
+                        align_content: AlignContent::FlexStart,
+                        column_gap: Val::Px(10.0),
+                        row_gap: Val::Px(10.0),
+                        min_height: Val::Px(0.0),
+                        overflow: Overflow::scroll_y(),
                         ..default()
                     },
-                ))
-                .with_children(|h| {
-                    h.spawn(theme::label(&fonts, "VESSELS", theme::XS, Weight::Bold, theme::TEXT_3));
-                    h.spawn(theme::label(&fonts, "tap to place", theme::XS, Weight::Regular, theme::TEXT_3));
-                });
-            for v in VESSELS {
-                let accent = theme::process_color(&v.process);
-                parent
-                    .spawn((
+                    Name::new("VesselPickerGrid"),
+                ));
+            });
+        });
+}
+
+/// The discovery that unlocks a vessel, by name.
+fn unlocked_by(p: &ProcessType, db: &RecipeDatabase, subs: Option<&Substances>) -> Option<String> {
+    let m = db.milestones.iter().find(|m| m.unlock.contains(p))?;
+    Some(subs.and_then(|s| s.0.get(&m.on)).map(|s| s.name.clone()).unwrap_or_else(|| format!("#{}", m.on)))
+}
+
+/// Opening and closing it, the tier lists, and placing a vessel.
+#[allow(clippy::too_many_arguments)]
+pub fn vessel_picker_input_system(
+    mut picker: ResMut<VesselPicker>,
+    add: Query<(), (With<Clicked>, With<AddVesselButton>)>,
+    close: Query<(), (With<Clicked>, With<VesselPickerClose>)>,
+    families: Query<&PickFamily, With<Clicked>>,
+    tiers: Query<&PickTiers, With<Clicked>>,
+    vessels: Query<&PickVessel, With<Clicked>>,
+    unlocks: Res<ProcessUnlocks>,
+    db: Option<Res<RecipeDatabase>>,
+    names: (Res<GameData>, Res<Assets<Substances>>),
+    mut toasts: ResMut<Toasts>,
+    mut place: MessageWriter<PlaceVessel>,
+) {
+    if !add.is_empty() {
+        picker.open = true;
+        picker.tiers = None;
+    }
+    if !picker.open {
+        return;
+    }
+    let subs = names.1.get(&names.0.substances);
+    let mut chosen: Option<ProcessType> = None;
+    if let Some(t) = tiers.iter().next() {
+        // (the tier button sits on its card, and only the button hears the tap)
+        picker.tiers = if picker.tiers == Some(t.0) { None } else { Some(t.0) };
+        return;
+    }
+    for v in &vessels {
+        if unlocks.0.contains(&v.0) {
+            chosen = Some(v.0.clone());
+        } else if let Some(db) = db.as_ref() {
+            toasts.push(ToastKind::Hint, unlock_reason(&v.0, db, subs));
+        }
+    }
+    if chosen.is_none() && vessels.is_empty() {
+        for f in &families {
+            match family_pick(f.0, &unlocks) {
+                Some(v) if unlocks.0.contains(&v.process) => chosen = Some(v.process.clone()),
+                Some(v) => {
+                    if let Some(db) = db.as_ref() {
+                        toasts.push(ToastKind::Hint, unlock_reason(&v.process, db, subs));
+                    }
+                }
+                None => {}
+            }
+        }
+    }
+    if let Some(p) = chosen {
+        place.write(PlaceVessel(p));
+        picker.open = false;
+        picker.tiers = None;
+    } else if !close.is_empty() && families.is_empty() && vessels.is_empty() {
+        picker.open = false;
+        picker.tiers = None;
+    }
+}
+
+/// Builds the cards when the picker opens, a tier list opens or closes, or a vessel unlocks
+/// while it is up; and sizes them to the screen (two across on a phone held upright).
+#[allow(clippy::too_many_arguments)]
+pub fn vessel_picker_view_system(
+    mut commands: Commands,
+    picker: Res<VesselPicker>,
+    unlocks: Res<ProcessUnlocks>,
+    db: Option<Res<RecipeDatabase>>,
+    names: (Res<GameData>, Res<Assets<Substances>>),
+    look: (Res<UiFonts>, Res<AssetServer>),
+    windows: Query<&Window, With<bevy::window::PrimaryWindow>>,
+    ui_scale: Res<UiScale>,
+    mut root: Query<&mut Node, With<VesselPickerRoot>>,
+    mut grid: Query<(Entity, Option<&Children>, &mut Node), (With<VesselPickerGrid>, Without<VesselPickerRoot>)>,
+    mut built: Local<Option<(Option<&'static str>, usize, u32)>>,
+) {
+    let Ok(mut root_node) = root.single_mut() else { return };
+    let d = if picker.open { Display::Flex } else { Display::None };
+    if root_node.display != d {
+        root_node.display = d;
+    }
+    if !picker.open {
+        *built = None;
+        return;
+    }
+    let Some(db) = db else { return };
+    let width = windows.single().map(|w| w.width() / ui_scale.0.max(0.01)).unwrap_or(1280.0);
+    let cols = (((width.min(960.0) - 56.0) / 220.0).floor() as usize).clamp(2, 4);
+    let key = (picker.tiers, unlocks.0.len(), cols as u32);
+    if *built == Some(key) {
+        return;
+    }
+    *built = Some(key);
+    let Ok((grid_e, children, mut grid_node)) = grid.single_mut() else { return };
+    // a tier list open on the last row hangs below the cards: room for it to scroll to
+    let fams = families();
+    let last_row = picker
+        .tiers
+        .and_then(|f| fams.iter().position(|x| *x == f))
+        .is_some_and(|i| i / cols == (fams.len() - 1) / cols);
+    let room = if last_row { picker.tiers.map_or(0.0, |f| family_vessels(f).len() as f32 * 48.0 + 20.0) } else { 0.0 };
+    if grid_node.padding.bottom != Val::Px(room) {
+        grid_node.padding.bottom = Val::Px(room);
+    }
+    if let Some(c) = children {
+        for e in c.iter() {
+            commands.entity(e).try_despawn();
+        }
+    }
+    let subs = names.1.get(&names.0.substances);
+    let (fonts, assets) = look;
+    let card_w = Val::Percent((100.0 - 1.6 * (cols as f32 - 1.0)) / cols as f32 - 0.2);
+    commands.entity(grid_e).with_children(|g| {
+        for fam in families() {
+            let Some(pick) = family_pick(fam, &unlocks) else { continue };
+            let members = family_vessels(fam);
+            let open_n = members.iter().filter(|v| unlocks.0.contains(&v.process)).count();
+            let open = open_n > 0;
+            let accent = theme::process_color(&pick.process);
+            // an open tier list hangs over the cards below it
+            let open_list = picker.tiers == Some(fam);
+            g.spawn((
+                Node { width: card_w, flex_direction: FlexDirection::Column, ..default() },
+                ZIndex(if open_list { 10 } else { 0 }),
+            ))
+                .with_children(|col| {
+                    col.spawn((
                         theme::button(
-                            Kind::Accent(accent),
+                            if open { Kind::Accent(accent) } else { Kind::Disabled },
                             Node {
-                                min_height: Val::Px(50.0),
-                                flex_shrink: 0.0,
-                                flex_direction: FlexDirection::Row,
+                                min_height: Val::Px(68.0),
                                 align_items: AlignItems::Center,
                                 column_gap: Val::Px(10.0),
-                                padding: UiRect::axes(Val::Px(8.0), Val::Px(6.0)),
+                                padding: UiRect::axes(Val::Px(10.0), Val::Px(8.0)),
                                 ..default()
                             },
                             theme::R_MD,
                         ),
-                        ProcessButton { process: v.process.clone(), name: v.name.to_string() },
-                        crate::ui::onboarding::Tip::Vessel(v.process.clone()),
+                        PickFamily(fam),
+                        crate::ui::onboarding::Tip::Vessel(pick.process.clone()),
+                        Name::new(format!("Pick-{fam}")),
                     ))
                     .with_children(|b| {
                         b.spawn((
-                            VesselButtonArt(v.process.clone()),
-                            ImageNode::new(assets.load(vessel_art_path(&v.process, "outline"))).with_color(accent),
-                            Node { width: Val::Px(36.0), height: Val::Px(36.0), flex_shrink: 0.0, ..default() },
+                            ImageNode::new(assets.load(vessel_art_path(&pick.process, "outline")))
+                                .with_color(if open { accent } else { accent.with_alpha(0.3) }),
+                            Node { width: Val::Px(44.0), height: Val::Px(44.0), flex_shrink: 0.0, ..default() },
                             Pickable::IGNORE,
                         ));
                         b.spawn((
-                            Node { flex_direction: FlexDirection::Column, flex_grow: 1.0, ..default() },
+                            Node { flex_direction: FlexDirection::Column, flex_grow: 1.0, flex_shrink: 1.0, ..default() },
                             Pickable::IGNORE,
                         ))
-                        .with_children(|col| {
-                            col.spawn((
-                                theme::label(&fonts, v.name, theme::MD, Weight::Semibold, theme::TEXT),
+                        .with_children(|t| {
+                            t.spawn((
+                                theme::label(&fonts, pick.name, theme::MD, Weight::Semibold, theme::TEXT),
                                 Pickable::IGNORE,
                             ));
-                            col.spawn((
+                            let sub = if open {
+                                format!("{} · {}", pick.category, roman(pick.tier))
+                            } else {
+                                match unlocked_by(&pick.process, &db, subs) {
+                                    Some(n) => format!("Needs {n}"),
+                                    None => "Locked".to_string(),
+                                }
+                            };
+                            t.spawn((
                                 theme::label(
                                     &fonts,
-                                    format!("{} · {}", v.category, roman(v.tier)),
+                                    sub,
                                     theme::XS,
                                     Weight::Regular,
-                                    theme::mix(accent, theme::TEXT_2, 0.5),
+                                    if open { theme::mix(accent, theme::TEXT_2, 0.5) } else { theme::TEXT_3 },
                                 ),
                                 Pickable::IGNORE,
                             ));
-                            col.spawn((
-                                VesselLockText(v.process.clone()),
-                                theme::label(&fonts, "", theme::XS, Weight::Regular, theme::TEXT_3),
-                                Node { display: Display::None, ..default() },
+                        });
+                        if !open {
+                            b.spawn((
+                                ImageNode::new(assets.load("images/ui/lock.png")).with_color(theme::TEXT_3),
+                                Node { width: Val::Px(16.0), height: Val::Px(16.0), flex_shrink: 0.0, ..default() },
                                 Pickable::IGNORE,
                             ));
-                        });
-                        b.spawn((
-                            VesselLockIcon(v.process.clone()),
-                            ImageNode::new(assets.load("images/ui/lock.png")).with_color(theme::TEXT_3),
-                            Node { width: Val::Px(16.0), height: Val::Px(16.0), display: Display::None, ..default() },
-                            Pickable::IGNORE,
-                        ));
+                        } else if members.len() > 1 {
+                            // the family's tiers: a dropdown of the lower ones
+                            b.spawn((
+                                theme::button(
+                                    if picker.tiers == Some(fam) { Kind::Tab } else { Kind::Secondary },
+                                    Node {
+                                        height: Val::Px(36.0),
+                                        min_width: Val::Px(52.0),
+                                        padding: UiRect::horizontal(Val::Px(8.0)),
+                                        column_gap: Val::Px(4.0),
+                                        align_items: AlignItems::Center,
+                                        justify_content: JustifyContent::Center,
+                                        flex_shrink: 0.0,
+                                        ..default()
+                                    },
+                                    theme::R_SM,
+                                ),
+                                PickTiers(fam),
+                                crate::ui::onboarding::Tip::Text(
+                                    "Tiers",
+                                    "Pick a lower tier: where two tiers know the same mix, the lower one makes the plainer product.",
+                                ),
+                            ))
+                            .with_children(|t| {
+                                t.spawn((
+                                    theme::label(&fonts, roman(pick.tier), theme::SM, Weight::Semibold, theme::TEXT),
+                                    Pickable::IGNORE,
+                                ));
+                                t.spawn(theme::icon_down(&assets, 12.0, theme::TEXT_2));
+                            });
+                        }
                     });
-            }
-        });
+                    if open_list {
+                        col.spawn((
+                            Node {
+                                position_type: PositionType::Absolute,
+                                top: Val::Percent(100.0),
+                                left: Val::Px(0.0),
+                                right: Val::Px(0.0),
+                                margin: UiRect::top(Val::Px(4.0)),
+                                flex_direction: FlexDirection::Column,
+                                row_gap: Val::Px(4.0),
+                                padding: UiRect::all(Val::Px(6.0)),
+                                border: UiRect::all(Val::Px(1.0)),
+                                border_radius: BorderRadius::all(Val::Px(theme::R_MD)),
+                                ..default()
+                            },
+                            BackgroundColor(theme::SURFACE),
+                            BorderColor::all(theme::LINE_STRONG),
+                            theme::shadow(20.0, 6.0, 0.6),
+                        ))
+                        .with_children(|list| {
+                        for v in &members {
+                            let on = unlocks.0.contains(&v.process);
+                            let c = theme::process_color(&v.process);
+                            list.spawn((
+                                theme::button(
+                                    if on { Kind::Row } else { Kind::Disabled },
+                                    Node {
+                                        min_height: Val::Px(44.0),
+                                        align_items: AlignItems::Center,
+                                        column_gap: Val::Px(8.0),
+                                        padding: UiRect::axes(Val::Px(10.0), Val::Px(4.0)),
+                                        ..default()
+                                    },
+                                    theme::R_SM,
+                                ),
+                                PickVessel(v.process.clone()),
+                                crate::ui::onboarding::Tip::Vessel(v.process.clone()),
+                            ))
+                            .with_children(|r| {
+                                r.spawn((
+                                    ImageNode::new(assets.load(vessel_art_path(&v.process, "outline")))
+                                        .with_color(if on { c } else { c.with_alpha(0.3) }),
+                                    Node { width: Val::Px(28.0), height: Val::Px(28.0), flex_shrink: 0.0, ..default() },
+                                    Pickable::IGNORE,
+                                ));
+                                let text = if on {
+                                    format!("{}  ·  {}", v.name, roman(v.tier))
+                                } else {
+                                    match unlocked_by(&v.process, &db, subs) {
+                                        Some(n) => format!("{}  ·  needs {n}", v.name),
+                                        None => v.name.to_string(),
+                                    }
+                                };
+                                r.spawn((
+                                    theme::label(&fonts, text, theme::SM, Weight::Regular, if on { theme::TEXT } else { theme::TEXT_3 }),
+                                    Pickable::IGNORE,
+                                ));
+                            });
+                        }
+                        });
+                    }
+                });
+        }
+    });
 }
 
 /// Fires the authored milestones: discovering a milestone's substance unlocks its vessels
@@ -285,113 +586,11 @@ pub fn milestone_system(
     *primed = true;
 }
 
-/// Locked vessels stay in the list, dimmed and disabled, with the discovery that unlocks
-/// them. Only touches nodes when something actually changes.
-pub fn gate_process_buttons_system(
-    unlocks: Res<ProcessUnlocks>,
-    db: Option<Res<RecipeDatabase>>,
-    game_data: Res<GameData>,
-    substances: Res<Assets<Substances>>,
-    progress: Res<PlayerProgress>,
-    mut buttons: Query<(&ProcessButton, &mut Skin, &Hovered, Has<Pressed>, &mut BackgroundColor, &mut BorderColor)>,
-    mut lock_texts: Query<(&VesselLockText, &mut Text, &mut Node), Without<VesselLockIcon>>,
-    mut lock_icons: Query<(&VesselLockIcon, &mut Node), Without<VesselLockText>>,
-    mut arts: Query<(&VesselButtonArt, &mut ImageNode)>,
-    mut done: Local<bool>,
-) {
-    let Some(db) = db else { return };
-    if *done && !unlocks.is_changed() && !progress.is_changed() && !db.is_changed() {
-        return;
-    }
-    *done = true;
-    let subs = substances.get(&game_data.substances);
-    let unlocked_by = |p: &ProcessType| -> Option<String> {
-        let m = db.milestones.iter().find(|m| m.unlock.contains(p))?;
-        Some(subs.and_then(|s| s.0.get(&m.on)).map(|s| s.name.clone()).unwrap_or_else(|| format!("#{}", m.on)))
-    };
-    for (btn, mut skin, hovered, pressed, mut bg, mut border) in &mut buttons {
-        let open = unlocks.0.contains(&btn.process);
-        let accent = theme::process_color(&btn.process);
-        let kind = if open { Kind::Accent(accent) } else { Kind::Disabled };
-        if skin.kind != kind {
-            skin.kind = kind;
-            let (b, l) = skin.colors(Look::of(hovered, pressed));
-            bg.0 = b;
-            *border = BorderColor::all(l);
-        }
-    }
-    for (lt, mut text, mut node) in &mut lock_texts {
-        let open = unlocks.0.contains(&lt.0);
-        node.display = if open { Display::None } else { Display::Flex };
-        if !open {
-            text.0 = match unlocked_by(&lt.0) {
-                Some(n) => format!("Needs {} · why?", n),
-                None => "Locked".to_string(),
-            };
-        }
-    }
-    for (a, mut img) in &mut arts {
-        let c = theme::process_color(&a.0);
-        img.color = if unlocks.0.contains(&a.0) { c } else { c.with_alpha(0.3) };
-    }
-    for (li, mut node) in &mut lock_icons {
-        node.display = if unlocks.0.contains(&li.0) { Display::None } else { Display::Flex };
-    }
-}
-
 /// What unlocks a vessel, and why, in a sentence ("The Bloomery unlocks with Copper: ...").
 pub fn unlock_reason(p: &ProcessType, db: &RecipeDatabase, subs: Option<&Substances>) -> String {
-    let by = db
-        .milestones
-        .iter()
-        .find(|m| m.unlock.contains(p))
-        .map(|m| subs.and_then(|s| s.0.get(&m.on)).map(|s| s.name.clone()).unwrap_or_else(|| format!("#{}", m.on)));
-    match by {
+    match unlocked_by(p, db, subs) {
         Some(n) => format!("The {} unlocks with {}. {}", vessel_name(p), n, p.why()),
         None => format!("The {} is locked.", vessel_name(p)),
-    }
-}
-
-/// Tapping a locked vessel says what unlocks it and why (a phone has no hover tooltip).
-pub fn locked_vessel_tap_system(
-    buttons: Query<&ProcessButton, With<Clicked>>,
-    unlocks: Res<ProcessUnlocks>,
-    db: Option<Res<RecipeDatabase>>,
-    game_data: Res<GameData>,
-    substances: Res<Assets<Substances>>,
-    mut toasts: ResMut<Toasts>,
-) {
-    let Some(db) = db else { return };
-    for b in &buttons {
-        if !unlocks.0.contains(&b.process) {
-            toasts.push(ToastKind::Hint, unlock_reason(&b.process, &db, substances.get(&game_data.substances)));
-        }
-    }
-}
-
-/// A short bench (a phone held sideways) packs the vessel list tighter, so more of it shows.
-pub fn sidebar_fit_system(
-    dock: Res<crate::ui::inventory::Dock>,
-    new_buttons: Query<(), Added<ProcessButton>>,
-    mut buttons: Query<&mut Node, With<ProcessButton>>,
-    mut arts: Query<&mut Node, (With<VesselButtonArt>, Without<ProcessButton>)>,
-) {
-    if !(dock.is_changed() || !new_buttons.is_empty()) {
-        return;
-    }
-    let compact = dock.bench < crate::systems::reaction_check::COMPACT_BENCH;
-    let (min_h, pad_y, art) = if compact { (40.0, 3.0, 26.0) } else { (50.0, 6.0, 36.0) };
-    for mut n in &mut buttons {
-        if n.min_height != Val::Px(min_h) {
-            n.min_height = Val::Px(min_h);
-            n.padding = UiRect::axes(Val::Px(8.0), Val::Px(pad_y));
-        }
-    }
-    for mut n in &mut arts {
-        if n.width != Val::Px(art) {
-            n.width = Val::Px(art);
-            n.height = Val::Px(art);
-        }
     }
 }
 
@@ -450,5 +649,25 @@ pub fn new_game_button_system(
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn every_family_offers_its_best_unlocked_vessel() {
+        let mut unlocks = ProcessUnlocks::default();
+        assert_eq!(family_pick("Heat", &unlocks).map(|v| v.name), Some("Fire"));
+        unlocks.0.insert(ProcessType::Smelting);
+        unlocks.0.insert(ProcessType::BlastFurnace);
+        assert_eq!(family_pick("Heat", &unlocks).map(|v| v.name), Some("Blast Furnace"));
+        // nothing unlocked yet: the family's first vessel, to say what unlocks it
+        assert_eq!(family_pick("Pressure", &unlocks).map(|v| v.name), Some("Autoclave"));
+        let fams = families();
+        assert_eq!(fams.first(), Some(&"Mix"));
+        assert_eq!(fams.len(), 12);
+        assert!(fams.iter().all(|f| !family_vessels(f).is_empty()));
     }
 }

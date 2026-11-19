@@ -1,8 +1,8 @@
 // src/ui/credits.rs
 //
 // About Curieosity: who made it and how (AI use included), what it is built from and
-// under which terms, that it is free and open for good, where to give instead, and what it
-// does with your data (nothing). The source list is also the per-page "Text:" line in the
+// under which terms, where to give for anyone who wants to, and what it does with your data
+// (nothing). The source list is also the per-page "Text:" line in the
 // Substance Library and CREDITS.md in the repository; the ways to give are also in the
 // README. Content tests keep both files in step with this one.
 use crate::ui::{Button, Clicked};
@@ -30,49 +30,34 @@ pub const MADE_BY: &str = "Curieosity is my game. What it teaches and how, which
 /// How the pictures and sounds were made (no image or sound generator).
 pub const HOW_MADE: &str = "Nothing in the game was made by an image or sound generator. The vessels and icons are line art drawn by a program from plain geometry (lines, arcs and curves set by numbers), so they share one stroke and one light. The molecule pictures are drawn by RDKit from each compound's recorded structure, the atom diagrams from each element's electron configuration, and the sounds are synthesised from sine waves and filtered noise. Those programs were written with Claude too; they are in the source code, under tools/art.";
 
-/// Free for good, and why.
-pub const FREE: &str = "Curieosity will never cost money: no price, no ads, no in-app purchases, nothing locked. It is open source, so anyone can read it, change it and share it. Most of what is in it is other people's work: the chemists who ran these reactions, the scientists, editors and volunteers behind PubChem, Wikipedia and the other sources, and the people who wrote the tools it is built with. I have only repackaged their labour into a new form, and everyone should be able to use it.";
-
 /// What the game does with your data.
 pub const PRIVACY: &str = "Curieosity collects nothing about you: no account, no analytics, no ads, and nothing is sent anywhere. Your progress is saved only on your device. Links open in your browser, where those sites' own policies apply. A copy played through Steam tells Steam which achievements you have earned.";
 
-/// Somewhere to give, instead of paying for the game.
+/// Somewhere to give, for anyone who wants to: charities, never the game or its maker.
 pub struct Cause {
     pub name: &'static str,
     pub what: &'static str,
     /// None for one that isn't set up yet (shown as "Coming soon")
     pub url: Option<&'static str>,
-    /// Shown in the phone builds too. Those go to the App Store and Google Play, which want
-    /// tips to a developer taken as in-app purchases, and allow links out only to charities.
-    pub on_phones: bool,
 }
 
-/// The causes this build shows (all of them on a desktop; the charities on a phone).
-pub fn shown_causes() -> impl Iterator<Item = &'static Cause> {
-    GIVING.iter().filter(|c| c.on_phones || !crate::platform::PHONE)
-}
-
-/// In the order they are shown: Jarred Younger's lab first, Ko-fi last (and not on phones).
+/// In the order they are shown, Jarred Younger's lab first.
 pub const GIVING: &[Cause] = &[
     Cause {
         name: "Neuroinflammation, Pain and Fatigue Laboratory",
         what: "Jarred Younger's lab at the University of Alabama at Birmingham, researching how inflammation in the brain drives chronic pain and fatigue, in ME/CFS, fibromyalgia, long COVID and related illnesses.",
         url: Some("https://go.uab.edu/youngerlab"),
-        on_phones: true,
     },
     Cause {
         name: "#MEAction",
         what: "The Myalgic Encephalomyelitis Action Network: a worldwide community campaigning for the care, research and recognition people with ME need.",
         url: Some("https://funraise.org/give/Myalgic-Encephalomyelitis-Action-Network-Inc/0645f869-e3b1-49cd-8cf3-5eec044e97b1/"),
-        on_phones: true,
     },
     Cause {
         name: "IACFS/ME",
         what: "The International Association for Chronic Fatigue Syndrome/Myalgic Encephalomyelitis: clinicians and scientists advancing research and care.",
         url: Some("https://www.iacfsme.org/55671-2/"),
-        on_phones: true,
     },
-    Cause { name: "Ko-fi", what: "To give to me directly.", url: Some("https://ko-fi.com/T5T52AWOGC"), on_phones: false },
 ];
 
 pub const CODE_LICENCE: &str = "MIT or Apache-2.0";
@@ -295,9 +280,8 @@ pub fn spawn_credits(mut commands: Commands, fonts: Res<UiFonts>, assets: Res<As
                         credit_row(panel, fonts, assets, c);
                     }
                 }
-                // free for good
-                theme::spawn_section_title(panel, fonts, "Free, always");
-                about_para(panel, fonts, FREE);
+                // its terms
+                theme::spawn_section_title(panel, fonts, "Licence");
                 link_row(
                     panel,
                     fonts,
@@ -309,7 +293,7 @@ pub fn spawn_credits(mut commands: Commands, fonts: Res<UiFonts>, assets: Res<As
                 // where to give instead
                 theme::spawn_section_title(panel, fonts, "If you'd like to give something");
                 about_para(panel, fonts, "You never need to. If you want to, I'd rather it went to one of these:");
-                for c in shown_causes() {
+                for c in GIVING {
                     link_row(panel, fonts, assets, c.name, c.what, c.url);
                 }
                 theme::spawn_section_title(panel, fonts, "Privacy");

@@ -33,7 +33,6 @@ pub const RED: Color = Color::srgb(1.000, 0.365, 0.424); // danger
 
 // --- metrics -----------------------------------------------------------------------------
 pub const HEADER_H: f32 = 52.0;
-pub const SIDEBAR_W: f32 = 248.0;
 pub const DOCK_H: f32 = 210.0;
 pub const R_SM: f32 = 6.0;
 pub const R_MD: f32 = 10.0;
@@ -125,6 +124,11 @@ pub fn icon(assets: &AssetServer, name: &str, size: f32, color: Color) -> impl B
         Node { width: Val::Px(size), height: Val::Px(size), flex_shrink: 0.0, ..default() },
         Pickable::IGNORE,
     )
+}
+
+/// The chevron turned to point down: a dropdown's mark.
+pub fn icon_down(assets: &AssetServer, size: f32, color: Color) -> impl Bundle {
+    (icon(assets, "chevron", size, color), UiTransform::from_rotation(Rot2::degrees(90.0)))
 }
 
 // --- buttons -------------------------------------------------------------------------------

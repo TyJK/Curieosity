@@ -49,6 +49,9 @@ pub struct PlayerProgress {
     pub dormant: Vec<u32>,
     /// unlocked vessels from the save that this build doesn't have (kept, not shown)
     pub dormant_vessels: Vec<String>,
+    /// the discoveries in the order they were made, oldest first (discovery_order_system
+    /// keeps it; the shelf's "Newest first" reads it)
+    pub order: Vec<u32>,
 }
 
 impl PlayerProgress {
@@ -56,6 +59,58 @@ impl PlayerProgress {
     pub fn discover(&mut self, id: u32) -> bool {
         self.discovered.insert(id)
     }
+
+    /// How recent each discovery is: higher is newer.
+    pub fn recency(&self) -> bevy::platform::collections::HashMap<u32, usize> {
+        self.order.iter().enumerate().map(|(i, id)| (*id, i + 1)).collect()
+    }
+}
+
+/// Keeps the discoveries' order: anything new joins the end (a batch, such as a milestone's
+/// grant, in the order the game introduces them). A save from before the order was kept
+/// comes in that order too, and a new game starts it over.
+pub fn discovery_order_system(mut progress: ResMut<PlayerProgress>, db: Option<Res<RecipeDatabase>>) {
+    if !progress.is_changed() || !progress.ready {
+        return;
+    }
+    let p = progress.bypass_change_detection();
+    let known: HashSet<u32> = p.order.iter().copied().collect();
+    let stale = p.order.iter().any(|id| !p.discovered.contains(id));
+    let mut new: Vec<u32> = p.discovered.iter().copied().filter(|id| !known.contains(id)).collect();
+    if new.is_empty() && !stale {
+        return;
+    }
+    if stale {
+        let d = p.discovered.clone();
+        p.order.retain(|id| d.contains(id));
+    }
+    let rank = db.as_ref().map(|db| intro_rank(db)).unwrap_or_default();
+    new.sort_by_key(|id| (rank.get(id).copied().unwrap_or(usize::MAX), *id));
+    p.order.extend(new);
+}
+
+/// The order the game introduces substances in: the start kit, then each authored reaction's
+/// products and each milestone's grant as the reactions come, era by era.
+pub fn intro_rank(db: &RecipeDatabase) -> bevy::platform::collections::HashMap<u32, usize> {
+    let mut rank = bevy::platform::collections::HashMap::new();
+    let put = |id: u32, rank: &mut bevy::platform::collections::HashMap<u32, usize>| {
+        let n = rank.len();
+        rank.entry(id).or_insert(n);
+    };
+    for id in &db.start {
+        put(*id, &mut rank);
+    }
+    for r in &db.authored {
+        for p in &r.products {
+            put(p.substance_id, &mut rank);
+            for m in db.milestones.iter().filter(|m| m.on == p.substance_id) {
+                for g in &m.grant {
+                    put(*g, &mut rank);
+                }
+            }
+        }
+    }
+    rank
 }
 
 /// A save, in this build's terms, whatever version it was read from.
@@ -69,6 +124,8 @@ pub struct SaveData {
     pub dormant_vessels: Vec<String>,
     /// past notifications as (kind, text), oldest first
     pub journal: Vec<(String, String)>,
+    /// the discoveries in the order they were made, oldest first (empty in older saves)
+    pub order: Vec<u32>,
 }
 
 /// A vessel as written in a save: a bare name such as `Fire`. Read by name, so a vessel
@@ -120,6 +177,7 @@ struct SaveFile {
     dormant: Vec<u32>,
     dormant_vessels: Vec<String>,
     journal: Vec<(String, String)>,
+    order: Vec<u32>,
 }
 
 /// The file as written.
@@ -132,6 +190,7 @@ struct SaveOut<'a> {
     dormant: &'a [u32],
     dormant_vessels: &'a [String],
     journal: &'a [(String, String)],
+    order: &'a [u32],
 }
 
 impl SaveData {
@@ -147,6 +206,7 @@ impl SaveData {
             dormant: file.dormant,
             dormant_vessels: file.dormant_vessels,
             journal: file.journal,
+            order: file.order,
         };
         for VesselName(name) in file.unlocked {
             match ron::from_str::<ProcessType>(&name) {
@@ -202,6 +262,7 @@ impl SaveData {
             dormant: &self.dormant,
             dormant_vessels: &self.dormant_vessels,
             journal: &self.journal,
+            order: &self.order,
         };
         ron::ser::to_string_pretty(&out, ron::ser::PrettyConfig::default().compact_arrays(true)).unwrap_or_default()
     }
@@ -343,6 +404,12 @@ pub fn load_or_seed_progress_system(
                 seed(&mut progress);
             } else {
                 progress.discovered = save.discovered.iter().copied().collect();
+                // the order discoveries were made in, where the save kept it
+                let d = &progress.discovered;
+                let mut seen = HashSet::new();
+                let order: Vec<u32> =
+                    save.order.iter().copied().filter(|id| d.contains(id) && seen.insert(*id)).collect();
+                progress.order = order;
             }
             progress.dormant = save.dormant.clone();
             progress.dormant_vessels = save.dormant_vessels.clone();
@@ -468,6 +535,7 @@ pub fn current_save(progress: &PlayerProgress, unlocks: &ProcessUnlocks, journal
         dormant: progress.dormant.clone(),
         dormant_vessels: progress.dormant_vessels.clone(),
         journal: journal.to_pairs(),
+        order: progress.order.clone(),
     }
 }
 
@@ -487,6 +555,7 @@ pub fn reset_progress(
     db: &RecipeDatabase,
 ) {
     progress.discovered = db.start.iter().copied().collect();
+    progress.order.clear();
     progress.dormant.clear();
     progress.dormant_vessels.clear();
     *unlocks = ProcessUnlocks::default();

@@ -37,8 +37,7 @@ use bevy::window::{CursorMoved, PresentMode, PrimaryWindow, WindowRef};
 
 use crate::components::ui_markers::{
     CanvasScrollingPane, InCatalystZone, InVessel, InputPort, OutputPort, ProcessVessel, ReactionCanvasRoot,
-    ReactionLink, VesselCard, VesselCatalystZone, VesselClearButton, VesselDeleteButton, VesselIngredientZone,
-    VesselReactButton,
+    ReactionLink, VesselCard, VesselCatalystZone, VesselIngredientZone,
 };
 use crate::components::Ingredient;
 use crate::data::common::ProcessType;
@@ -50,12 +49,13 @@ use crate::resources::recipe_database::RecipeDatabase;
 use crate::resources::ui_fonts::UiFonts;
 use crate::systems::drag_drop::{DragGhostNode, LinkDragState};
 use crate::systems::reaction_check::{spawn_vessel_card, EquationText, VesselArtBig, VesselArtSmall};
+use crate::ui::bench_controls::{BenchAction, BenchButton};
 use crate::ui::codex::{
     CodexCategoryTab, CodexDetail, CodexEntry, CodexFilter, CodexIndustryCard, CodexListContent, CodexReactionLink,
     CodexRefLink, CodexScrollable, CodexState, URL_SINK,
 };
 use crate::ui::credits::CreditsUi;
-use crate::ui::detail_panel::{SelectedSubstance, SelectionClearButton, SelectionOpenButton};
+use crate::ui::detail_panel::{SelectedSubstance, SelectionOpenButton};
 use crate::ui::focus::KeyFocus;
 use crate::ui::inventory::{
     is_element_formula, CategoryTab, InvCategory, InventoryContent, InventoryScroll, ShelfTile,
@@ -63,7 +63,10 @@ use crate::ui::inventory::{
 use crate::ui::onboarding::{
     Coach, CoachBubble, CoachNext, CoachSkip, CoachStep, EraBanner, TooltipNode, TooltipTitle, TourAgainButton,
 };
-use crate::ui::process_toolbar::{vessel_name, NewGameButton, ProcessButton, ProcessUnlocks, VesselSidebar, VESSELS};
+use crate::ui::process_toolbar::{
+    family_pick, vessel_name, AddVesselButton, NewGameButton, PickFamily, PickTiers, PickVessel, ProcessUnlocks,
+    VesselPicker, VESSELS,
+};
 use crate::ui::reaction_library::{
     ReactionLibEntry, ReactionLibListContent, ReactionLibScrollable, ReactionLibState, ReactionLibSubstanceLink,
 };
@@ -671,9 +674,9 @@ fn card_part(p: ProcessType, part: CardPart) -> Target {
         CardPart::Title => "title",
         CardPart::Zone => "contents",
         CardPart::CatalystSlot => "catalyst slot",
-        CardPart::React => "React button",
-        CardPart::Clear => "clear button",
-        CardPart::Close => "close button",
+        CardPart::React => "React (selected)",
+        CardPart::Clear => "Empty (selected)",
+        CardPart::Close => "Remove (selected)",
         CardPart::InPort => "input port",
         CardPart::OutPort => "output port",
         CardPart::FirstChip => "first substance",
@@ -703,16 +706,16 @@ fn card_part(p: ProcessType, part: CardPart) -> Target {
                 let z = descendant::<VesselCatalystZone>(w, c)?;
                 point_in(w, z, 0.5, 0.5)
             }
-            CardPart::React => {
-                let b = descendant::<VesselReactButton>(w, c)?;
-                point_in(w, b, 0.5, 0.5)
-            }
-            CardPart::Clear => {
-                let b = descendant::<VesselClearButton>(w, c)?;
-                point_in(w, b, 0.5, 0.5)
-            }
-            CardPart::Close => {
-                let b = descendant::<VesselDeleteButton>(w, c)?;
+            // the bench's buttons act on the selected vessel: this one, selected the way
+            // placing, tapping or filling it would (selecting by a tap has its own check)
+            CardPart::React | CardPart::Clear | CardPart::Close => {
+                w.resource_mut::<crate::systems::drag_drop::ActiveVessel>().0 = Some(c);
+                let action = match part {
+                    CardPart::React => BenchAction::React,
+                    CardPart::Clear => BenchAction::Empty,
+                    _ => BenchAction::Remove,
+                };
+                let b = first::<BenchButton>(w, |b| b.0 == action)?;
                 point_in(w, b, 0.5, 0.5)
             }
             CardPart::InPort => {
@@ -820,9 +823,25 @@ fn needs_shown(w: &mut World, i: usize) -> Result<(), String> {
 #[derive(Resource)]
 struct ExpectedStep(Option<u32>);
 
+/// A vessel in the vessel picker: its family's card when it is the one the card offers,
+/// otherwise its row in the family's open tier list. Opens the picker (and the list) as the
+/// Add vessel button and the tier button would (they have their own checks).
 fn sidebar_button(p: ProcessType) -> Target {
-    target(format!("the {} button in the vessel list", vessel_name(&p)), move |w| {
-        let e = first::<ProcessButton>(w, |b| b.process == p)?;
+    target(format!("the {} in the vessel picker", vessel_name(&p)), move |w| {
+        let fam = p.family();
+        let offered = family_pick(fam, w.resource::<ProcessUnlocks>()).map(|v| v.process.clone());
+        let on_card = offered.as_ref() == Some(&p);
+        {
+            let mut picker = w.resource_mut::<VesselPicker>();
+            if !picker.open {
+                picker.open = true;
+            }
+            let tiers = if on_card { None } else { Some(fam) };
+            if picker.tiers != tiers {
+                picker.tiers = tiers;
+            }
+        }
+        let e = if on_card { first::<PickFamily>(w, |f| f.0 == fam)? } else { first::<PickVessel>(w, |v| v.0 == p)? };
         point_in(w, e, 0.5, 0.5)
     })
 }
@@ -856,6 +875,12 @@ fn fresh(world: &mut World) {
     world.resource_mut::<SelectedSubstance>().0 = None;
     world.resource_mut::<crate::ui::detail_panel::LastTap>().0 = None;
     world.resource_mut::<crate::systems::drag_drop::ActiveVessel>().0 = None;
+    world.resource_mut::<crate::systems::drag_drop::LinkTap>().0 = None;
+    *world.resource_mut::<VesselPicker>() = VesselPicker::default();
+    world.resource_mut::<crate::ui::bench_controls::Confirm>().0 = None;
+    world.resource_mut::<crate::ui::inventory::ShelfMenu>().0 = false;
+    *world.resource_mut::<crate::ui::inventory::ShelfDrag>() = Default::default();
+    world.resource_mut::<crate::platform::KeyboardInset>().0 = 0.0;
     world.resource_mut::<crate::ui::hint::HintState>().stop();
     *world.resource_mut::<crate::ui::inventory::ShelfSearch>() = Default::default();
     world.resource_mut::<crate::ui::toasts::JournalUi>().open = false;
@@ -896,9 +921,7 @@ fn fresh(world: &mut World) {
     }
     world.resource_mut::<crate::systems::drag_drop::BenchZoom>().0 = 1.0;
     world.resource_mut::<crate::ui::main_menu::MainMenu>().hide();
-    for mut sp in
-        world.query_filtered::<&mut ScrollPosition, Or<(With<VesselSidebar>, With<InventoryScroll>)>>().iter_mut(world)
-    {
+    for mut sp in world.query_filtered::<&mut ScrollPosition, With<InventoryScroll>>().iter_mut(world) {
         sp.0 = Vec2::ZERO;
     }
     world.resource_mut::<Scratch>().0.clear();
@@ -1212,30 +1235,45 @@ pub fn all_checks(world: &mut World) -> Vec<Check> {
     use ProcessType::{Catalysis, Heat, Mix, Smelting};
     let mut v = Vec::new();
 
-    // --- the vessel list ---
+    // --- the vessel picker ---
+    let mortars = |n: usize| {
+        verify(move |w| {
+            let k = w.query::<&ProcessVessel>().iter(w).filter(|p| p.process == Mix).count();
+            if k == n {
+                Ok(())
+            } else {
+                Err(format!("{k} Mortars on the bench"))
+            }
+        })
+    };
     v.push(check(
         "Lab: vessels",
-        "Clicking an unlocked vessel puts it on the bench",
+        "Add vessel opens the picker, and a family's card puts its vessel on the bench, selected",
         vec![
             setup(new_game),
             Op::Wait(3),
-            Op::Click(sidebar_button(Mix)),
-            Op::Until(
-                verify(|w| {
-                    let n = w.query::<&ProcessVessel>().iter(w).filter(|p| p.process == Mix).count();
-                    if n == 1 {
-                        Ok(())
-                    } else {
-                        Err(format!("{n} Mortars on the bench"))
-                    }
-                }),
-                60,
-            ),
+            Op::Click(marked::<AddVesselButton>("the Add vessel button")),
+            Op::Until(state("the picker opened", |w| w.resource::<VesselPicker>().open), 30),
+            Op::Click(target("the Mix card in the picker", |w| {
+                let e = first::<PickFamily>(w, |f| f.0 == "Mix")?;
+                point_in(w, e, 0.5, 0.5)
+            })),
+            Op::Until(mortars(1), 60),
+            Op::Expect(verify(|w| {
+                let c = card(w, Mix);
+                if w.resource::<VesselPicker>().open {
+                    Err("the picker stayed open".into())
+                } else if w.resource::<crate::systems::drag_drop::ActiveVessel>().0 != c {
+                    Err("the new Mortar is not the selected vessel".into())
+                } else {
+                    Ok(())
+                }
+            })),
         ],
     ));
     v.push(check(
         "Lab: vessels",
-        "Clicking a locked vessel places nothing, and says what unlocks it and why",
+        "A locked vessel places nothing, and says what unlocks it and why",
         vec![
             setup(new_game),
             Op::Wait(3),
@@ -1252,26 +1290,74 @@ pub fn all_checks(world: &mut World) -> Vec<Check> {
     ));
     v.push(check(
         "Lab: vessels",
-        "The vessel list scrolls with the wheel",
+        "A family offers its best vessel, and its tier list places a lower one",
         vec![
-            Op::Wheel(marked::<VesselSidebar>("the vessel list"), -3.0),
-            Op::Until(
-                verify(|w| {
-                    // down the list, or across it upright, where it is a strip
-                    let moved = w
-                        .query_filtered::<&ScrollPosition, With<VesselSidebar>>()
-                        .iter(w)
-                        .next()
-                        .map(|s| s.0.x.max(s.0.y))
-                        .unwrap_or(0.0);
-                    if moved > 0.0 {
-                        Ok(())
-                    } else {
-                        Err("the vessel list did not scroll".into())
-                    }
-                }),
-                30,
-            ),
+            setup(new_game),
+            setup(|w| {
+                w.resource_mut::<ProcessUnlocks>().0.insert(Smelting);
+                w.resource_mut::<VesselPicker>().open = true;
+            }),
+            Op::Wait(4),
+            Op::Expect(verify(|w| {
+                let names: Vec<String> = w
+                    .query::<(&PickFamily, &Children)>()
+                    .iter(w)
+                    .filter(|(f, _)| f.0 == "Heat")
+                    .flat_map(|(_, c)| c.iter().collect::<Vec<_>>())
+                    .flat_map(|e| w.get::<Children>(e).map(|c| c.iter().collect::<Vec<_>>()).unwrap_or_default())
+                    .filter_map(|e| w.get::<Text>(e).map(|t| t.0.clone()))
+                    .collect();
+                if names.iter().any(|n| n == "Bloomery") {
+                    Ok(())
+                } else {
+                    Err(format!("the Heat card shows {names:?}, not the Bloomery"))
+                }
+            })),
+            Op::Click(target("the Heat card's tier button", |w| {
+                let e = first::<PickTiers>(w, |t| t.0 == "Heat")?;
+                point_in(w, e, 0.5, 0.5)
+            })),
+            Op::Until(state("the tier list opened", |w| w.resource::<VesselPicker>().tiers == Some("Heat")), 30),
+            Op::Click(target("the Fire in the tier list", |w| {
+                let e = first::<PickVessel>(w, |v| v.0 == Heat)?;
+                point_in(w, e, 0.5, 0.5)
+            })),
+            Op::Until(verify(|w| card(w, Heat).map(|_| ()).ok_or_else(|| "no Fire on the bench".to_string())), 60),
+            Op::Expect(verify(
+                |w| if card(w, Smelting).is_none() { Ok(()) } else { Err("a Bloomery was placed".into()) },
+            )),
+        ],
+    ));
+    v.push(check(
+        "Lab: vessels",
+        "The picker closes with its x, with a tap beside it, and with Esc",
+        vec![
+            setup(|w| w.resource_mut::<VesselPicker>().open = true),
+            Op::Wait(4),
+            Op::Click(target("the picker's x", |w| {
+                let root = first::<crate::ui::process_toolbar::VesselPickerRoot>(w, |_| true)?;
+                let x = w
+                    .query_filtered::<Entity, With<crate::ui::process_toolbar::VesselPickerClose>>()
+                    .iter(w)
+                    .find(|e| *e != root)?;
+                point_in(w, x, 0.5, 0.5)
+            })),
+            Op::Until(state("closed by its x", |w| !w.resource::<VesselPicker>().open), 30),
+            setup(|w| w.resource_mut::<VesselPicker>().open = true),
+            Op::Wait(4),
+            Op::Click(target("the backdrop beside the picker", |w| {
+                let root = first::<crate::ui::process_toolbar::VesselPickerRoot>(w, |_| true)?;
+                point_in(w, root, 0.5, 0.985)
+            })),
+            Op::Until(state("closed by a tap beside it", |w| !w.resource::<VesselPicker>().open), 30),
+            setup(|w| w.resource_mut::<VesselPicker>().open = true),
+            Op::Wait(4),
+            Op::Key(KeyCode::Escape),
+            Op::Until(state("closed by Esc", |w| !w.resource::<VesselPicker>().open), 30),
+            Op::Expect(verify(|w| match w.query::<&VesselCard>().iter(w).count() {
+                0 => Ok(()),
+                n => Err(format!("{n} vessel(s) placed")),
+            })),
         ],
     ));
 
@@ -1325,12 +1411,8 @@ pub fn all_checks(world: &mut World) -> Vec<Check> {
     ));
     v.push(check(
         "Lab: shelf",
-        "The x and Esc let go of the selection",
+        "Esc lets go of the selection",
         vec![
-            Op::Click(tile("Water")),
-            Op::Until(selected_is(Some("Water")), 30),
-            Op::Click(marked::<SelectionClearButton>("the selection's x")),
-            Op::Until(selected_is(None), 30),
             Op::Click(tile("Oxygen")),
             Op::Until(selected_is(Some("Oxygen")), 30),
             Op::Key(KeyCode::Escape),
@@ -1340,12 +1422,15 @@ pub fn all_checks(world: &mut World) -> Vec<Check> {
     ));
     v.push(check(
         "Lab: shelf",
-        "Category pills filter the shelf",
+        "The category list filters the shelf",
         vec![
-            Op::Click(target("the Elements pill", |w| {
+            Op::Click(marked::<crate::ui::inventory::ShelfCategoryButton>("the shelf's category button")),
+            Op::Until(state("the list opened", |w| w.resource::<crate::ui::inventory::ShelfMenu>().0), 30),
+            Op::Click(target("Elements in the category list", |w| {
                 let e = first::<CategoryTab>(w, |t| t.0 == InvCategory::Elements)?;
                 point_in(w, e, 0.5, 0.5)
             })),
+            Op::Until(state("the list closed", |w| !w.resource::<crate::ui::inventory::ShelfMenu>().0), 30),
             Op::Until(
                 verify(|w| {
                     if *w.resource::<InvCategory>() != InvCategory::Elements {
@@ -1459,7 +1544,6 @@ pub fn all_checks(world: &mut World) -> Vec<Check> {
         (Art, "Dropping a tile on a vessel's picture puts it in"),
         (Title, "Dropping a tile on a vessel's title puts it in"),
         (Zone, "Dropping a tile on a vessel's contents puts it in"),
-        (React, "Dropping a tile on a vessel's React button puts it in"),
     ] {
         v.push(check(
             "Lab: drag and drop",
@@ -1918,13 +2002,13 @@ pub fn all_checks(world: &mut World) -> Vec<Check> {
         vec![
             setup(|w| w.resource_mut::<CodexState>().open = true),
             Op::Wait(5),
-            Op::Click(sidebar_button(Mix)),
+            Op::Click(marked::<AddVesselButton>("where the Add vessel button is, under the view")),
             Op::Wait(5),
             Op::Expect(verify(|w| {
-                if card(w, Mix).is_none() {
+                if !w.resource::<VesselPicker>().open {
                     Ok(())
                 } else {
-                    Err("the click went through to the vessel list".into())
+                    Err("the click went through to the bench's Add vessel".into())
                 }
             })),
         ],
@@ -2850,12 +2934,6 @@ pub fn all_checks(world: &mut World) -> Vec<Check> {
         "the shelf",
         vec![setup(discover_everything), Op::Wait(20)],
     ));
-    v.push(overscroll_check::<VesselSidebar>(
-        "Scrolling",
-        "The vessel list scrolls back at once after over-scrolling",
-        "the vessel list",
-        vec![],
-    ));
 
     // --- moving substances between vessels ---
     v.push(check(
@@ -3173,6 +3251,7 @@ pub fn all_checks(world: &mut World) -> Vec<Check> {
     v.extend(era_checks(world));
     v.extend(chain_checks(world));
     v.extend(polish::transient_checks(world));
+    v.extend(polish::battery_checks());
     v
 }
 

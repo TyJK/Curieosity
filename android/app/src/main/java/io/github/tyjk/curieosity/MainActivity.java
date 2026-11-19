@@ -1,5 +1,8 @@
 package io.github.tyjk.curieosity;
 
+import android.media.AudioManager;
+import android.os.Bundle;
+import android.view.KeyEvent;
 import android.view.View;
 
 import com.google.androidgamesdk.GameActivity;
@@ -8,6 +11,30 @@ import com.google.androidgamesdk.GameActivity;
 public class MainActivity extends GameActivity {
     static {
         System.loadLibrary("curieosity");
+    }
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        // the volume buttons set the game's sound (media) volume, as in any game, not the
+        // ringer's, which is what a phone adjusts when nothing is playing at that moment
+        setVolumeControlStream(AudioManager.STREAM_MUSIC);
+    }
+
+    /**
+     * The volume buttons go straight to the system, before GameActivity's input view can take
+     * them: returning false here lets the window adjust the volume and show its slider.
+     */
+    @Override
+    public boolean dispatchKeyEvent(KeyEvent event) {
+        switch (event.getKeyCode()) {
+            case KeyEvent.KEYCODE_VOLUME_UP:
+            case KeyEvent.KEYCODE_VOLUME_DOWN:
+            case KeyEvent.KEYCODE_VOLUME_MUTE:
+                return false;
+            default:
+                return super.dispatchKeyEvent(event);
+        }
     }
 
     @Override

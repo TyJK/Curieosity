@@ -248,7 +248,7 @@ pub struct HintState {
 impl HintState {
     /// The kit, while it is what the shelf shows.
     pub fn shelf_kit(&self, settings: Option<&Settings>) -> Option<&Kit> {
-        if settings.is_some_and(|s| !s.kit) {
+        if settings.is_some_and(|s| !s.kit || !s.hints) {
             return None;
         }
         self.target.and(self.kit.as_ref())
@@ -338,7 +338,7 @@ pub fn spawn_hint_ui(
             GlobalZIndex(600),
             Node {
                 position_type: PositionType::Absolute,
-                right: Val::Px(theme::SIDEBAR_W + 14.0),
+                right: Val::Px(14.0),
                 bottom: Val::Px(theme::DOCK_H + 12.0),
                 flex_direction: FlexDirection::Column,
                 align_items: AlignItems::FlexEnd,
@@ -635,17 +635,17 @@ pub fn hint_view_system(
     let (dock, mut toast_room) = room;
     let Ok((mut root_node, computed)) = root.single_mut() else { return };
     let wanted =
-        settings.as_ref().is_none_or(|s| s.next_step) && progress.ready && !(codex.open || rlib.open || tree.open);
+        settings.as_ref().is_none_or(|s| s.hint_button()) && progress.ready && !(codex.open || rlib.open || tree.open);
     let d = if wanted { Display::Flex } else { Display::None };
     if root_node.display != d {
         root_node.display = d;
     }
-    let bottom = Val::Px(dock.h + 12.0);
+    let bottom = Val::Px(dock.h + crate::ui::bench_controls::BAR_LIFT);
     if root_node.bottom != bottom {
         root_node.bottom = bottom;
     }
     // the open card never grows past the bench
-    let max_h = Val::Px((dock.bench - 24.0).max(120.0));
+    let max_h = Val::Px((dock.bench - crate::ui::bench_controls::BAR_LIFT - 12.0).max(120.0));
     let open = state.list_open || state.target.is_some();
     if let Ok(mut b) = button.single_mut() {
         let d = if open { Display::None } else { Display::Flex };
@@ -673,7 +673,7 @@ pub fn hint_view_system(
         0.0
     };
     if let Ok(mut t) = toast_stack.single_mut() {
-        let want = Val::Px(dock.h + 14.0 + lift);
+        let want = Val::Px(dock.h + crate::ui::bench_controls::BAR_LIFT + 2.0 + lift);
         if t.bottom != want {
             t.bottom = want;
         }

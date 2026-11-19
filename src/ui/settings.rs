@@ -33,6 +33,9 @@ pub struct Settings {
     pub bench_grid: bool,
     /// hover tooltips on tiles, vessels and the parts of a vessel
     pub tooltips: bool,
+    /// hints at all: off, there is no Hint button, no target kit, and a mix that doesn't
+    /// react says only that (no tip at what would)
+    pub hints: bool,
     /// the Hint button on the bench (named for the next-step card it replaced, so older
     /// settings files keep their choice)
     pub next_step: bool,
@@ -55,6 +58,15 @@ pub struct Settings {
     /// amounts count: reactants go in as many times as the equation says, and a wrong ratio
     /// is a dud (half the yield, the excess handed back); a short one doesn't react
     pub balanced_amounts: bool,
+    /// the shelf's height as set with its grip (interface pixels); 0 sizes it to the screen
+    pub shelf_h: f32,
+}
+
+impl Settings {
+    /// Whether the Hint button shows (hints on, and the button itself on).
+    pub fn hint_button(&self) -> bool {
+        self.hints && self.next_step
+    }
 }
 
 impl Default for Settings {
@@ -68,6 +80,7 @@ impl Default for Settings {
             notifications: true,
             bench_grid: true,
             tooltips: true,
+            hints: true,
             next_step: true,
             kit: true,
             decoys_min: 3,
@@ -78,6 +91,7 @@ impl Default for Settings {
             discovery_cards: true,
             cards_close_themselves: false,
             balanced_amounts: false,
+            shelf_h: 0.0,
         }
     }
 }
@@ -143,6 +157,7 @@ pub enum Field {
     Notifications,
     BenchGrid,
     Tooltips,
+    Hints,
     Hint,
     Kit,
     DecoysMin,
@@ -214,6 +229,7 @@ impl Settings {
             Field::Notifications => self.notifications = !self.notifications,
             Field::BenchGrid => self.bench_grid = !self.bench_grid,
             Field::Tooltips => self.tooltips = !self.tooltips,
+            Field::Hints => self.hints = !self.hints,
             Field::Hint => self.next_step = !self.next_step,
             Field::Kit => self.kit = !self.kit,
             Field::UiSounds => self.ui_sounds = !self.ui_sounds,
@@ -231,6 +247,7 @@ impl Settings {
             Field::Notifications => self.notifications,
             Field::BenchGrid => self.bench_grid,
             Field::Tooltips => self.tooltips,
+            Field::Hints => self.hints,
             Field::Hint => self.next_step,
             Field::Kit => self.kit,
             Field::UiSounds => self.ui_sounds,
@@ -368,7 +385,8 @@ pub fn spawn_settings(mut commands: Commands, fonts: Res<UiFonts>, assets: Res<A
             // The dialog never grows past the screen: on a short one (a phone sideways) the
             // title and close button stay put and the rest scrolls.
             root.spawn((
-                Node { border_radius: BorderRadius::all(Val::Px(theme::R_LG)),
+                Node {
+                    border_radius: BorderRadius::all(Val::Px(theme::R_LG)),
                     width: Val::Px(880.0),
                     max_width: Val::Percent(94.0),
                     max_height: Val::Percent(92.0),
@@ -415,77 +433,255 @@ pub fn spawn_settings(mut commands: Commands, fonts: Res<UiFonts>, assets: Res<A
                         Pickable::default(),
                     ))
                     .with_children(|panel| {
-
-                // two columns: Display, Help and Sound on the left; Play, Hints and Progress on the right
-                panel
-                    .spawn(Node { column_gap: Val::Px(32.0), flex_shrink: 0.0, ..default() })
-                    .with_children(|cols| {
-                        cols.spawn(Node { flex_direction: FlexDirection::Column, flex_basis: Val::Px(0.0), flex_grow: 1.0, row_gap: Val::Px(8.0), ..default() })
-                            .with_children(|c| {
-                                theme::spawn_section_title(c, fonts, "Display");
-                                stepper(c, fonts, assets, Field::UiScale, "Interface size", "Scales every panel, button and label.");
-                                toggle(c, fonts, Field::Fullscreen, "Fullscreen", "Borderless, on the current monitor.");
-                                toggle(c, fonts, Field::Vsync, "VSync", "Off for lower input lag.");
-                                toggle(c, fonts, Field::BenchGrid, "Bench grid", "The faint dot grid on the lab bench.");
-                                theme::spawn_section_title(c, fonts, "Help");
-                                toggle(c, fonts, Field::Tooltips, "Tooltips", "Explain tiles, vessels and ports on hover.");
-                                toggle(c, fonts, Field::DiscoveryCards, "Discovery cards", "Each new substance comes as a card to tap and read.");
-                                toggle(c, fonts, Field::CardsCloseThemselves, "Cards close by themselves", "An unread card goes after 15 seconds.");
-                                c.spawn(Node { justify_content: JustifyContent::SpaceBetween, align_items: AlignItems::Center, column_gap: Val::Px(12.0), min_height: Val::Px(44.0), flex_shrink: 0.0, ..default() })
+                        // two columns: Display, Help and Sound on the left; Play, Hints and Progress on the right
+                        panel.spawn(Node { column_gap: Val::Px(32.0), flex_shrink: 0.0, ..default() }).with_children(
+                            |cols| {
+                                cols.spawn(Node {
+                                    flex_direction: FlexDirection::Column,
+                                    flex_basis: Val::Px(0.0),
+                                    flex_grow: 1.0,
+                                    row_gap: Val::Px(8.0),
+                                    ..default()
+                                })
+                                .with_children(|c| {
+                                    theme::spawn_section_title(c, fonts, "Display");
+                                    stepper(
+                                        c,
+                                        fonts,
+                                        assets,
+                                        Field::UiScale,
+                                        "Interface size",
+                                        "Scales every panel, button and label.",
+                                    );
+                                    toggle(
+                                        c,
+                                        fonts,
+                                        Field::Fullscreen,
+                                        "Fullscreen",
+                                        "Borderless, on the current monitor.",
+                                    );
+                                    toggle(c, fonts, Field::Vsync, "VSync", "Off for lower input lag.");
+                                    toggle(
+                                        c,
+                                        fonts,
+                                        Field::BenchGrid,
+                                        "Bench grid",
+                                        "The faint dot grid on the lab bench.",
+                                    );
+                                    theme::spawn_section_title(c, fonts, "Help");
+                                    toggle(
+                                        c,
+                                        fonts,
+                                        Field::Tooltips,
+                                        "Tooltips",
+                                        "Explain tiles, vessels and ports on hover.",
+                                    );
+                                    toggle(
+                                        c,
+                                        fonts,
+                                        Field::DiscoveryCards,
+                                        "Discovery cards",
+                                        "Each new substance comes as a card to tap and read.",
+                                    );
+                                    toggle(
+                                        c,
+                                        fonts,
+                                        Field::CardsCloseThemselves,
+                                        "Cards close by themselves",
+                                        "An unread card goes after 15 seconds.",
+                                    );
+                                    c.spawn(Node {
+                                        justify_content: JustifyContent::SpaceBetween,
+                                        align_items: AlignItems::Center,
+                                        column_gap: Val::Px(12.0),
+                                        min_height: Val::Px(44.0),
+                                        flex_shrink: 0.0,
+                                        ..default()
+                                    })
                                     .with_children(|row| {
                                         row_text(row, fonts, "First-steps tour", "The four coach marks of a new game.");
-                                        theme::spawn_button(row, fonts, assets, Kind::Secondary, None, "Show it again", crate::ui::onboarding::TourAgainButton);
+                                        theme::spawn_button(
+                                            row,
+                                            fonts,
+                                            assets,
+                                            Kind::Secondary,
+                                            None,
+                                            "Show it again",
+                                            crate::ui::onboarding::TourAgainButton,
+                                        );
                                     });
-                                theme::spawn_section_title(c, fonts, "Sound");
-                                stepper(c, fonts, assets, Field::Volume, "Volume", "Reactions, discoveries and milestones.");
-                                toggle(c, fonts, Field::UiSounds, "Button clicks", "A soft tick when a button is pressed.");
-                            });
-                        cols.spawn(Node { flex_direction: FlexDirection::Column, flex_basis: Val::Px(0.0), flex_grow: 1.0, row_gap: Val::Px(8.0), ..default() })
-                            .with_children(|c| {
-                                theme::spawn_section_title(c, fonts, "Play");
-                                stepper(c, fonts, assets, Field::ReactionSpeed, "Reaction speed", "How fast vessels finish reacting.");
-                                toggle(c, fonts, Field::NamesFirst, "Names before formulas", "Shelf tiles lead with the name.");
-                                toggle(c, fonts, Field::BalancedAmounts, "Balanced amounts", "Put each in as often as the equation says; wrong ratios waste half.");
-                                toggle(c, fonts, Field::Notifications, "Notifications", "Pop-ups for discoveries and milestones.");
-                                theme::spawn_section_title(c, fonts, "Hints");
-                                toggle(c, fonts, Field::Hint, "Hint button", "Pick something to make next; hints come one at a time.");
-                                toggle(c, fonts, Field::Kit, "Target kits", "While you chase a target, the shelf shows only its kit.");
-                                stepper(c, fonts, assets, Field::DecoysMax, "Most decoys", "Items to rule out in a one-ingredient kit.");
-                                stepper(c, fonts, assets, Field::DecoysMin, "Fewest decoys", "One fewer per extra ingredient, down to this.");
-                                theme::spawn_section_title(c, fonts, "Progress");
-                                c.spawn(Node { justify_content: JustifyContent::SpaceBetween, align_items: AlignItems::Center, column_gap: Val::Px(12.0), flex_shrink: 0.0, ..default() })
+                                    theme::spawn_section_title(c, fonts, "Sound");
+                                    stepper(
+                                        c,
+                                        fonts,
+                                        assets,
+                                        Field::Volume,
+                                        "Volume",
+                                        "Reactions, discoveries and milestones.",
+                                    );
+                                    toggle(
+                                        c,
+                                        fonts,
+                                        Field::UiSounds,
+                                        "Button clicks",
+                                        "A soft tick when a button is pressed.",
+                                    );
+                                });
+                                cols.spawn(Node {
+                                    flex_direction: FlexDirection::Column,
+                                    flex_basis: Val::Px(0.0),
+                                    flex_grow: 1.0,
+                                    row_gap: Val::Px(8.0),
+                                    ..default()
+                                })
+                                .with_children(|c| {
+                                    theme::spawn_section_title(c, fonts, "Play");
+                                    stepper(
+                                        c,
+                                        fonts,
+                                        assets,
+                                        Field::ReactionSpeed,
+                                        "Reaction speed",
+                                        "How fast vessels finish reacting.",
+                                    );
+                                    toggle(
+                                        c,
+                                        fonts,
+                                        Field::NamesFirst,
+                                        "Names before formulas",
+                                        "Shelf tiles lead with the name.",
+                                    );
+                                    toggle(
+                                        c,
+                                        fonts,
+                                        Field::BalancedAmounts,
+                                        "Balanced amounts",
+                                        "Put each in as often as the equation says; wrong ratios waste half.",
+                                    );
+                                    toggle(
+                                        c,
+                                        fonts,
+                                        Field::Notifications,
+                                        "Notifications",
+                                        "Pop-ups for discoveries and milestones.",
+                                    );
+                                    theme::spawn_section_title(c, fonts, "Hints");
+                                    toggle(
+                                        c,
+                                        fonts,
+                                        Field::Hints,
+                                        "Hints",
+                                        "Off: no Hint button, no kits, and no tips when a mix doesn't react.",
+                                    );
+                                    toggle(
+                                        c,
+                                        fonts,
+                                        Field::Hint,
+                                        "Hint button",
+                                        "Pick something to make next; hints come one at a time.",
+                                    );
+                                    toggle(
+                                        c,
+                                        fonts,
+                                        Field::Kit,
+                                        "Target kits",
+                                        "While you chase a target, the shelf shows only its kit.",
+                                    );
+                                    stepper(
+                                        c,
+                                        fonts,
+                                        assets,
+                                        Field::DecoysMax,
+                                        "Most decoys",
+                                        "Items to rule out in a one-ingredient kit.",
+                                    );
+                                    stepper(
+                                        c,
+                                        fonts,
+                                        assets,
+                                        Field::DecoysMin,
+                                        "Fewest decoys",
+                                        "One fewer per extra ingredient, down to this.",
+                                    );
+                                    theme::spawn_section_title(c, fonts, "Progress");
+                                    c.spawn(Node {
+                                        justify_content: JustifyContent::SpaceBetween,
+                                        align_items: AlignItems::Center,
+                                        column_gap: Val::Px(12.0),
+                                        flex_shrink: 0.0,
+                                        ..default()
+                                    })
                                     .with_children(|row| {
-                                        row.spawn(Node { flex_direction: FlexDirection::Column, flex_shrink: 1.0, ..default() })
-                                            .with_children(|t| {
-                                                t.spawn(theme::label(fonts, "Saved automatically to", theme::SM, Weight::Regular, theme::TEXT_2));
-                                                t.spawn(theme::para(fonts, save_path().display().to_string(), theme::XS, theme::TEXT_3, Val::Px(220.0)));
-                                            });
-                                        theme::spawn_button(row, fonts, assets, Kind::Danger, None, "Start a new game", NewGameButton::default());
+                                        row.spawn(Node {
+                                            flex_direction: FlexDirection::Column,
+                                            flex_shrink: 1.0,
+                                            ..default()
+                                        })
+                                        .with_children(|t| {
+                                            t.spawn(theme::label(
+                                                fonts,
+                                                "Saved automatically to",
+                                                theme::SM,
+                                                Weight::Regular,
+                                                theme::TEXT_2,
+                                            ));
+                                            t.spawn(theme::para(
+                                                fonts,
+                                                save_path().display().to_string(),
+                                                theme::XS,
+                                                theme::TEXT_3,
+                                                Val::Px(220.0),
+                                            ));
+                                        });
+                                        theme::spawn_button(
+                                            row,
+                                            fonts,
+                                            assets,
+                                            Kind::Danger,
+                                            None,
+                                            "Start a new game",
+                                            NewGameButton::default(),
+                                        );
                                     });
-                            });
-                    });
+                                });
+                            },
+                        );
 
-                theme::spawn_section_title(panel, fonts, "About");
-                panel
-                    .spawn(Node { justify_content: JustifyContent::SpaceBetween, align_items: AlignItems::Center, column_gap: Val::Px(16.0), flex_shrink: 0.0, ..default() })
-                    .with_children(|row| {
-                        row.spawn(Node { flex_direction: FlexDirection::Column, row_gap: Val::Px(2.0), flex_shrink: 1.0, ..default() })
-                            .with_children(|t| {
-                                t.spawn((SettingsAbout, theme::para(fonts, "Curieosity", theme::SM, theme::TEXT_2, Val::Px(560.0))));
-                                t.spawn(theme::para(
-                                    fonts,
-                                    format!(
-                                        "Free, always. Code {}; content {}, drawing on Wikipedia, PubChem and other open sources.",
+                        theme::spawn_section_title(panel, fonts, "About");
+                        panel
+                            .spawn(Node {
+                                justify_content: JustifyContent::SpaceBetween,
+                                align_items: AlignItems::Center,
+                                column_gap: Val::Px(16.0),
+                                flex_shrink: 0.0,
+                                ..default()
+                            })
+                            .with_children(|row| {
+                                row.spawn(Node {
+                                    flex_direction: FlexDirection::Column,
+                                    row_gap: Val::Px(2.0),
+                                    flex_shrink: 1.0,
+                                    ..default()
+                                })
+                                .with_children(|t| {
+                                    t.spawn((
+                                        SettingsAbout,
+                                        theme::para(fonts, "Curieosity", theme::SM, theme::TEXT_2, Val::Px(560.0)),
+                                    ));
+                                    t.spawn(theme::para(
+                                        fonts,
+                                        format!(
+                                        "Code {}; content {}, drawing on Wikipedia, PubChem and other open sources.",
                                         crate::ui::credits::CODE_LICENCE,
                                         crate::ui::credits::CONTENT_LICENCE
                                     ),
-                                    theme::XS,
-                                    theme::TEXT_3,
-                                    Val::Px(560.0),
-                                ));
+                                        theme::XS,
+                                        theme::TEXT_3,
+                                        Val::Px(560.0),
+                                    ));
+                                });
+                                crate::ui::credits::spawn_credits_button(row, fonts, assets);
                             });
-                        crate::ui::credits::spawn_credits_button(row, fonts, assets);
-                    });
                     });
             });
         });

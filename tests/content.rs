@@ -17,7 +17,7 @@ use chem_alchemy::data::substances::{SubstancePatches, Substances};
 use chem_alchemy::resources::player_progress::{SaveData, SAVE_VERSION};
 use chem_alchemy::resources::recipe_database::{RecipeDatabase, RecipeKey, MAX_GRANT, MAX_MILESTONE_GAP};
 use chem_alchemy::systems::achievements::{achievement_list, achievements_csv};
-use chem_alchemy::ui::credits::{text_credit, FREE, GIVING, HOW_MADE, MADE_BY, PRIVACY, SECTIONS, TEXT_SOURCES};
+use chem_alchemy::ui::credits::{text_credit, GIVING, HOW_MADE, MADE_BY, PRIVACY, SECTIONS, TEXT_SOURCES};
 use chem_alchemy::ui::hint::{base_materials, decoy_count, makes_target, plan_kit, targets, MAX_STEPS};
 use chem_alchemy::ui::process_toolbar::{vessel_art_path, VESSELS};
 use chem_alchemy::ui::settings::Settings;
@@ -609,6 +609,8 @@ fn a_save_round_trips() {
             ("Discovery".into(), "New: Quicklime".into()),
             ("Milestone".into(), "Copper! The furnace becomes a smelter.".into()),
         ],
+        // the order things were found in, newest last (the shelf's "Newest first")
+        order: vec![1, 5, 8, 12, 15000, 900],
     };
     let back = SaveData::parse(&data.to_text()).unwrap();
     assert_eq!(back, data);
@@ -715,17 +717,15 @@ fn credits_md_matches_the_credits_screen() {
 }
 
 /// The README says what the About screen says, in the same words: who made the game and
-/// how, that it is free for good, what it does with your data, where to give (in the same
-/// order, each with its link) and every source it is built from.
+/// how, what it does with your data, where to give (in the same order, each with its link)
+/// and every source it is built from.
 #[test]
 fn readme_matches_the_about_screen() {
     let md = std::fs::read_to_string(root().join("README.md")).expect("README.md");
     // the README wraps its lines; compare words
     let flat = |s: &str| s.split_whitespace().collect::<Vec<_>>().join(" ");
     let text = flat(&md);
-    for (what, words) in
-        [("who made it", MADE_BY), ("how the art is made", HOW_MADE), ("free", FREE), ("privacy", PRIVACY)]
-    {
+    for (what, words) in [("who made it", MADE_BY), ("how the art is made", HOW_MADE), ("privacy", PRIVACY)] {
         assert!(text.contains(&flat(words)), "the README doesn't say what the About screen says about {what}");
     }
     let mut from = md.find("## If you'd like to give something").expect("the README has no giving section");

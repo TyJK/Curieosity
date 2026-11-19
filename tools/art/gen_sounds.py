@@ -6,6 +6,7 @@ original to the game and carries no third-party licence. Re-run after changing a
 
     python tools/art/gen_sounds.py            # writes assets/sounds/*.ogg (needs ffmpeg)
     python tools/art/gen_sounds.py --wav DIR  # also keeps the .wav files in DIR
+    python tools/art/gen_sounds.py --only drop  # rewrites just these sounds
 
 Requires numpy, and ffmpeg with libvorbis on the PATH.
 """
@@ -127,11 +128,18 @@ def pickup():
 
 
 def drop():
-    """A substance landing in a vessel: a liquid plop."""
-    s = 0.22
-    body = sine(glide(560, 170, s, 0.6), s) * env(int(RATE * s), 0.002, 0.05)
-    splash = bandpass(noise(s), 800, 4000) * env(int(RATE * s), 0.001, 0.012)
-    return finish(body + 0.35 * splash, -6)
+    """A substance landing in a vessel: a crisp click, like a piece snapping into its place.
+    A sharp, bright tick on top of a short, low knock, no pitch sweep."""
+    # the noise the old plop drew, so every sound after this one comes out as it was
+    noise(0.22)
+    s = 0.09
+    n = int(RATE * s)
+    own = np.random.default_rng(23)
+    tick = bandpass(own.standard_normal(n), 2500, 9000) * env(n, 0.0002, 0.0018)
+    knock = sine(1650, s) * env(n, 0.0004, 0.009)
+    body = sine(glide(240, 190, s), s) * env(n, 0.0008, 0.016)
+    x = 0.9 * tick + 0.45 * knock + 0.7 * body
+    return finish(x, -7)
 
 
 def place_vessel():
@@ -482,12 +490,15 @@ def write_wav(path, x):
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--wav", type=Path, help="also keep the .wav files in this folder")
+    ap.add_argument("--only", nargs="+", metavar="NAME", help="write only these sounds")
     args = ap.parse_args()
     if not shutil.which("ffmpeg"):
         sys.exit("ffmpeg is needed to encode the .ogg files")
     OUT.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory() as tmp:
         for name, make in SOUNDS.items():
+            if args.only and name not in args.only:
+                continue
             wav = Path(tmp) / f"{name}.wav"
             write_wav(wav, make())
             ogg = OUT / f"{name}.ogg"
@@ -497,7 +508,7 @@ def main():
                 args.wav.mkdir(parents=True, exist_ok=True)
                 shutil.copy(wav, args.wav / wav.name)
             print(f"  {ogg.relative_to(ROOT)}  ({ogg.stat().st_size // 1024 + 1} KB)")
-    print(f"{len(SOUNDS)} sounds written.")
+    print(f"{len(args.only) if args.only else len(SOUNDS)} sounds written.")
 
 
 if __name__ == "__main__":

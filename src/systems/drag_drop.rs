@@ -12,7 +12,9 @@
 // and the taps that go with them: with a substance selected on the shelf, tapping a vessel
 // puts it in; tapping an output port and then another vessel links the two (a tap on the
 // bench, the same port or Esc lets go). The vessel last placed, tapped, moved or filled is
-// the active one: a double-tap on a shelf tile puts that substance straight into it.
+// the selected one: a double-tap on a shelf tile puts that substance straight into it, and
+// the bench's React, Empty and Remove act on it (ui::bench_controls). A tap on the bench
+// itself lets go of it; on a link, a first tap lights the link and a second cuts it.
 //
 // On a touch screen a finger swiping across the shelf scrolls it; holding a tile for a
 // moment first lifts it instead (tapping it and then a vessel works too).
@@ -53,9 +55,17 @@ pub struct LinkDragState(pub Option<Entity>);
 #[derive(Resource, Default, Debug)]
 pub struct LinkPick(pub Option<Entity>);
 
-/// The vessel last placed, tapped, moved or filled: where a double-tapped shelf tile goes.
+/// The vessel last placed, tapped, moved or filled: where a double-tapped shelf tile goes,
+/// and what the bench's buttons act on. None after a tap on the empty bench.
 #[derive(Resource, Default, Debug)]
 pub struct ActiveVessel(pub Option<Entity>);
+
+/// A link tapped once, and when (real seconds): a second tap on it soon after cuts it.
+#[derive(Resource, Default, Debug)]
+pub struct LinkTap(pub Option<(Entity, f64)>);
+
+/// How close (window pixels) a tap must land to a link to be a tap on it.
+const LINK_HIT: f32 = 14.0;
 
 /// Put this substance into the active vessel (a double-tap on its shelf tile).
 #[derive(Message, Clone, Copy, Debug)]
@@ -66,6 +76,7 @@ impl Plugin for DragDropPlugin {
         app.init_resource::<LinkDragState>()
             .init_resource::<LinkPick>()
             .init_resource::<ActiveVessel>()
+            .init_resource::<LinkTap>()
             .init_resource::<BenchZoom>()
             .add_message::<AddToActive>()
             // PreUpdate: its commands land before Update can despawn a freshly spawned tile
@@ -166,7 +177,8 @@ fn attach_drag_observers_to_draggables(
             .entity(entity)
             .queue_silenced(observe(start_pan_canvas))
             .queue_silenced(observe(update_pan_canvas))
-            .queue_silenced(observe(stop_pan_canvas));
+            .queue_silenced(observe(stop_pan_canvas))
+            .queue_silenced(observe(tap_bench));
     }
     for entity in &new_output_ports {
         commands
@@ -730,8 +742,8 @@ fn add_to_active_system(
     }
 }
 
-/// With more than one vessel on the bench, the active one wears an outline in its colour
-/// (a card being dragged keeps the drag's outline). A vessel that is gone stops being active.
+/// The selected vessel wears an outline in its colour (a card being dragged keeps the drag's
+/// outline). A vessel that is gone stops being selected.
 fn active_vessel_system(
     mut active: ResMut<ActiveVessel>,
     all: Query<(), With<VesselCard>>,
@@ -743,11 +755,10 @@ fn active_vessel_system(
     if active.0.is_some_and(|e| !all.contains(e)) {
         active.0 = None;
     }
-    let several = all.iter().count() > 1;
     for (e, pv, mut outline) in &mut cards {
-        let want = if several && active.0 == Some(e) {
+        let want = if active.0 == Some(e) {
             Outline {
-                width: Val::Px(2.0),
+                width: Val::Px(2.5),
                 offset: Val::Px(3.0),
                 color: crate::systems::reaction_check::process_color(&pv.process).with_alpha(0.85),
             }
@@ -930,6 +941,60 @@ pub fn pane_offset(pane: &Node) -> Vec2 {
 
 fn stop_pan_canvas(trigger: On<PointerDragEnd>, mut commands: Commands) {
     commands.entity(trigger.entity).remove::<PanStartPos>();
+}
+
+/// A tap on the bench itself (not on a vessel, which hears its own taps): on a link, the
+/// first tap lights it and says how to cut it, and a second soon after cuts it; anywhere
+/// else it lets go of the selected vessel.
+#[allow(clippy::too_many_arguments)]
+fn tap_bench(
+    trigger: On<PointerClick>,
+    presses: Res<Presses>,
+    links: Query<(Entity, &ReactionLink)>,
+    ports: Query<(&UiGlobalTransform, &ComputedNode)>,
+    windows: Query<&Window, With<bevy::window::PrimaryWindow>>,
+    time: Res<Time<Real>>,
+    mut tap: ResMut<LinkTap>,
+    mut active: ResMut<ActiveVessel>,
+    mut commands: Commands,
+    mut toasts: ResMut<crate::ui::toasts::Toasts>,
+) {
+    if trigger.button != PointerButton::Primary
+        || trigger.original_event_target() != trigger.entity
+        || !presses.is_tap(trigger.pointer.id, trigger.pointer.position)
+    {
+        return;
+    }
+    let Ok(window) = windows.single() else { return };
+    let p = trigger.pointer.position;
+    let now = time.elapsed_secs_f64();
+    let nearest = links
+        .iter()
+        .filter_map(|(e, l)| {
+            let (a, b) = crate::systems::link_renderer::link_ends(
+                ports.get(l.from_port).ok()?,
+                ports.get(l.to_port).ok()?,
+                window,
+            );
+            Some((e, crate::systems::link_renderer::distance_to_link(a, b, p)))
+        })
+        .filter(|(_, d)| *d <= LINK_HIT)
+        .min_by(|x, y| x.1.total_cmp(&y.1));
+    match nearest {
+        Some((link, _)) => {
+            if tap.0.is_some_and(|(e, at)| e == link && now - at <= crate::ui::detail_panel::DOUBLE_TAP) {
+                commands.entity(link).try_despawn();
+                tap.0 = None;
+            } else {
+                tap.0 = Some((link, now));
+                toasts.push(crate::ui::toasts::ToastKind::Hint, "Double-tap a link to cut it.");
+            }
+        }
+        None => {
+            tap.0 = None;
+            active.0 = None;
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------------------
