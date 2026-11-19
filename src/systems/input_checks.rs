@@ -2644,7 +2644,14 @@ pub fn all_checks(world: &mut World) -> Vec<Check> {
                 let id = sampled_step(w, 0);
                 w.resource_mut::<TechTreeState>().selected = id;
             }),
-            Op::Wait(4),
+            // until the step's needs are built and laid out (a busy machine takes a few frames)
+            Op::Until(
+                verify(|w| {
+                    let e = first::<TechNeedButton>(w, |b| b.0.is_some()).ok_or("no need with a maker yet")?;
+                    point_in(w, e, 0.5, 0.5).map(|_| ()).ok_or_else(|| "the need isn't laid out yet".to_string())
+                }),
+                60,
+            ),
             setup(|w| {
                 let maker = first::<TechNeedButton>(w, |b| b.0.is_some())
                     .and_then(|e| w.get::<TechNeedButton>(e))

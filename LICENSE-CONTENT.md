@@ -16,4 +16,4 @@ The **code** (everything else: `src/`, `tests/`, `tools/`) is dual-licensed unde
 
 The **fonts** in `assets/fonts` keep their own licences, which sit beside them.
 
-Copyright (c) 2026 Nex and the authors credited in CREDITS.md.
+Copyright (c) 2026 Tyler Kolody and the authors credited in CREDITS.md.

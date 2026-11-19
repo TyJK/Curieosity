@@ -1,9 +1,10 @@
 // src/ui/credits.rs
 //
-// Credits and licences: who made what the game is built from, and under which terms.
-// The same list is the in-game Credits screen (Settings > About), the per-page "Text:"
-// line in the Substance Library, and CREDITS.md in the repository; a content test keeps
-// CREDITS.md in step with it.
+// About Curieosity: who made it and how (AI use included), what it is built from and
+// under which terms, that it is free and open for good, where to give instead, and what it
+// does with your data (nothing). The source list is also the per-page "Text:" line in the
+// Substance Library and CREDITS.md in the repository; the ways to give are also in the
+// README. Content tests keep both files in step with this one.
 use crate::ui::{Button, Clicked};
 use bevy::prelude::*;
 
@@ -19,6 +20,60 @@ pub struct Credit {
     /// where to read more (the source, or its licence)
     pub url: &'static str,
 }
+
+/// Where the source code lives.
+pub const REPO_URL: &str = "https://github.com/TyJK/Curieosity";
+
+/// Who made the game, and how: the AI use, and whose decisions it carries out.
+pub const MADE_BY: &str = "Curieosity is my game. What it teaches and how, which substances and reactions are in it, and how it looks and plays are my decisions. I built it with AI: the code, and the pages and reactions written for the game, were written by Claude, an AI model made by Anthropic, to my design and direction. The facts come from the open sources further down, and every substance page names the source of its text.";
+
+/// How the pictures and sounds were made (no image or sound generator).
+pub const HOW_MADE: &str = "Nothing in the game was made by an image or sound generator. The vessels and icons are line art drawn by a program from plain geometry (lines, arcs and curves set by numbers), so they share one stroke and one light. The molecule pictures are drawn by RDKit from each compound's recorded structure, the atom diagrams from each element's electron configuration, and the sounds are synthesised from sine waves and filtered noise. Those programs were written with Claude too; they are in the source code, under tools/art.";
+
+/// Free for good, and why.
+pub const FREE: &str = "Curieosity will never cost money: no price, no ads, no in-app purchases, nothing locked. It is open source, so anyone can read it, change it and share it. Most of what is in it is other people's work: the chemists who ran these reactions, the scientists, editors and volunteers behind PubChem, Wikipedia and the other sources, and the people who wrote the tools it is built with. I have only repackaged their labour into a new form, and everyone should be able to use it.";
+
+/// What the game does with your data.
+pub const PRIVACY: &str = "Curieosity collects nothing about you: no account, no analytics, no ads, and nothing is sent anywhere. Your progress is saved only on your device. Links open in your browser, where those sites' own policies apply. A copy played through Steam tells Steam which achievements you have earned.";
+
+/// Somewhere to give, instead of paying for the game.
+pub struct Cause {
+    pub name: &'static str,
+    pub what: &'static str,
+    /// None for one that isn't set up yet (shown as "Coming soon")
+    pub url: Option<&'static str>,
+    /// Shown in the phone builds too. Those go to the App Store and Google Play, which want
+    /// tips to a developer taken as in-app purchases, and allow links out only to charities.
+    pub on_phones: bool,
+}
+
+/// The causes this build shows (all of them on a desktop; the charities on a phone).
+pub fn shown_causes() -> impl Iterator<Item = &'static Cause> {
+    GIVING.iter().filter(|c| c.on_phones || !crate::platform::PHONE)
+}
+
+/// In the order they are shown: Jarred Younger's lab first, Ko-fi last (and not on phones).
+pub const GIVING: &[Cause] = &[
+    Cause {
+        name: "Neuroinflammation, Pain and Fatigue Laboratory",
+        what: "Jarred Younger's lab at the University of Alabama at Birmingham, researching how inflammation in the brain drives chronic pain and fatigue, in ME/CFS, fibromyalgia, long COVID and related illnesses.",
+        url: Some("https://go.uab.edu/youngerlab"),
+        on_phones: true,
+    },
+    Cause {
+        name: "#MEAction",
+        what: "The Myalgic Encephalomyelitis Action Network: a worldwide community campaigning for the care, research and recognition people with ME need.",
+        url: Some("https://funraise.org/give/Myalgic-Encephalomyelitis-Action-Network-Inc/0645f869-e3b1-49cd-8cf3-5eec044e97b1/"),
+        on_phones: true,
+    },
+    Cause {
+        name: "IACFS/ME",
+        what: "The International Association for Chronic Fatigue Syndrome/Myalgic Encephalomyelitis: clinicians and scientists advancing research and care.",
+        url: Some("https://www.iacfsme.org/55671-2/"),
+        on_phones: true,
+    },
+    Cause { name: "Ko-fi", what: "To give to me directly.", url: Some("https://ko-fi.com/T5T52AWOGC"), on_phones: false },
+];
 
 pub const CODE_LICENCE: &str = "MIT or Apache-2.0";
 pub const CONTENT_LICENCE: &str = "CC BY-SA 4.0";
@@ -71,7 +126,7 @@ pub const SECTIONS: &[(&str, &[Credit])] = &[
         &[
             Credit {
                 name: "Curieosity",
-                what: "The vessel art, interface icons, sounds and the hand-written reactions and pages are made for the game.",
+                what: "The vessel art, interface icons and sounds, and the reactions and pages written for the game, are made for it.",
                 licence: "CC BY-SA 4.0",
                 url: "https://creativecommons.org/licenses/by-sa/4.0/",
             },
@@ -224,28 +279,87 @@ pub fn spawn_credits(mut commands: Commands, fonts: Res<UiFonts>, assets: Res<As
                         h.spawn(Node { column_gap: Val::Px(10.0), align_items: AlignItems::Center, ..default() })
                             .with_children(|t| {
                                 t.spawn(theme::icon(assets, "book", 22.0, theme::CYAN));
-                                t.spawn(theme::label(fonts, "Credits and licences", theme::XL, Weight::Semibold, theme::TEXT));
+                                t.spawn(theme::label(fonts, "About Curieosity", theme::XL, Weight::Semibold, theme::TEXT));
                             });
                         theme::spawn_icon_button(h, assets, "close", 32.0, theme::TEXT_2, CreditsClose);
                     });
-                panel
-                    .spawn(Node { flex_shrink: 0.0, margin: UiRect::bottom(Val::Px(4.0)), ..default() })
-                    .with_children(|t| {
-                        t.spawn(theme::para(
-                            fonts,
-                            format!(
-                                "Curieosity is free, and always will be. Its code is licensed {CODE_LICENCE}; its content (the data, text, pictures and sounds) is {CONTENT_LICENCE}, as the sources it draws on require. It is built from these:"
-                            ),
-                            theme::MD,
-                            theme::TEXT_2,
-                            Val::Px(760.0),
-                        ));
-                    });
+                // who made it, and how
+                theme::spawn_section_title(panel, fonts, "Made by Tyler Kolody, with AI");
+                about_para(panel, fonts, MADE_BY);
+                theme::spawn_section_title(panel, fonts, "How the pictures and sounds are made");
+                about_para(panel, fonts, HOW_MADE);
+                // what it is built from
                 for (title, credits) in SECTIONS {
                     theme::spawn_section_title(panel, fonts, title);
                     for c in *credits {
                         credit_row(panel, fonts, assets, c);
                     }
+                }
+                // free for good
+                theme::spawn_section_title(panel, fonts, "Free, always");
+                about_para(panel, fonts, FREE);
+                link_row(
+                    panel,
+                    fonts,
+                    assets,
+                    "The source code",
+                    &format!("Code {CODE_LICENCE}; content (data, text, pictures and sounds) {CONTENT_LICENCE}, as its sources require."),
+                    Some(REPO_URL),
+                );
+                // where to give instead
+                theme::spawn_section_title(panel, fonts, "If you'd like to give something");
+                about_para(panel, fonts, "You never need to. If you want to, I'd rather it went to one of these:");
+                for c in shown_causes() {
+                    link_row(panel, fonts, assets, c.name, c.what, c.url);
+                }
+                theme::spawn_section_title(panel, fonts, "Privacy");
+                about_para(panel, fonts, PRIVACY);
+            });
+        });
+}
+
+/// A paragraph of the About screen's own text.
+fn about_para(panel: &mut ChildSpawnerCommands, fonts: &UiFonts, text: &str) {
+    panel.spawn(Node { flex_shrink: 0.0, margin: UiRect::bottom(Val::Px(4.0)), ..default() }).with_children(|t| {
+        t.spawn(theme::para(fonts, text, theme::MD, theme::TEXT_2, Val::Px(760.0)));
+    });
+}
+
+/// A name and a line about it, and its link (or "Coming soon" while there is none).
+fn link_row(
+    panel: &mut ChildSpawnerCommands,
+    fonts: &UiFonts,
+    assets: &AssetServer,
+    name: &str,
+    what: &str,
+    url: Option<&'static str>,
+) {
+    panel
+        .spawn(Node {
+            justify_content: JustifyContent::SpaceBetween,
+            align_items: AlignItems::Center,
+            column_gap: Val::Px(16.0),
+            padding: UiRect::vertical(Val::Px(6.0)),
+            flex_shrink: 0.0,
+            ..default()
+        })
+        .with_children(|row| {
+            row.spawn(Node {
+                flex_direction: FlexDirection::Column,
+                row_gap: Val::Px(2.0),
+                flex_shrink: 1.0,
+                ..default()
+            })
+            .with_children(|t| {
+                t.spawn(theme::label(fonts, name, theme::MD, Weight::Semibold, theme::TEXT));
+                t.spawn(theme::para(fonts, what, theme::SM, theme::TEXT_2, Val::Px(560.0)));
+            });
+            row.spawn(Node { align_items: AlignItems::Center, flex_shrink: 0.0, ..default() }).with_children(|r| {
+                match url {
+                    Some(url) => {
+                        theme::spawn_icon_button(r, assets, "external", 30.0, theme::TEXT, CreditLink(url));
+                    }
+                    None => theme::spawn_chip(r, fonts, "Coming soon", theme::TEXT_3),
                 }
             });
         });
@@ -285,8 +399,8 @@ fn credit_row(panel: &mut ChildSpawnerCommands, fonts: &UiFonts, assets: &AssetS
         });
 }
 
-/// Open from Settings > About; close with the x, the backdrop or Esc (see shell.rs); the
-/// link buttons open their pages in the browser.
+/// Open from Settings > About or the title menu; close with the x, the backdrop or Esc (see
+/// shell.rs); the link buttons open their pages in the browser.
 #[allow(clippy::type_complexity)]
 pub fn credits_system(
     mut ui: ResMut<CreditsUi>,
@@ -312,7 +426,7 @@ pub fn credits_system(
     }
 }
 
-/// The settings row that opens the credits.
+/// The settings row that opens the About screen.
 pub fn spawn_credits_button(parent: &mut ChildSpawnerCommands, fonts: &UiFonts, assets: &AssetServer) {
-    theme::spawn_button(parent, fonts, assets, Kind::Secondary, Some("book"), "Credits and licences", CreditsButton);
+    theme::spawn_button(parent, fonts, assets, Kind::Secondary, Some("book"), "About and credits", CreditsButton);
 }
