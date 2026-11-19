@@ -7,25 +7,6 @@ and react them; discover 2,704 substances across 2,683 reactions and 27 vessels,
 first copper smelted to oganesson. Every substance has a page, written for the game or
 drawn from Wikipedia and other open sources, with a link to read more.
 
-Curieosity is free, and always will be: see [Free, always](#free-always).
-
-## Made by Tyler Kolody, with AI
-
-Curieosity is my game. What it teaches and how, which substances and reactions are in it,
-and how it looks and plays are my decisions. I built it with AI: the code, and the pages
-and reactions written for the game, were written by Claude, an AI model made by Anthropic,
-to my design and direction. The facts come from the open sources further down, and every
-substance page names the source of its text.
-
-Nothing in the game was made by an image or sound generator. The vessels and icons are line
-art drawn by a program from plain geometry (lines, arcs and curves set by numbers), so they
-share one stroke and one light. The molecule pictures are drawn by RDKit from each
-compound's recorded structure, the atom diagrams from each element's electron
-configuration, and the sounds are synthesised from sine waves and filtered noise. Those
-programs were written with Claude too; they are in the source code, under tools/art. See
-[`gen_vessels.py`](tools/art/gen_vessels.py), [`gen_bohr.py`](tools/art/gen_bohr.py) and
-[`gen_sounds.py`](tools/art/gen_sounds.py).
-
 ## Play
 
 - **Windows, macOS, Linux:** download your system's zip from the
@@ -76,15 +57,6 @@ The review run plays the game through its real input, writes a report with scree
 Actions runs the tests and a short review on every pull request, and the whole tech tree
 weekly.
 
-## Content
-
-The reactions, substances, eras and milestones are written in `tools/data/`
-(`authored_content.py`, `authored_tiers.py`, `authored_pages.py`) and built into
-`assets/data/` by `python tools/data/gen_authored.py`, which checks that every equation
-balances and the whole tree can be played through. It also packs the game's share of the
-full scraped library, which is too big for this repository and lives in `library/`
-(see `tools/data/pack_library.py`).
-
 ## Android and iOS
 
 `android/` holds the Android build: a small library crate that starts the game, and the
@@ -128,18 +100,28 @@ Every source, with what the game takes from it and its terms, is in
 - **Built with:** [Bevy](https://bevy.org/) and the open-source [Rust crates](https://crates.io/)
   it stands on.
 
-## Free, always
 
-Curieosity will never cost money: no price, no ads, no in-app purchases, nothing locked. It
-is open source, so anyone can read it, change it and share it. Most of what is in it is
-other people's work: the chemists who ran these reactions, the scientists, editors and
-volunteers behind PubChem, Wikipedia and the other sources, and the people who wrote the
-tools it is built with. I have only repackaged their labour into a new form, and everyone
-should be able to use it.
+## Assembled by Tyler Kolody, aided by Claude
+
+Curieosity is my game insofar as what it teaches and how, which substances and reactions are in it,
+and how it looks and plays have been my decisions. The code and some pages
+and reactions written for the game were written by Claude, an AI model made by Anthropic,
+to my design and direction. The facts come from the open sources further down, and every
+substance page names the source of its text. I have only repackaged the work others themselves opened to the world into a new form. 
+Curieosity will always remain open source just like the data it was built from, and will never cost money in any way: no price, no ads, no in-app purchases, nothing locked. 
+
+Nothing in the game was made by an image or sound generator. The vessels and icons are line
+art drawn by a program from plain geometry (lines, arcs and curves set by numbers), so they
+share one stroke and one light. The molecule pictures are drawn by RDKit from each
+compound's recorded structure, the atom diagrams from each element's electron
+configuration, and the sounds are synthesised from sine waves and filtered noise. Those
+programs were written with Claude too; they are in the source code, under tools/art. See
+[`gen_vessels.py`](tools/art/gen_vessels.py), [`gen_bohr.py`](tools/art/gen_bohr.py) and
+[`gen_sounds.py`](tools/art/gen_sounds.py).
 
 ## If you'd like to give something
 
-You never need to. If you want to, I'd rather it went to one of these:
+Please donate to one of these organizations:
 
 1. [Neuroinflammation, Pain and Fatigue Laboratory](https://go.uab.edu/youngerlab): Jarred
    Younger's lab at the University of Alabama at Birmingham, researching how inflammation in
