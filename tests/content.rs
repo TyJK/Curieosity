@@ -17,7 +17,7 @@ use chem_alchemy::data::substances::{SubstancePatches, Substances};
 use chem_alchemy::resources::player_progress::{SaveData, SAVE_VERSION};
 use chem_alchemy::resources::recipe_database::{RecipeDatabase, RecipeKey, MAX_GRANT, MAX_MILESTONE_GAP};
 use chem_alchemy::systems::achievements::{achievement_list, achievements_csv};
-use chem_alchemy::ui::credits::{text_credit, SECTIONS, TEXT_SOURCES};
+use chem_alchemy::ui::credits::{text_credit, FREE, GIVING, HOW_MADE, MADE_BY, PRIVACY, SECTIONS, TEXT_SOURCES};
 use chem_alchemy::ui::hint::{base_materials, decoy_count, makes_target, plan_kit, targets, MAX_STEPS};
 use chem_alchemy::ui::process_toolbar::{vessel_art_path, VESSELS};
 use chem_alchemy::ui::settings::Settings;
@@ -711,6 +711,39 @@ fn credits_md_matches_the_credits_screen() {
     }
     for f in ["LICENSE-MIT", "LICENSE-APACHE", "LICENSE-CONTENT.md"] {
         assert!(root().join(f).is_file(), "{f} is missing");
+    }
+}
+
+/// The README says what the About screen says, in the same words: who made the game and
+/// how, that it is free for good, what it does with your data, where to give (in the same
+/// order, each with its link) and every source it is built from.
+#[test]
+fn readme_matches_the_about_screen() {
+    let md = std::fs::read_to_string(root().join("README.md")).expect("README.md");
+    // the README wraps its lines; compare words
+    let flat = |s: &str| s.split_whitespace().collect::<Vec<_>>().join(" ");
+    let text = flat(&md);
+    for (what, words) in
+        [("who made it", MADE_BY), ("how the art is made", HOW_MADE), ("free", FREE), ("privacy", PRIVACY)]
+    {
+        assert!(text.contains(&flat(words)), "the README doesn't say what the About screen says about {what}");
+    }
+    let mut from = md.find("## If you'd like to give something").expect("the README has no giving section");
+    for c in GIVING {
+        let at =
+            md[from..].find(c.name).unwrap_or_else(|| panic!("the README doesn't list {} (in order)", c.name)) + from;
+        let line = md[at..].lines().next().unwrap_or("");
+        match c.url {
+            Some(url) => assert!(md[at..].contains(url), "the README's {} has no link to {url}", c.name),
+            None => assert!(line.contains("coming soon"), "the README should say {} is coming soon", c.name),
+        }
+        from = at;
+    }
+    for (_, credits) in SECTIONS {
+        for c in credits.iter().filter(|c| c.name != "Curieosity") {
+            let name = c.name.split(" (").next().unwrap_or(c.name);
+            assert!(md.contains(&format!("[{name}]")), "the README's sources don't link {name}");
+        }
     }
 }
 

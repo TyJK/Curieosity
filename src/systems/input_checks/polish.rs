@@ -758,11 +758,11 @@ pub(super) fn polish_checks() -> Vec<Check> {
     // --- credits ---
     v.push(check(
         "Credits",
-        "Settings opens the credits; every source is listed with a link",
+        "Settings opens About: every source, the source code and every cause with a link",
         vec![
             setup(|w| w.resource_mut::<SettingsUi>().open = true),
             Op::Wait(5),
-            Op::Click(marked::<CreditsButton>("Credits and licences")),
+            Op::Click(marked::<CreditsButton>("About and credits")),
             Op::Until(
                 verify(|w| {
                     let shown = w
@@ -771,17 +771,32 @@ pub(super) fn polish_checks() -> Vec<Check> {
                         .next()
                         .is_some_and(|n| n.display != Display::None);
                     let links = w.query::<&CreditLink>().iter(w).count();
-                    let want: usize = SECTIONS.iter().map(|(_, c)| c.len()).sum();
-                    if shown && links == want {
+                    let causes = crate::ui::credits::shown_causes().filter(|c| c.url.is_some()).count();
+                    let want: usize = SECTIONS.iter().map(|(_, c)| c.len()).sum::<usize>() + 1 + causes;
+                    let soon = w.query::<&Text>().iter(w).filter(|t| t.0 == "Coming soon").count();
+                    let pending = crate::ui::credits::shown_causes().count() - causes;
+                    if shown && links == want && soon == pending {
                         Ok(())
                     } else {
-                        Err(format!("shown={shown}, {links} of {want} sources listed"))
+                        Err(format!("shown={shown}, {links} of {want} links, {soon} of {pending} marked coming soon"))
                     }
                 }),
                 30,
             ),
             Op::Wait(10),
-            Op::Shot("the credits"),
+            Op::Shot("the About screen"),
+            // and its end: free for good, where to give, privacy
+            setup(|w| {
+                let Some(root) = first::<CreditsRoot>(w, |_| true) else { return };
+                let panels: Vec<Entity> = w.get::<Children>(root).map(|c| c.iter().collect()).unwrap_or_default();
+                for p in panels {
+                    if let Some(mut sp) = w.get_mut::<ScrollPosition>(p) {
+                        sp.0.y = 1.0e6;
+                    }
+                }
+            }),
+            Op::Wait(10),
+            Op::Shot("the end of the About screen: free, giving, privacy"),
             Op::Click(target("the Wikipedia credit's link", |w| {
                 let e = first::<CreditLink>(w, |l| l.0 == SECTIONS[0].1[0].url)?;
                 point_in(w, e, 0.5, 0.5)

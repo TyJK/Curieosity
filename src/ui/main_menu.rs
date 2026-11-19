@@ -1,7 +1,7 @@
 // src/ui/main_menu.rs
 //
 // What the game opens on: a moment of title, a notice of the licences and where the
-// content comes from, then the menu (Play or Continue, a new game, Settings, Credits and,
+// content comes from, then the menu (Play or Continue, a new game, Settings, About and,
 // on a desktop, Quit). Any tap, click or key moves past the title and the notice sooner.
 // During play Esc (a controller's Start, a phone's Back) brings the menu back, and again
 // returns to the game. Review runs and `--skip-title` start straight in the lab.
@@ -217,7 +217,7 @@ pub fn spawn_main_menu(mut commands: Commands) {
 }
 
 /// Times the title and the notice, moves past them on any tap, click or key, and shows
-/// the stage (hidden while Settings or the Credits, opened from the menu, are on top).
+/// the stage (hidden while Settings or About, opened from the menu, are on top).
 #[allow(clippy::too_many_arguments)]
 pub fn main_menu_system(
     mut commands: Commands,
@@ -319,7 +319,7 @@ pub fn main_menu_system(
                     menu_button(col, &fonts, Kind::Secondary, "Start a new game", NewGameButton::default());
                 }
                 menu_button(col, &fonts, Kind::Secondary, "Settings", MenuSettings);
-                menu_button(col, &fonts, Kind::Secondary, "Credits", MenuCredits);
+                menu_button(col, &fonts, Kind::Secondary, "About", MenuCredits);
                 if !crate::platform::PHONE {
                     menu_button(col, &fonts, Kind::Ghost, "Quit", MenuQuit);
                 }
@@ -600,7 +600,7 @@ fn spawn_title(p: &mut ChildSpawnerCommands, fonts: &UiFonts, assets: &AssetServ
 }
 
 /// Where everything comes from, and the terms it comes under (the full list is the
-/// Credits screen, built from the same sources as CREDITS.md).
+/// About screen, built from the same sources as CREDITS.md).
 fn spawn_notice(p: &mut ChildSpawnerCommands, fonts: &UiFonts) {
     // on a panel, so the drifting backdrop never runs through the text
     p.spawn((
@@ -621,7 +621,7 @@ fn spawn_notice(p: &mut ChildSpawnerCommands, fonts: &UiFonts) {
             ("Free and open source, and always will be.", theme::TEXT),
             ("The code is MIT or Apache-2.0. The content (data, text, pictures and sounds) is CC BY-SA 4.0, as its sources require.", theme::TEXT_2),
             ("Text adapted from Wikipedia (CC BY-SA 4.0). Data from PubChem and CAMEO Chemicals (public domain, U.S. government), ChEBI (CC BY 4.0), Wikidata (CC0) and the Chemical Reaction Database. Molecule pictures drawn with RDKit; made with Bevy.", theme::TEXT_2),
-            ("Every substance page names its source. The full credits are under Credits.", theme::TEXT_3),
+            ("Made by Tyler Kolody, with AI. Every substance page names its source; how it was made, the full credits and where to give are under About.", theme::TEXT_3),
         ] {
             c.spawn((
                 Text::new(text),

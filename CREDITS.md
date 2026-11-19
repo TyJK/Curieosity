@@ -4,8 +4,9 @@ Curieosity is free, and always will be. Its code is licensed **MIT or Apache-2.0
 content (the data, text, pictures and sounds) is **CC BY-SA 4.0**, as the sources it draws
 on require. See [LICENSE-CONTENT.md](LICENSE-CONTENT.md) for which is which.
 
-This list is the same as the game's Credits screen (Settings > About), which is built from
-`src/ui/credits.rs`; `cargo test` checks the two agree.
+This list is the same as the game's About screen (Settings > About and credits, or About on
+the title menu), which is built from `src/ui/credits.rs`; `cargo test` checks the two agree.
+How the game was made, AI use included, is in the [README](README.md#made-by-tyler-kolody-with-ai).
 
 ## Text and data
 
@@ -27,7 +28,7 @@ the substances in play that lost theirs have pages written for the game
 
 | Source | What the game uses | Terms |
 |---|---|---|
-| Curieosity | The vessel art, interface icons, sounds and the hand-written reactions and pages are made for the game. | CC BY-SA 4.0 |
+| Curieosity | The vessel art, interface icons and sounds, and the reactions and pages written for the game, are made for it. | CC BY-SA 4.0 |
 | [RDKit](https://www.rdkit.org/) | Draws the molecule pictures from each compound's structure. | BSD 3-Clause |
 | [Noto Sans](https://notofonts.github.io/) | The interface type (The Noto Project Authors). | SIL Open Font License 1.1 |
 | [DejaVu Sans](https://dejavu-fonts.github.io/) | The type of equations and symbols (Bitstream Vera, with DejaVu's changes). | Bitstream Vera License; changes public domain |
