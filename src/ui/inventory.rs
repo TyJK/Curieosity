@@ -336,6 +336,7 @@ pub enum TypingBox {
     Shelf,
     Codex,
     Reactions,
+    Lessons,
 }
 
 /// The shelf's search box, its text and its clear button.

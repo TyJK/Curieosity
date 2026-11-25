@@ -12,7 +12,9 @@ every substance in the game (and every locked preview) whose article it can conf
     the article's title, link and revision date, for the credit under the text
 
 and for the curriculum (tools/data/curriculum.py): each topic's lead and link, and which
-topics explain each reaction, each vessel and each era.
+topics explain each reaction, each vessel and each era. And the glossary
+(tools/data/glossary.py): every term's definition and links, and which terms each substance's
+page and each lesson uses.
 
 An article is used for a substance only when it is the substance's own (the link the content
 gives it, or the one Wikidata files under its CAS number or PubChem record), or, found by
@@ -27,6 +29,7 @@ Without the scrape it still writes the curriculum (titles and links, no text), s
 builds; run scrape_wiki.py first for the real thing.
 """
 import argparse
+import html
 import json
 import lzma
 import re
@@ -39,6 +42,7 @@ HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
 sys.path.insert(0, str(HERE))
 import curriculum  # noqa: E402
+import glossary  # noqa: E402
 
 SCRAPE = ROOT / "library" / "wiki" / "pages.jsonl.xz"
 DATA = ROOT / "assets" / "data"
@@ -179,6 +183,7 @@ def game_substances():
             "props": patch.get("properties") or base.get("properties") or [],
             "stage": patch.get("stage"),
             "link": next((u for _, u in patch.get("references") or []), None),
+            "description": patch.get("description") or base.get("description") or "",
             "element": bool(base.get("element_info")),
             "lib_mp": base.get("melting_point_c"), "lib_bp": base.get("boiling_point_c"),
             "lib_density": base.get("density_g_cm3"),
@@ -283,33 +288,141 @@ def pick_sections(sections):
 # --------------------------------------------------------------------------------------
 # Measured values
 # --------------------------------------------------------------------------------------
+def split_template(t):
+    """'{{Name|a=b|c}}' -> ('Name', ['a=b', 'c']): split at the template's own bars, not
+    those of the templates and links inside it."""
+    inner = t.strip()[2:-2]
+    parts, cur, depth, i = [], [], 0, 0
+    while i < len(inner):
+        two = inner[i:i + 2]
+        if two in ("{{", "[["):
+            depth += 1
+            cur.append(two)
+            i += 2
+        elif two in ("}}", "]]"):
+            depth = max(0, depth - 1)
+            cur.append(two)
+            i += 2
+        elif inner[i] == "|" and depth == 0:
+            parts.append("".join(cur))
+            cur = []
+            i += 1
+        else:
+            cur.append(inner[i])
+            i += 1
+    parts.append("".join(cur))
+    return parts[0].strip(), parts[1:]
+
+
+def first_template(v):
+    """The first whole {{template}} in v, or None."""
+    i = v.find("{{")
+    if i < 0:
+        return None
+    depth, j = 0, i
+    while j < len(v):
+        if v.startswith("{{", j):
+            depth += 1
+            j += 2
+        elif v.startswith("}}", j):
+            depth -= 1
+            j += 2
+            if depth == 0:
+                return v[i:j]
+        else:
+            j += 1
+    return None
+
+
 def params(box):
-    """The infobox's `| key = value` lines, keys lowercased with spaces and underscores dropped."""
+    """An infobox's parameters, keys lowercased with spaces and underscores dropped; a value
+    is taken whole, however many lines its templates run over. Chembox sections (a value that
+    is itself a Chembox template) are read into the same map."""
     # references and comments say all sorts (a cited source's own figures, a value
     # commented out): only what the infobox shows counts
     box = re.sub(r"<!--.*?-->", "", box or "", flags=re.S)
     box = re.sub(r"<ref[^>/]*/>|<ref[^>]*>.*?</ref>", "", box, flags=re.S)
+    # a nowiki'd IUPAC name is full of brackets that aren't links
+    box = re.sub(r"<nowiki>.*?</nowiki>", "", box, flags=re.S)
     out = {}
-    for line in box.split("\n"):
-        m = re.match(r"^\s*\|\s*([A-Za-z][A-Za-z0-9 _]*?)\s*=\s*(.*)$", line)
-        if m:
-            k = re.sub(r"[ _]", "", m.group(1).lower())
-            out.setdefault(k, m.group(2).strip())
+
+    def walk(t, depth=0):
+        if depth > 3:
+            return
+        _, parts = split_template(t)
+        for part in parts:
+            if "=" not in part:
+                continue
+            k, v = part.split("=", 1)
+            k = re.sub(r"[ _\n]", "", k.lower())
+            v = v.strip()
+            inner = first_template(v)
+            if inner and re.match(r"^\{\{\s*(Chembox|Infobox)", inner, re.I):
+                walk(inner, depth + 1)
+            elif k and re.match(r"^[a-z][a-z0-9]*$", k):
+                out.setdefault(k, v)
+
+    tpl = first_template(box)
+    if tpl:
+        walk(tpl)
     return out
 
 
+LIST_TEMPLATES = r"ubl|unbulleted list|plainlist|plain list|flatlist|hlist|bulleted list|ubil"
+
+
 def unwiki(v):
-    """Wikitext to plain words: links to their text, templates and references dropped."""
+    """Wikitext to plain words: links to their text, lists joined, number templates read,
+    anything else dropped. None when markup would be left over."""
     v = re.sub(r"<ref[^>]*/>|<ref[^>]*>.*?</ref>|<!--.*?-->", "", v or "", flags=re.S)
-    v = re.sub(r"<br\s*/?>", ", ", v)
+    v = re.sub(r"<br\s*/?>", "; ", v)
+    v = re.sub(r"<su[bp]>(.*?)</su[bp]>", r"\1", v)
     v = re.sub(r"<[^>]+>", "", v)
     v = re.sub(r"\[\[(?:[^|\]]*\|)?([^\]]*)\]\]", r"\1", v)
-    for _ in range(3):
-        v = re.sub(r"\{\{(?:nowrap|nobr|chem2?|ce)\|([^{}]*)\}\}", lambda m: m.group(1).replace("|", ""), v, flags=re.I)
-        v = re.sub(r"\{\{[^{}]*\}\}", "", v)
-    v = v.replace("&nbsp;", " ").replace("&minus;", "-").replace("''", "")
-    v = re.sub(r"\s+", " ", v).strip(" ,;")
-    return v
+    for _ in range(200):
+        # the innermost template first
+        t = re.search(r"\{\{([^{}]*)\}\}", v)
+        if not t:
+            break
+        name, args = split_template(t.group(0))
+        n = name.lower().strip()
+        plain = [a.strip() for a in args if "=" not in a or re.match(r"^\s*\d", a)]
+        named = dict(a.split("=", 1) for a in args if "=" in a and not re.match(r"^\s*\d", a))
+        if re.fullmatch(LIST_TEMPLATES, n):
+            rep = "; ".join(a.lstrip("* ").strip() for a in plain if a.strip())
+        elif n in ("nowrap", "nobr", "chem", "chem2", "ce", "small", "abbr", "lang", "nowrap begin"):
+            rep = "".join(plain[:1] if n in ("abbr", "lang") else plain)
+        elif n in ("val", "convert", "cvt"):
+            unit = named.get("u") or named.get("ul") or (plain[1] if len(plain) > 1 and n != "val" else "")
+            unit = "°" + unit if unit.strip() in ("C", "F") else unit
+            exp = named.get("e", "").strip()
+            rep = (plain[0] if plain else "") + ("×10^" + exp if exp else "") + (" " + unit.strip() if unit else "")
+        elif n in ("nbsp", "nnbsp", "thinsp", "spaces", "nbhyph"):
+            rep = " "
+        elif n == "e":
+            rep = "×10^" + (plain[0] if plain else "")
+        elif n in ("sup", "sub"):
+            rep = plain[0] if plain else ""
+        else:
+            rep = ""
+        v = v[:t.start()] + rep + v[t.end():]
+    v = html.unescape(v.replace("&minus;", "-")).replace("\xa0", " ").replace("''", "")
+    v = re.sub(r"\(\s*[^()]*=\s*\)", "", v)        # "(Ksp at 25 °C = )": a value that was a template
+    v = re.sub(r"\(\s*\)", "", v)
+    v = re.sub(r"\s+", " ", v)
+    v = re.sub(r"\s*,?\s*;\s*", "; ", v)      # list items, however they were separated
+    v = re.sub(r":;\s*", ": ", v).strip(" ,;")
+    # markup left over (a template we don't read, a parameter that leaked in)
+    if re.search(r"\{\{|\}\}|\[\[|\]\]|\||^\s*\w+\s*=|\w=", v):
+        return None
+    return v or None
+
+
+def one_end(v):
+    """'175-176 °C' / '175 to 176 °C' -> '175 °C': a range reads as its low end, and its
+    dash is not a minus sign."""
+    v = (v or "").replace("−", "-").replace("&minus;", "-").replace("&ndash;", "–")
+    return re.sub(r"(-?\d+(?:\.\d+)?)\s*(?:-|–|to)\s*-?\d+(?:\.\d+)?", r"\1", v)
 
 
 def first_number(v):
@@ -341,7 +454,7 @@ def infobox_temp(p, what):
                     return conv(n), note
     raw = p.get(key) or ""
     if raw:
-        m = re.search(r"(-?\d+(?:\.\d+)?)\s*(?:°|&deg;)?\s*([CFK])\b", raw.replace("−", "-").replace(",", ""))
+        m = re.search(r"(-?\d+(?:\.\d+)?)\s*(?:°|&deg;)?\s*([CFK])\b", one_end(raw).replace(",", ""))
         if m:
             n, u = float(m.group(1)), m.group(2)
             return (n if u == "C" else n - 273.15 if u == "K" else (n - 32) * 5 / 9), note
@@ -349,11 +462,11 @@ def infobox_temp(p, what):
     raw = p.get(alt) or ""
     if raw:
         n = first_number(raw)
-        m = re.search(r"(-?\d+(?:\.\d+)?)\s*(?:°|&deg;)?\s*([CFK])\b", raw.replace("−", "-").replace(",", ""))
+        m = re.search(r"(-?\d+(?:\.\d+)?)\s*(?:°|&deg;)?\s*([CFK])\b", one_end(raw).replace(",", ""))
         if m:
             n, u = float(m.group(1)), m.group(2)
             return (n if u == "C" else n - 273.15 if u == "K" else (n - 32) * 5 / 9), note
-        if n is not None and not re.search(r"[A-Za-z]{3,}", unwiki(raw)):
+        if n is not None and not re.search(r"[A-Za-z]{3,}", unwiki(raw) or ""):
             return n, note
     return None, note
 
@@ -430,15 +543,33 @@ def facts(page, entity, templates):
     d = infobox_density(p)
     out["density"] = d if d is not None else wd_density(entity)
     for k, key in (("appearance", "appearance"), ("odor", "odor"), ("odor", "odour")):
-        v = unwiki(p.get(key, ""))
-        if v and len(v) <= 120 and not out.get(k):
+        v = fit(unwiki(p.get(key, "")), 120)
+        if v and not out.get(k):
             out[k] = v[0].upper() + v[1:]
-    sol = unwiki(p.get("solubility", "") or p.get("solubilityinwater", ""))
+    sol = unwiki(p.get("solubility", "") or p.get("solubilityinwater", "")) or ""
     if re.fullmatch(r"[\d.]+", sol or ""):
         sol += " mg/mL"   # a drug's infobox gives the number alone, in mg/mL
-    if sol and len(sol) <= 80:
+    sol = fit(sol, 80)
+    if sol and re.fullmatch(r"[<>≤≥~]?\s*[\d.,]+", sol):
+        sol = None        # a bare number with no unit says nothing
+    if sol:
         out["solubility"] = sol
     return out
+
+
+def fit(v, limit):
+    """v if it fits in limit characters; for a list ('a; b; c'), as many of its first items
+    as fit. None when not even the first does."""
+    if not v:
+        return None
+    if len(v) <= limit:
+        return v
+    kept = []
+    for item in v.split("; "):
+        if len("; ".join(kept + [item])) > limit:
+            break
+        kept.append(item)
+    return "; ".join(kept) or None
 
 
 # Whether a library melting or boiling point the article doesn't confirm is kept (when it
@@ -696,6 +827,47 @@ def load_scrape(path):
     return S
 
 
+# --------------------------------------------------------------------------------------
+# Glossary
+# --------------------------------------------------------------------------------------
+# Most terms a page lists; past this, the row under the page stops helping.
+TERMS_MAX = 12
+
+
+def term_matcher():
+    """A regex finding every glossary form as a whole word (not after a hyphen: 'non-toxic'
+    isn't the glossary's 'toxic'), longest first, and a map from a match back to its term.
+    The game finds the same words with the same rules (src/ui/glossary.rs)."""
+    owner, alts = {}, []
+    for key, t in glossary.TERMS.items():
+        for f in t["forms"]:
+            k = f if not f.islower() else f.lower()
+            assert k not in owner, f"glossary form {f!r} belongs to {owner.get(k)} and {key}"
+            owner[k] = key
+            alts.append(f)
+    alts.sort(key=lambda f: (-len(f), f))
+    pat = "|".join(re.escape(f) if not f.islower() else "(?i:" + re.escape(f) + ")" for f in alts)
+    rx = re.compile(r"(?<![\w-])(?:" + pat + r")(?!\w)")
+
+    def key_of(m):
+        w = m.group(0)
+        return owner.get(w) or owner.get(w.lower())
+    return rx, key_of
+
+
+def terms_in(texts, rx, key_of, skip=()):
+    """The glossary terms the texts use, in order of first use, each followed by the terms
+    it brings along; at most TERMS_MAX."""
+    out = []
+    for text in texts:
+        for m in rx.finditer(text or ""):
+            k = key_of(m)
+            for k2 in [k] + glossary.TERMS[k]["also"]:
+                if k2 not in out and k2 not in skip:
+                    out.append(k2)
+    return out[:TERMS_MAX]
+
+
 def build(args):
     subs = game_substances()
     reactions, eras = game_reactions()
@@ -711,6 +883,7 @@ def build(args):
              "    units: [" + ", ".join(f"({q(k)}, {q(n)})" for k, n in curriculum.UNITS) + "],",
              "    topics: {"]
     title_topic = {}
+    topic_text = {}
     by_title = {p.get("title", "").lower(): p for p in pages.values() if p.get("full") and not p.get("missing")}
     for key, (unit, kind, title) in curriculum.TOPICS.items():
         rec = (scrape or {}).get("topics", {}).get(key) if scrape else None
@@ -722,6 +895,7 @@ def build(args):
         title_topic[real.lower()] = key
         lead = clip(split_sections(page.get("text", ""))[0], TOPIC_LEAD_MAX) if page else ""
         report["topics with text" if lead else "topics without text"] += 1
+        topic_text[key] = lead
         lines.append(f"        {q(key)}: (unit: {q(unit)}, kind: {kind}, title: {q(real)}, url: {q(wiki_url(real))}, "
                      f"lead: {q(lead)}),")
     lines.append("    },")
@@ -748,6 +922,7 @@ def build(args):
     lines.append("    substances: {")
     contradictions, unconfirmed = [], []
     found_values = {}
+    shown_text = {sid: [sub.get("description") or ""] for sid, sub in subs.items()}
     for sid in sorted(subs):
         rec = (scrape or {}).get("subs", {}).get(sid) if scrape else None
         if not rec:
@@ -770,6 +945,7 @@ def build(args):
         else:
             found_values[sid] = f
         report["sections"] += len(chosen)
+        shown_text[sid] += [lead] + [t for _, t in chosen]
         revised = (page.get("timestamp") or "")[:10]
         secs = ", ".join(f"({q(h)}, {q(t)})" for h, t in chosen)
         lines.append(
@@ -802,7 +978,42 @@ def build(args):
                 report[f"shows {k}"] += 1
         lines.append(f"        {sid}: (melting_c: {opt_num(v['melting_c'], 2)}, boiling_c: {opt_num(v['boiling_c'], 2)}, "
                      f"density: {opt_num(v['density'], 5)}, phase_note: {opt_str(v['phase_note'])}),")
-    lines += ["    },", ")", ""]
+    lines.append("    },")
+
+    # the glossary, and which terms each page uses
+    rx, key_of = term_matcher()
+    lines.append("    glossary: {")
+    for key, t in glossary.TERMS.items():
+        lesson = t["lesson"] or title_topic.get(t["wiki"].lower())
+        assert lesson is None or lesson in curriculum.TOPICS, f"glossary {key}: no lesson {lesson!r}"
+        forms = ", ".join(q(f) for f in t["forms"])
+        lines.append(f"        {q(key)}: (term: {q(t['term'])}, text: {q(t['text'])}, url: {q(wiki_url(t['wiki']))}, "
+                     f"lesson: {opt_str(lesson)}, forms: [{forms}]),")
+    lines.append("    },")
+    used = Counter()
+    lines.append("    substance_terms: {")
+    for sid in sorted(subs):
+        ks = terms_in(shown_text[sid], rx, key_of)
+        used.update(ks)
+        report["substances with glossary terms"] += bool(ks)
+        if ks:
+            lines.append(f"        {sid}: [" + ", ".join(q(k) for k in ks) + "],")
+    lines.append("    },")
+    lines.append("    topic_terms: {")
+    for key in curriculum.TOPICS:
+        # a lesson doesn't define its own subject back to itself
+        own = {k for k, t in glossary.TERMS.items() if t["lesson"] == key}
+        ks = terms_in([topic_text.get(key, "")], rx, key_of, skip=own)
+        used.update(ks)
+        if ks:
+            lines.append(f"        {q(key)}: [" + ", ".join(q(k) for k in ks) + "],")
+    lines.append("    },")
+    unused = [k for k in glossary.TERMS if not used[k]]
+    report["glossary terms"] = len(glossary.TERMS)
+    report["glossary terms no page uses"] = len(unused)
+    lines += [")", ""]
+    if unused and args.verbose:
+        print("Glossary terms no page uses:", ", ".join(unused))
     if agree:
         print(f"library temperatures vs the articles: {agree['agree']} agree within 3 °C, {agree['differ']} differ")
     text = "\n".join(lines)

@@ -24,6 +24,10 @@ pub struct CanvasScrollingPane;
 #[derive(Component)]
 pub struct VesselCard;
 
+/// A lab vessel set aside (hidden, untouched) while a challenge is played on the bench.
+#[derive(Component)]
+pub struct Stashed;
+
 #[derive(Component, Clone, Debug)]
 pub struct ProcessVessel {
     pub process: ProcessType,

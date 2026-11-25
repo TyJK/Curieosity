@@ -631,7 +631,11 @@ pub(super) fn polish_checks() -> Vec<Check> {
         vec![
             setup(|w| w.resource_mut::<CodexState>().open = true),
             Op::Wait(5),
-            focus_on(|w| first::<CodexCloseButton>(w, |_| true)),
+            focus_on(|w| {
+                // the list's close button (the page's is hidden while the list shows)
+                let mut q = w.query_filtered::<(Entity, &ComputedNode), With<CodexCloseButton>>();
+                q.iter(w).find(|(_, c)| c.size.x > 0.0).map(|(e, _)| e)
+            }),
             Op::Key(KeyCode::Space),
             Op::Wait(3),
             Op::Expect(state("the library stays open", |w| w.resource::<CodexState>().open)),
@@ -826,10 +830,9 @@ pub(super) fn polish_checks() -> Vec<Check> {
         "A library page names the source of its text",
         vec![
             setup(|w| {
-                let id = sub_id(w, "Styrene");
-                let mut c = w.resource_mut::<CodexState>();
-                c.open = true;
-                c.selected = id;
+                if let Some(id) = sub_id(w, "Styrene") {
+                    w.resource_mut::<CodexState>().show(id);
+                }
             }),
             Op::Until(
                 verify(|w| {
@@ -1013,66 +1016,8 @@ fn chase_a_multi_step_target(w: &mut World) {
     }
 }
 
-/// Learn is open on a topic's page, with its Wikipedia link laid out (and, given a key, on
-/// that topic).
-fn learn_shows(key: Option<&'static str>) -> Verify {
-    verify(move |w| {
-        let s = w.resource::<crate::ui::curriculum::CurriculumState>();
-        if !s.open {
-            return Err("Learn isn't open".into());
-        }
-        if let Some(k) = key {
-            if s.selected.as_deref() != Some(k) {
-                return Err(format!("showing {:?}, not {k}", s.selected));
-            }
-        }
-        let wiki =
-            first::<crate::ui::curriculum::CurriculumWiki>(w, |_| true).ok_or("the page has no Wikipedia link")?;
-        let laid = w.get::<ComputedNode>(wiki).is_some_and(|n| n.size.x > 0.0);
-        if laid {
-            Ok(())
-        } else {
-            Err("the Wikipedia link isn't laid out".into())
-        }
-    })
-}
-
-/// How many descendants of `root` carry `C`.
-fn descendants_with<C: Component>(w: &mut World, root: Entity) -> usize {
-    let mut todo = vec![root];
-    let mut n = 0;
-    while let Some(e) = todo.pop() {
-        if e != root && w.get::<C>(e).is_some() {
-            n += 1;
-        }
-        if let Some(c) = w.get::<Children>(e) {
-            todo.extend(c.iter());
-        }
-    }
-    n
-}
-
-/// The score is `n`, and the header shows it.
-fn score_is(n: u32) -> Verify {
-    verify(move |w| {
-        let points = w.resource::<crate::resources::score::Score>().points;
-        let shown = first::<crate::resources::score::ScorePill>(w, |_| true)
-            .and_then(|e| w.get::<Node>(e))
-            .is_some_and(|n| n.display != Display::None);
-        let text = first::<crate::resources::score::ScoreText>(w, |_| true)
-            .and_then(|e| w.get::<Text>(e))
-            .map(|t| t.0.clone())
-            .unwrap_or_default();
-        if points == n && shown && text == crate::resources::score::thousands(n) {
-            Ok(())
-        } else {
-            Err(format!("score {points}, header shows {text:?} (shown: {shown}), expected {n}"))
-        }
-    })
-}
-
 /// The Hint card's More button says the next clue costs `n`.
-fn more_hint_costs(n: u32) -> Verify {
+pub(super) fn more_hint_costs(n: u32) -> Verify {
     verify(move |w| {
         let want = format!("More hint (\u{2212}{n})");
         let more = first::<HintMore>(w, |_| true).ok_or("no More button")?;
@@ -1201,141 +1146,6 @@ fn play_checks() -> Vec<Check> {
     use CardPart::*;
     use ProcessType::{Heat, Mix};
     let mut v = Vec::new();
-
-    // --- Learn: the curriculum ---
-    v.push(check(
-        "Learn",
-        "The Learn tab opens the curriculum: a topic's page links its Wikipedia article, the list moves between topics, and Esc closes it",
-        vec![
-            setup(new_game),
-            Op::Wait(5),
-            Op::Click(nav(View::Learn)),
-            Op::Until(learn_shows(None), 60),
-            Op::Shot("the curriculum"),
-            Op::Click(target("the second topic in the list", |w| {
-                let list = first::<crate::ui::curriculum::CurriculumList>(w, |_| true)?;
-                let kids: Vec<Entity> = w.get::<Children>(list)?.iter().collect();
-                let e = *kids.iter().filter(|e| w.get::<crate::ui::curriculum::CurriculumEntry>(**e).is_some()).nth(1)?;
-                point_in(w, e, 0.5, 0.5)
-            })),
-            Op::Until(
-                verify(|w| {
-                    let s = w.resource::<crate::ui::curriculum::CurriculumState>();
-                    let order: Vec<String> = {
-                        let gd = w.resource::<GameData>().pages.clone();
-                        let pages = w.resource::<Assets<crate::data::pages::Pages>>().get(&gd).ok_or("no pages")?;
-                        crate::ui::curriculum::ordered(pages).iter().map(|(k, _)| k.to_string()).collect()
-                    };
-                    if s.selected.as_ref() == order.get(1) {
-                        Ok(())
-                    } else {
-                        Err(format!("showing {:?}, expected {:?}", s.selected, order.get(1)))
-                    }
-                }),
-                30,
-            ),
-            Op::Key(KeyCode::Escape),
-            Op::Until(state("Learn closed", |w| !w.resource::<crate::ui::curriculum::CurriculumState>().open), 30),
-        ],
-    ));
-    v.push(check(
-        "Learn",
-        "A reaction's page links the ideas behind it; one opens in Learn and the Reaction Library steps aside",
-        vec![
-            setup(new_game),
-            setup(|w| {
-                let mut r = w.resource_mut::<crate::ui::reaction_library::ReactionLibState>();
-                r.open = true;
-                r.selected = Some(1_000_000);
-            }),
-            Op::Wait(5),
-            Op::Until(
-                verify(|w| {
-                    let detail =
-                        first::<crate::ui::reaction_library::ReactionLibDetail>(w, |_| true).ok_or("no page")?;
-                    let n = descendants_with::<crate::ui::curriculum::LearnLink>(w, detail);
-                    if n > 0 {
-                        Ok(())
-                    } else {
-                        Err("the reaction's page links no ideas".into())
-                    }
-                }),
-                60,
-            ),
-            Op::Shot("a reaction's ideas, linked to Learn"),
-            Op::Click(target("the page's first Learn link", |w| {
-                let detail = first::<crate::ui::reaction_library::ReactionLibDetail>(w, |_| true)?;
-                let e = descendant::<crate::ui::curriculum::LearnLink>(w, detail)?;
-                point_in(w, e, 0.5, 0.5)
-            })),
-            Op::Until(
-                verify(|w| {
-                    let open = w.resource::<crate::ui::curriculum::CurriculumState>().open;
-                    let rlib = w.resource::<crate::ui::reaction_library::ReactionLibState>().open;
-                    if open && !rlib {
-                        Ok(())
-                    } else {
-                        Err(format!("Learn open: {open}, Reaction Library open: {rlib}"))
-                    }
-                }),
-                30,
-            ),
-            Op::Until(learn_shows(None), 60),
-        ],
-    ));
-
-    // --- the score ---
-    v.push(check(
-        "Score",
-        "With scoring on, the header keeps score: a failed reaction costs 2, a discovery adds 10, and More hint says what it costs",
-        vec![
-            setup(new_game),
-            setup(|w| {
-                let mut s = w.resource_mut::<Settings>();
-                s.scoring = true;
-                s.hints = true;
-                s.next_step = true;
-            }),
-            setup(|w| place(w, Mix, 0)),
-            setup(|w| place(w, Heat, 1)),
-            Op::Wait(5),
-            Op::Until(score_is(0), 30),
-            setup(|w| w.resource_mut::<crate::resources::score::Score>().points = 20),
-            // wood in the Mortar doesn't react
-            Op::Drag(tile("Wood"), card_part(Mix, Zone)),
-            Op::Until(has_chip(Mix, "Wood"), 30),
-            Op::Click(card_part(Mix, React)),
-            Op::Until(score_is(18), 60),
-            Op::Shot("the score in the header"),
-            // wood on the Fire makes charcoal, a discovery
-            Op::Drag(tile("Wood"), card_part(Heat, Zone)),
-            Op::Until(has_chip(Heat, "Wood"), 30),
-            Op::Click(card_part(Heat, React)),
-            Op::Until(score_is(28), 600),
-            // a hint costs 2, the next one 4
-            setup(chase_a_multi_step_target),
-            Op::Wait(5),
-            Op::Until(more_hint_costs(2), 30),
-            Op::Click(marked::<HintMore>("More hint")),
-            Op::Until(score_is(26), 30),
-            Op::Until(more_hint_costs(4), 30),
-            // off: the header shows no score
-            setup(|w| w.resource_mut::<Settings>().scoring = false),
-            Op::Until(
-                verify(|w| {
-                    let shown = first::<crate::resources::score::ScorePill>(w, |_| true)
-                        .and_then(|e| w.get::<Node>(e))
-                        .is_some_and(|n| n.display != Display::None);
-                    if shown {
-                        Err("the score still shows with scoring off".into())
-                    } else {
-                        Ok(())
-                    }
-                }),
-                30,
-            ),
-        ],
-    ));
 
     // --- the Hint button and its kits ---
     v.push(check(
@@ -2813,11 +2623,34 @@ pub fn battery_checks() -> Vec<Check> {
         vec![no_toasts(), setup(|w| place(w, ProcessType::Mix, 0)), Op::Wait(90), settles()],
     )];
     type Open = fn(&mut World);
-    let views: [(&str, Open); 4] = [
+    let views: [(&str, Open); 12] = [
         ("the Tech Tree", |w| w.resource_mut::<TechTreeState>().open = true),
         ("the Substance Library", |w| w.resource_mut::<crate::ui::codex::CodexState>().open = true),
+        ("A substance's page", |w| w.resource_mut::<crate::ui::codex::CodexState>().show(1026)),
         ("the Reaction Library", |w| w.resource_mut::<crate::ui::reaction_library::ReactionLibState>().open = true),
+        ("A reaction's page", |w| {
+            let id = w.resource::<RecipeDatabase>().authored.first().map(|r| r.id).unwrap_or(0);
+            w.resource_mut::<crate::ui::reaction_library::ReactionLibState>().show(id);
+        }),
+        ("Lessons", |w| w.resource_mut::<crate::ui::curriculum::CurriculumState>().open = true),
+        ("A lesson", |w| w.resource_mut::<crate::ui::curriculum::CurriculumState>().show("Catalysis")),
+        ("A glossary word", |w| w.resource_mut::<crate::ui::curriculum::CurriculumState>().show("term:Nitrate")),
         ("Settings", |w| w.resource_mut::<SettingsUi>().open = true),
+        ("Settings at the largest interface size", |w| {
+            w.resource_mut::<Settings>().ui_scale = 1.6;
+            w.resource_mut::<SettingsUi>().open = true;
+        }),
+        ("The lab chasing a target, its kit on the shelf", |w| {
+            if let Some(t) = multi_step_target(w) {
+                chase(w, t);
+            }
+        }),
+        ("A challenge being played", |w| {
+            let id = w.resource::<crate::ui::challenges::ChallengeMode>().challenges.first().map(|c| c.id);
+            if let Some(id) = id {
+                w.write_message(crate::ui::challenges::ChallengeAsk::Start { id, daily: false });
+            }
+        }),
     ];
     for (name, open) in views {
         let name: &'static str = Box::leak(format!("{name}, left alone, settles too").into_boxed_str());

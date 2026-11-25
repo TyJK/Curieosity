@@ -64,10 +64,11 @@ fn on_item_click(
     mut last: ResMut<LastTap>,
     mut add: MessageWriter<crate::systems::drag_drop::AddToActive>,
     searching: (Res<crate::ui::inventory::ShelfSearch>, Res<crate::platform::SoftKeyboard>),
+    presses: Res<crate::ui::Presses>,
 ) {
     trigger.propagate(false);
-    // a drag that ends back on its own tile is not a click
-    if trigger.button != PointerButton::Primary || moved.contains(trigger.entity) {
+    // a drag that ends back on its own tile is not a click, and nor is a two-finger scroll
+    if trigger.button != PointerButton::Primary || moved.contains(trigger.entity) || presses.multi_touch() {
         return;
     }
     let e = trigger.entity;
@@ -195,8 +196,7 @@ pub fn selection_button_system(
 ) {
     if !open.is_empty() {
         if let Some(id) = selected.0 {
-            codex.open = true;
-            codex.selected = Some(id);
+            codex.show(id);
         }
     }
 }

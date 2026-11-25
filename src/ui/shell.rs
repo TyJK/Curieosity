@@ -13,6 +13,7 @@ use crate::resources::player_progress::PlayerProgress;
 use crate::resources::recipe_database::RecipeDatabase;
 use crate::resources::ui_fonts::UiFonts;
 use crate::ui::codex::CodexState;
+use crate::ui::curriculum::CurriculumState;
 use crate::ui::reaction_library::ReactionLibState;
 use crate::ui::settings::{Settings, SettingsUi};
 use crate::ui::tech_tree::TechTreeState;
@@ -64,8 +65,8 @@ pub fn current_view(codex: &CodexState, rlib: &ReactionLibState, tree: &TechTree
     }
 }
 
-/// The screen is taller than it is wide (a phone held upright): the list-and-page views
-/// stack their list above the page, and the header keeps its icons.
+/// The screen is taller than it is wide (a phone held upright): the header keeps its icons,
+/// and the one-pane views pad their sides less.
 #[derive(Resource, Default, Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Portrait(pub bool);
 
@@ -76,15 +77,123 @@ pub struct HeaderWords;
 #[derive(Component)]
 pub struct HeaderBar;
 
-/// A view of a list beside a page (the Substance and Reaction Libraries): side by side,
-/// or upright the list above the page.
+/// The list side of a one-pane view (the Substance and Reaction Libraries, Lessons): the
+/// view shows its list or one page from it, each across the whole screen, so neither is
+/// squeezed beside the other and a page reads at a comfortable width on a phone either way
+/// up. Back (or Esc) returns from the page to the list, where it was left.
 #[derive(Component)]
-pub struct SplitRoot;
-/// The list, and its width side by side.
+pub struct PaneList(pub View);
+/// The page side of a one-pane view.
 #[derive(Component)]
-pub struct SplitList(pub f32);
+pub struct PanePage(pub View);
+/// A page's Back button.
 #[derive(Component)]
-pub struct SplitPane;
+pub struct PaneBack(pub View);
+/// Padding that narrows upright: (sides, top, bottom) side by side.
+#[derive(Component)]
+pub struct PanePad(pub f32, pub f32, pub f32);
+
+/// Whether a one-pane view is showing a page (rather than its list).
+pub fn page_open(view: View, codex: &CodexState, rlib: &ReactionLibState, learn: &CurriculumState) -> bool {
+    match view {
+        View::Substances => codex.page,
+        View::Reactions => rlib.page,
+        View::Learn => learn.page,
+        View::Lab | View::TechTree => false,
+    }
+}
+
+/// Shows each one-pane view's list or its page. Writes only on a change.
+#[allow(clippy::type_complexity)]
+pub fn one_pane_system(
+    codex: Res<CodexState>,
+    rlib: Res<ReactionLibState>,
+    learn: Res<CurriculumState>,
+    mut nodes: Query<(Option<&PaneList>, Option<&PanePage>, &mut Node), Or<(With<PaneList>, With<PanePage>)>>,
+    added: Query<(), Or<(Added<PaneList>, Added<PanePage>)>>,
+) {
+    if !(codex.is_changed() || rlib.is_changed() || learn.is_changed() || !added.is_empty()) {
+        return;
+    }
+    for (list, page, mut n) in &mut nodes {
+        let (view, is_page) = match (list, page) {
+            (Some(l), _) => (l.0, false),
+            (_, Some(p)) => (p.0, true),
+            _ => continue,
+        };
+        let d = if page_open(view, &codex, &rlib, &learn) == is_page { Display::Flex } else { Display::None };
+        if n.display != d {
+            n.display = d;
+        }
+    }
+}
+
+/// Back, on a page: to the list.
+pub fn pane_back_system(
+    backs: Query<&PaneBack, (With<Clicked>, With<crate::ui::Button>)>,
+    mut codex: ResMut<CodexState>,
+    mut rlib: ResMut<ReactionLibState>,
+    mut learn: ResMut<CurriculumState>,
+) {
+    for b in &backs {
+        match b.0 {
+            View::Substances => codex.page = false,
+            View::Reactions => rlib.page = false,
+            View::Learn => learn.page = false,
+            View::Lab | View::TechTree => {}
+        }
+    }
+}
+
+/// The bar across the top of a page: Back to the list (named), and close.
+pub fn spawn_page_bar(
+    parent: &mut ChildSpawnerCommands,
+    fonts: &UiFonts,
+    assets: &AssetServer,
+    view: View,
+    list_name: &str,
+    close: impl Bundle,
+) {
+    parent
+        .spawn((
+            PanePad(28.0, 8.0, 8.0),
+            Node {
+                width: Val::Percent(100.0),
+                flex_shrink: 0.0,
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::SpaceBetween,
+                padding: UiRect::new(Val::Px(28.0), Val::Px(28.0), Val::Px(8.0), Val::Px(8.0)),
+                border: UiRect::bottom(Val::Px(1.0)),
+                ..default()
+            },
+            BackgroundColor(theme::SURFACE),
+            BorderColor::all(theme::LINE),
+        ))
+        .with_children(|bar| {
+            bar.spawn((
+                theme::button(
+                    Kind::Secondary,
+                    Node {
+                        min_height: Val::Px(40.0),
+                        padding: UiRect::new(Val::Px(10.0), Val::Px(16.0), Val::Px(4.0), Val::Px(4.0)),
+                        column_gap: Val::Px(8.0),
+                        align_items: AlignItems::Center,
+                        ..default()
+                    },
+                    theme::R_MD,
+                ),
+                PaneBack(view),
+            ))
+            .with_children(|b| {
+                b.spawn((
+                    theme::icon(assets, "chevron", 18.0, theme::TEXT),
+                    UiTransform::from_rotation(Rot2::degrees(180.0)),
+                ));
+                b.spawn((theme::label(fonts, list_name, theme::MD, Weight::Semibold, theme::TEXT), Pickable::IGNORE));
+            });
+            theme::spawn_icon_button(bar, assets, "close", 40.0, theme::TEXT_2, close);
+        });
+}
 
 pub fn portrait_system(windows: Query<&Window, With<bevy::window::PrimaryWindow>>, mut portrait: ResMut<Portrait>) {
     let Ok(w) = windows.single() else { return };
@@ -97,22 +206,23 @@ pub fn portrait_system(windows: Query<&Window, With<bevy::window::PrimaryWindow>
     }
 }
 
-/// Lays the views out for the way the screen is held (see Portrait). The lab is the same
-/// either way: the bench across the screen above the shelf (fit_dock_system sizes the two).
+/// Lays the header out for the way the screen is held (see Portrait), and the one-pane
+/// views' padding. The lab is the same either way: the bench across the screen above the
+/// shelf (fit_dock_system sizes the two).
 #[allow(clippy::type_complexity)]
 pub fn portrait_layout_system(
     portrait: Res<Portrait>,
     mut nodes: Query<
-        (
-            &mut Node,
-            Has<HeaderWords>,
-            (Has<SplitRoot>, Option<&SplitList>, Has<SplitPane>, Has<NavTab>, Has<HeaderBar>),
-        ),
-        Or<(With<HeaderWords>, With<SplitRoot>, With<SplitList>, With<SplitPane>, With<NavTab>, With<HeaderBar>)>,
+        (&mut Node, Has<HeaderWords>, (Option<&PanePad>, Has<NavTab>, Has<HeaderBar>)),
+        Or<(With<HeaderWords>, With<PanePad>, With<NavTab>, With<HeaderBar>)>,
     >,
+    added: Query<(), Or<(Added<PanePad>, Added<HeaderWords>)>>,
 ) {
+    if !portrait.is_changed() && added.is_empty() {
+        return;
+    }
     let up = portrait.0;
-    for (mut n, words, (split, split_list, split_pane, tab, bar)) in &mut nodes {
+    for (mut n, words, (pad, tab, bar)) in &mut nodes {
         let mut want = n.clone();
         if bar {
             want.column_gap = Val::Px(if up { 8.0 } else { 18.0 });
@@ -120,23 +230,9 @@ pub fn portrait_layout_system(
         } else if tab {
             // upright the tabs are their icons: a little narrower
             want.padding = UiRect::horizontal(Val::Px(if up { 9.0 } else { 12.0 }));
-        } else if split {
-            want.flex_direction = if up { FlexDirection::Column } else { FlexDirection::Row };
-        } else if let Some(SplitList(w)) = split_list {
-            let list_w = Val::Px(*w);
-            want.width = if up { Val::Percent(100.0) } else { list_w };
-            want.min_width = if up { Val::Px(0.0) } else { list_w };
-            want.height = Val::Percent(if up { 42.0 } else { 100.0 });
-            want.border = if up { UiRect::bottom(Val::Px(1.0)) } else { UiRect::right(Val::Px(1.0)) };
-        } else if split_pane {
-            want.height = if up { Val::Auto } else { Val::Percent(100.0) };
-            want.flex_basis = if up { Val::Px(0.0) } else { Val::Auto };
-            want.min_height = Val::Px(0.0);
-            want.padding = if up {
-                UiRect::new(Val::Px(16.0), Val::Px(16.0), Val::Px(14.0), Val::Px(30.0))
-            } else {
-                UiRect::new(Val::Px(32.0), Val::Px(32.0), Val::Px(26.0), Val::Px(40.0))
-            };
+        } else if let Some(PanePad(side, top, bottom)) = pad {
+            let side = if up { (side * 0.5).min(14.0) } else { *side };
+            want.padding = UiRect::new(Val::Px(side), Val::Px(side), Val::Px(*top), Val::Px(*bottom));
         } else if words {
             want.display = if up { Display::None } else { Display::Flex };
         }
@@ -196,7 +292,7 @@ pub fn spawn_header(mut commands: Commands, fonts: Res<UiFonts>, assets: Res<Ass
                         (View::Substances, "book", "Substances"),
                         (View::Reactions, "reaction", "Reactions"),
                         (View::TechTree, "tree", "Tech Tree"),
-                        (View::Learn, "info", "Learn"),
+                        (View::Learn, "info", "Lessons"),
                     ] {
                         nav.spawn((
                             theme::button(
@@ -225,8 +321,8 @@ pub fn spawn_header(mut commands: Commands, fonts: Res<UiFonts>, assets: Res<Ass
             );
             // spacer
             h.spawn(Node { flex_grow: 1.0, ..default() });
-            // the score, while scoring is on
-            crate::resources::score::spawn_score_pill(h, fonts, assets);
+            // the challenges
+            crate::ui::challenges::spawn_board_button(h, assets);
             // era + discovery progress
             h.spawn(Node {
                 flex_direction: FlexDirection::Column,
@@ -284,13 +380,20 @@ pub fn nav_input_system(
     mut settings_ui: ResMut<SettingsUi>,
     mut journal_ui: ResMut<crate::ui::toasts::JournalUi>,
     mut picker: ResMut<crate::ui::process_toolbar::VesselPicker>,
-    mut learn: ResMut<crate::ui::curriculum::CurriculumState>,
+    mut learn: ResMut<CurriculumState>,
 ) {
     for tab in &tabs {
         codex.open = tab.0 == View::Substances;
         rlib.open = tab.0 == View::Reactions;
         tree.open = tab.0 == View::TechTree;
         learn.open = tab.0 == View::Learn;
+        // a view's tab shows its list
+        match tab.0 {
+            View::Substances => codex.page = false,
+            View::Reactions => rlib.page = false,
+            View::Learn => learn.page = false,
+            View::Lab | View::TechTree => {}
+        }
         if picker.open {
             picker.open = false;
         }
@@ -305,7 +408,8 @@ pub fn nav_input_system(
 
 /// Esc closes the lab's pop-ups (the "are you sure", the vessel picker, the shelf's category
 /// list), then the shelf search's typing, an open discovery card, the credits, the settings
-/// dialog or the journal, then any open view, then lets go of a port picked to link from,
+/// dialog or the journal, then goes from a page back to its list, then closes any open
+/// view, then lets go of a port picked to link from,
 /// then of the shelf selection; with nothing else to close it opens the menu.
 #[allow(clippy::too_many_arguments)]
 pub fn escape_system(
@@ -329,7 +433,8 @@ pub fn escape_system(
         ResMut<crate::ui::discovery_card::DiscoveryCards>,
         Res<Time<Real>>,
     ),
-    mut learn: ResMut<crate::ui::curriculum::CurriculumState>,
+    mut learn: ResMut<CurriculumState>,
+    mut challenges: ResMut<crate::ui::challenges::ChallengeMode>,
 ) {
     // a controller's B and Start do what Esc does, and so does a phone's Back
     let pad = pads.iter().any(|g| g.just_pressed(GamepadButton::East) || g.just_pressed(GamepadButton::Start));
@@ -359,6 +464,14 @@ pub fn escape_system(
         journal_ui.open = false;
     } else if settings_ui.open {
         settings_ui.open = false;
+    } else if challenges.board_open {
+        challenges.board_open = false;
+    } else if codex.open && codex.page {
+        codex.page = false;
+    } else if rlib.open && rlib.page {
+        rlib.page = false;
+    } else if learn.open && learn.page {
+        learn.page = false;
     } else if codex.open || rlib.open || tree.open || learn.open {
         codex.open = false;
         rlib.open = false;
@@ -381,7 +494,7 @@ pub fn nav_highlight_system(
     codex: Res<CodexState>,
     rlib: Res<ReactionLibState>,
     tree: Res<TechTreeState>,
-    learn: Res<crate::ui::curriculum::CurriculumState>,
+    learn: Res<CurriculumState>,
     mut tabs: Query<(&NavTab, &mut Skin)>,
 ) {
     if !(codex.is_changed() || rlib.is_changed() || tree.is_changed() || learn.is_changed()) {
@@ -406,8 +519,13 @@ pub fn header_stats_system(
     mut count: Query<&mut Text, (With<CountText>, Without<EraText>)>,
     mut bar: Query<&mut Node, With<CountBar>>,
     portrait: Res<Portrait>,
+    challenge: Option<Res<crate::ui::challenges::ChallengeMode>>,
 ) {
     let Some(db) = db else { return };
+    // the header is the lab's: a challenge leaves it (and the era banner) alone
+    if challenge.is_some_and(|c| c.playing()) {
+        return;
+    }
     if !(progress.is_changed() || db.is_changed() || portrait.is_changed()) {
         return;
     }
@@ -825,11 +943,13 @@ pub fn touch_scroll_system(
             }
         }
     }
+    // two fingers scroll as one: each moves the list its share of their movement
+    let n = touches.iter().count().max(1) as f32;
     for t in touches.iter() {
         if let Some(&e) = held.get(&t.id()) {
             let d = t.delta();
             if d != Vec2::ZERO {
-                scroll_out_from(e, d / s, false, &parents, &mut scrollers);
+                scroll_out_from(e, d / s / n, false, &parents, &mut scrollers);
             }
         }
     }
@@ -847,6 +967,10 @@ pub fn clamp_scroll_system(
     mut q: Query<(&ComputedNode, &mut ScrollPosition), Or<(Changed<ComputedNode>, Changed<ScrollPosition>)>>,
 ) {
     for (cn, mut sp) in &mut q {
+        // a hidden view (a one-pane view's list while its page shows) keeps its place
+        if cn.size == Vec2::ZERO {
+            continue;
+        }
         let c = sp.0.clamp(Vec2::ZERO, scroll_max(cn));
         if c != sp.0 {
             sp.0 = c;

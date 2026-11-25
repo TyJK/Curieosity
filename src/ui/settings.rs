@@ -60,9 +60,6 @@ pub struct Settings {
     pub balanced_amounts: bool,
     /// the shelf's height as set with its grip (interface pixels); 0 sizes it to the screen
     pub shelf_h: f32,
-    /// keep score (resources::score): points for discoveries, a little off for reactions
-    /// that don't go and for hints; shown in the header
-    pub scoring: bool,
 }
 
 impl Settings {
@@ -95,7 +92,6 @@ impl Default for Settings {
             cards_close_themselves: false,
             balanced_amounts: false,
             shelf_h: 0.0,
-            scoring: false,
         }
     }
 }
@@ -171,7 +167,6 @@ pub enum Field {
     DiscoveryCards,
     CardsCloseThemselves,
     BalancedAmounts,
-    Scoring,
 }
 
 #[derive(Component)]
@@ -241,7 +236,6 @@ impl Settings {
             Field::DiscoveryCards => self.discovery_cards = !self.discovery_cards,
             Field::CardsCloseThemselves => self.cards_close_themselves = !self.cards_close_themselves,
             Field::BalancedAmounts => self.balanced_amounts = !self.balanced_amounts,
-            Field::Scoring => self.scoring = !self.scoring,
             _ => {}
         }
     }
@@ -260,7 +254,6 @@ impl Settings {
             Field::DiscoveryCards => self.discovery_cards,
             Field::CardsCloseThemselves => self.cards_close_themselves,
             Field::BalancedAmounts => self.balanced_amounts,
-            Field::Scoring => self.scoring,
             _ => false,
         }
     }
@@ -394,9 +387,9 @@ pub fn spawn_settings(mut commands: Commands, fonts: Res<UiFonts>, assets: Res<A
             root.spawn((
                 Node {
                     border_radius: BorderRadius::all(Val::Px(theme::R_LG)),
-                    width: Val::Px(880.0),
-                    max_width: Val::Percent(94.0),
-                    max_height: Val::Percent(92.0),
+                    width: Val::Px(1000.0),
+                    max_width: Val::Percent(96.0),
+                    max_height: Val::Percent(94.0),
                     flex_direction: FlexDirection::Column,
                     padding: UiRect::all(Val::Px(22.0)),
                     row_gap: Val::Px(10.0),
@@ -424,7 +417,7 @@ pub fn spawn_settings(mut commands: Commands, fonts: Res<UiFonts>, assets: Res<A
                                 t.spawn(theme::icon(assets, "gear", 22.0, theme::CYAN));
                                 t.spawn(theme::label(fonts, "Settings", theme::XL, Weight::Semibold, theme::TEXT));
                             });
-                        theme::spawn_icon_button(h, assets, "close", 32.0, theme::TEXT_2, SettingsClose);
+                        theme::spawn_icon_button(h, assets, "close", 40.0, theme::TEXT_2, SettingsClose);
                     });
                 dialog
                     .spawn((
@@ -440,17 +433,19 @@ pub fn spawn_settings(mut commands: Commands, fonts: Res<UiFonts>, assets: Res<A
                         Pickable::default(),
                     ))
                     .with_children(|panel| {
-                        // two columns: Display, Help and Sound on the left; Play, Hints and Progress on the right
-                        panel.spawn(Node { column_gap: Val::Px(32.0), flex_shrink: 0.0, ..default() }).with_children(
-                            |cols| {
-                                cols.spawn(Node {
-                                    flex_direction: FlexDirection::Column,
-                                    flex_basis: Val::Px(0.0),
-                                    flex_grow: 1.0,
-                                    row_gap: Val::Px(8.0),
-                                    ..default()
-                                })
-                                .with_children(|c| {
+                        // two columns: Display, Help and Sound on the left; Play, Hints and Progress
+                        // on the right. Where two don't fit (a phone, a large interface size) the
+                        // second goes under the first, so nothing runs off the dialog's edge.
+                        panel
+                            .spawn(Node {
+                                column_gap: Val::Px(36.0),
+                                row_gap: Val::Px(6.0),
+                                flex_wrap: FlexWrap::Wrap,
+                                flex_shrink: 0.0,
+                                ..default()
+                            })
+                            .with_children(|cols| {
+                                cols.spawn(column()).with_children(|c| {
                                     theme::spawn_section_title(c, fonts, "Display");
                                     stepper(
                                         c,
@@ -500,8 +495,8 @@ pub fn spawn_settings(mut commands: Commands, fonts: Res<UiFonts>, assets: Res<A
                                     c.spawn(Node {
                                         justify_content: JustifyContent::SpaceBetween,
                                         align_items: AlignItems::Center,
-                                        column_gap: Val::Px(12.0),
-                                        min_height: Val::Px(44.0),
+                                        column_gap: Val::Px(14.0),
+                                        min_height: Val::Px(54.0),
                                         flex_shrink: 0.0,
                                         ..default()
                                     })
@@ -534,14 +529,7 @@ pub fn spawn_settings(mut commands: Commands, fonts: Res<UiFonts>, assets: Res<A
                                         "A soft tick when a button is pressed.",
                                     );
                                 });
-                                cols.spawn(Node {
-                                    flex_direction: FlexDirection::Column,
-                                    flex_basis: Val::Px(0.0),
-                                    flex_grow: 1.0,
-                                    row_gap: Val::Px(8.0),
-                                    ..default()
-                                })
-                                .with_children(|c| {
+                                cols.spawn(column()).with_children(|c| {
                                     theme::spawn_section_title(c, fonts, "Play");
                                     stepper(
                                         c,
@@ -564,13 +552,6 @@ pub fn spawn_settings(mut commands: Commands, fonts: Res<UiFonts>, assets: Res<A
                                         Field::BalancedAmounts,
                                         "Balanced amounts",
                                         "Put each in as often as the equation says; wrong ratios waste half.",
-                                    );
-                                    toggle(
-                                        c,
-                                        fonts,
-                                        Field::Scoring,
-                                        "Score",
-                                        "10 a discovery; a failed reaction costs 2, each hint since your last discovery 2 more than the last.",
                                     );
                                     toggle(
                                         c,
@@ -643,8 +624,8 @@ pub fn spawn_settings(mut commands: Commands, fonts: Res<UiFonts>, assets: Res<A
                                                 fonts,
                                                 save_path().display().to_string(),
                                                 theme::XS,
-                                                theme::TEXT_3,
-                                                Val::Px(220.0),
+                                                theme::TEXT_2,
+                                                Val::Percent(100.0),
                                             ));
                                         });
                                         theme::spawn_button(
@@ -658,8 +639,7 @@ pub fn spawn_settings(mut commands: Commands, fonts: Res<UiFonts>, assets: Res<A
                                         );
                                     });
                                 });
-                            },
-                        );
+                            });
 
                         theme::spawn_section_title(panel, fonts, "About");
                         panel
@@ -680,7 +660,7 @@ pub fn spawn_settings(mut commands: Commands, fonts: Res<UiFonts>, assets: Res<A
                                 .with_children(|t| {
                                     t.spawn((
                                         SettingsAbout,
-                                        theme::para(fonts, "Curieosity", theme::SM, theme::TEXT_2, Val::Px(560.0)),
+                                        theme::para(fonts, "Curieosity", theme::SM, theme::TEXT_2, Val::Percent(100.0)),
                                     ));
                                     t.spawn(theme::para(
                                         fonts,
@@ -690,8 +670,8 @@ pub fn spawn_settings(mut commands: Commands, fonts: Res<UiFonts>, assets: Res<A
                                         crate::ui::credits::CONTENT_LICENCE
                                     ),
                                         theme::XS,
-                                        theme::TEXT_3,
-                                        Val::Px(560.0),
+                                        theme::TEXT_2,
+                                        Val::Percent(100.0),
                                     ));
                                 });
                                 crate::ui::credits::spawn_credits_button(row, fonts, assets);
@@ -701,12 +681,37 @@ pub fn spawn_settings(mut commands: Commands, fonts: Res<UiFonts>, assets: Res<A
         });
 }
 
+/// One of the dialog's two columns: half the width, or all of it when two don't fit.
+fn column() -> Node {
+    Node {
+        flex_direction: FlexDirection::Column,
+        flex_basis: Val::Px(380.0),
+        flex_grow: 1.0,
+        min_width: Val::Px(0.0),
+        row_gap: Val::Px(6.0),
+        ..default()
+    }
+}
+
+/// A setting's name and what it does, wrapping in whatever room the control leaves.
 fn row_text(row: &mut ChildSpawnerCommands, fonts: &UiFonts, title: &str, hint: &str) {
-    row.spawn(Node { flex_direction: FlexDirection::Column, flex_shrink: 1.0, row_gap: Val::Px(1.0), ..default() })
-        .with_children(|c| {
-            c.spawn(theme::label(fonts, title, theme::MD, Weight::Semibold, theme::TEXT));
-            c.spawn(theme::label(fonts, hint, theme::XS, Weight::Regular, theme::TEXT_3));
-        });
+    row.spawn(Node {
+        flex_direction: FlexDirection::Column,
+        flex_shrink: 1.0,
+        flex_grow: 1.0,
+        min_width: Val::Px(0.0),
+        row_gap: Val::Px(2.0),
+        ..default()
+    })
+    .with_children(|c| {
+        c.spawn((
+            Text::new(title),
+            TextFont { font: fonts.semibold.clone().into(), font_size: FontSize::Px(16.0), ..default() },
+            TextColor(theme::TEXT),
+            TextLayout::linebreak(LineBreak::WordBoundary),
+        ));
+        c.spawn(theme::para(fonts, hint, theme::SM, theme::TEXT_2, Val::Percent(100.0)));
+    });
 }
 
 fn stepper(panel: &mut ChildSpawnerCommands, fonts: &UiFonts, assets: &AssetServer, f: Field, title: &str, hint: &str) {
@@ -714,26 +719,27 @@ fn stepper(panel: &mut ChildSpawnerCommands, fonts: &UiFonts, assets: &AssetServ
         .spawn(Node {
             justify_content: JustifyContent::SpaceBetween,
             align_items: AlignItems::Center,
-            min_height: Val::Px(44.0),
+            min_height: Val::Px(54.0),
             flex_shrink: 0.0,
-            column_gap: Val::Px(12.0),
+            column_gap: Val::Px(14.0),
             ..default()
         })
         .with_children(|row| {
             row_text(row, fonts, title, hint);
-            row.spawn(Node { align_items: AlignItems::Center, column_gap: Val::Px(8.0), ..default() }).with_children(
-                |ctl| {
-                    step_button(ctl, assets, "minus", SettingStep(f, -1.0));
-                    ctl.spawn((Node { width: Val::Px(64.0), justify_content: JustifyContent::Center, ..default() },))
-                        .with_children(|v| {
-                            v.spawn((
-                                SettingValue(f),
-                                theme::label(fonts, "", theme::MD, Weight::Semibold, theme::CYAN),
-                            ));
-                        });
-                    step_button(ctl, assets, "plus", SettingStep(f, 1.0));
-                },
-            );
+            row.spawn(Node {
+                align_items: AlignItems::Center,
+                column_gap: Val::Px(8.0),
+                flex_shrink: 0.0,
+                ..default()
+            })
+            .with_children(|ctl| {
+                step_button(ctl, assets, "minus", SettingStep(f, -1.0));
+                ctl.spawn((Node { width: Val::Px(66.0), justify_content: JustifyContent::Center, ..default() },))
+                    .with_children(|v| {
+                        v.spawn((SettingValue(f), theme::label(fonts, "", theme::LG, Weight::Semibold, theme::CYAN)));
+                    });
+                step_button(ctl, assets, "plus", SettingStep(f, 1.0));
+            });
         });
 }
 
@@ -743,8 +749,8 @@ fn step_button(parent: &mut ChildSpawnerCommands, assets: &AssetServer, icon: &s
             theme::button(
                 Kind::Secondary,
                 Node {
-                    width: Val::Px(32.0),
-                    height: Val::Px(32.0),
+                    width: Val::Px(40.0),
+                    height: Val::Px(40.0),
                     align_items: AlignItems::Center,
                     justify_content: JustifyContent::Center,
                     ..default()
@@ -754,7 +760,7 @@ fn step_button(parent: &mut ChildSpawnerCommands, assets: &AssetServer, icon: &s
             marker,
         ))
         .with_children(|b| {
-            b.spawn(theme::icon(assets, icon, 14.0, theme::TEXT));
+            b.spawn(theme::icon(assets, icon, 16.0, theme::TEXT));
         });
 }
 
@@ -763,9 +769,9 @@ fn toggle(panel: &mut ChildSpawnerCommands, fonts: &UiFonts, f: Field, title: &s
         .spawn(Node {
             justify_content: JustifyContent::SpaceBetween,
             align_items: AlignItems::Center,
-            min_height: Val::Px(44.0),
+            min_height: Val::Px(54.0),
             flex_shrink: 0.0,
-            column_gap: Val::Px(12.0),
+            column_gap: Val::Px(14.0),
             ..default()
         })
         .with_children(|row| {
@@ -775,9 +781,10 @@ fn toggle(panel: &mut ChildSpawnerCommands, fonts: &UiFonts, f: Field, title: &s
                 SettingToggle(f),
                 Node {
                     border_radius: BorderRadius::all(Val::Px(99.0)),
-                    width: Val::Px(48.0),
-                    height: Val::Px(26.0),
-                    padding: UiRect::all(Val::Px(3.0)),
+                    width: Val::Px(56.0),
+                    height: Val::Px(32.0),
+                    flex_shrink: 0.0,
+                    padding: UiRect::all(Val::Px(4.0)),
                     border: UiRect::all(Val::Px(1.0)),
                     align_items: AlignItems::Center,
                     ..default()
@@ -790,8 +797,8 @@ fn toggle(panel: &mut ChildSpawnerCommands, fonts: &UiFonts, f: Field, title: &s
                     SettingKnob(f),
                     Node {
                         border_radius: BorderRadius::all(Val::Px(99.0)),
-                        width: Val::Px(18.0),
-                        height: Val::Px(18.0),
+                        width: Val::Px(22.0),
+                        height: Val::Px(22.0),
                         ..default()
                     },
                     BackgroundColor(theme::TEXT_2),

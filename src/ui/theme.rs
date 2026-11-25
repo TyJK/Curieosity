@@ -105,11 +105,31 @@ pub fn label(fonts: &UiFonts, text: impl Into<String>, size: f32, w: Weight, col
     )
 }
 
+/// Whether text holds characters the main font can't draw but DejaVu can: arrows and maths
+/// in equations quoted from Wikipedia ("2 ZnS + 3 O2 → 2 ZnO"), Arabic and Hebrew names.
+pub fn needs_symbols(text: &str) -> bool {
+    text.chars().any(|c| {
+        matches!(c as u32,
+            0x0590..=0x06FF | 0x10A0..=0x10FF | 0x2190..=0x23FF | 0x25A0..=0x26FF | 0x27C0..=0x27FF | 0x2900..=0x2AFF)
+    })
+}
+
+/// The font for running text: the main one, or DejaVu where the text needs it.
+pub fn text_font(fonts: &UiFonts, text: &str) -> Handle<Font> {
+    if needs_symbols(text) {
+        fonts.symbols.clone()
+    } else {
+        fonts.main.clone()
+    }
+}
+
 /// A text node that wraps inside `max_w` pixels.
 pub fn para(fonts: &UiFonts, text: impl Into<String>, size: f32, color: Color, max_w: Val) -> impl Bundle {
+    let text = text.into();
+    let font = text_font(fonts, &text);
     (
-        Text::new(text.into()),
-        TextFont { font: fonts.main.clone().into(), font_size: FontSize::Px(size), ..default() },
+        Text::new(text),
+        TextFont { font: font.into(), font_size: FontSize::Px(size), ..default() },
         TextColor(color),
         TextLayout::linebreak(LineBreak::WordBoundary),
         Node { max_width: max_w, ..default() },
@@ -390,7 +410,7 @@ pub fn spawn_section_title(parent: &mut ChildSpawnerCommands, fonts: &UiFonts, t
         })
         .insert(BorderColor::all(LINE))
         .with_children(|t| {
-            t.spawn(label(fonts, text.to_uppercase(), XS, Weight::Bold, TEXT_3));
+            t.spawn(label(fonts, text.to_uppercase(), 12.0, Weight::Bold, TEXT_2));
         });
 }
 

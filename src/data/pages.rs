@@ -4,9 +4,10 @@
 // tools/data/gen_pages.py. For each substance with an article it can confirm, the article's
 // lead and a few of its sections (history, how it is made, where it is found, uses,
 // safety); the measured values the game shows (melting and boiling points, density) as
-// checked against the article and Wikidata; and the curriculum: the ideas behind the
-// reactions, each a Wikipedia article, grouped into units, with which of them explain each
-// reaction, vessel and era.
+// checked against the article and Wikidata; the curriculum: the ideas behind the reactions,
+// each a Wikipedia article, grouped into units, with which of them explain each reaction,
+// vessel and era; and the glossary (tools/data/glossary.py): the chemistry words the pages
+// use, each defined, with which of them each substance's page and each lesson uses.
 use super::common::ProcessType;
 use super::substances::Substances;
 use bevy::{asset::Asset, reflect::TypePath};
@@ -30,6 +31,29 @@ pub struct Pages {
     pub substances: HashMap<u32, SubstancePage>,
     /// substance id -> its measured values, checked (None: not known, or the sources disagree)
     pub values: HashMap<u32, Measured>,
+    /// every glossary term, by key
+    pub glossary: HashMap<String, Term>,
+    /// substance id -> the terms its page uses, in order of first use
+    pub substance_terms: HashMap<u32, Vec<String>>,
+    /// topic key -> the terms its lesson uses
+    pub topic_terms: HashMap<String, Vec<String>>,
+}
+
+/// A chemistry word, defined.
+#[derive(Debug, Deserialize, Clone, Default)]
+#[serde(default)]
+pub struct Term {
+    /// the word as a heading ("Nitrite", "-ate and -ite")
+    pub term: String,
+    /// the definition, a sentence or two
+    pub text: String,
+    /// the Wikipedia article that explains it
+    pub url: String,
+    /// the curriculum topic that teaches it
+    pub lesson: Option<String>,
+    /// the words in running text that mean it, longest first; lowercase ones match any case,
+    /// one with a capital ("pH") only as written
+    pub forms: Vec<String>,
 }
 
 #[derive(Debug, Deserialize, Clone, Copy, PartialEq, Eq, Hash)]
@@ -147,6 +171,40 @@ impl Pages {
         v
     }
 
+    /// Where the given terms are used in `text`: (start, end, term key) byte ranges, in order,
+    /// not overlapping, the longest form winning where two start together. A form counts
+    /// only as a whole word, and not straight after a hyphen ("non-toxic" isn't "toxic"),
+    /// the same rule tools/data/gen_pages.py uses to list a page's terms.
+    pub fn term_spans<'a>(&'a self, text: &str, keys: &'a [String]) -> Vec<(usize, usize, &'a str)> {
+        let mut forms: Vec<(&str, &str)> = keys
+            .iter()
+            .filter_map(|k| self.glossary.get(k).map(|t| (k.as_str(), t)))
+            .flat_map(|(k, t)| t.forms.iter().map(move |f| (f.as_str(), k)))
+            .collect();
+        forms.sort_by_key(|(f, _)| std::cmp::Reverse(f.len()));
+        // ASCII lowercase keeps every byte where it was, so the offsets hold for `text`
+        let lower = text.to_ascii_lowercase();
+        let word = |c: char| c.is_alphanumeric() || c == '_';
+        let mut out = Vec::new();
+        let mut next = 0;
+        for (i, c) in text.char_indices() {
+            if i < next || !word(c) || text[..i].chars().next_back().is_some_and(|p| word(p) || p == '-') {
+                continue;
+            }
+            let hit = forms.iter().find(|(f, _)| {
+                let hay = if f.bytes().any(|b| b.is_ascii_uppercase()) { text } else { lower.as_str() };
+                hay.as_bytes()[i..].starts_with(f.as_bytes())
+                    && hay.is_char_boundary(i + f.len())
+                    && !text[i + f.len()..].chars().next().is_some_and(word)
+            });
+            if let Some((f, k)) = hit {
+                out.push((i, i + f.len(), *k));
+                next = i + f.len();
+            }
+        }
+        out
+    }
+
     /// Every vessel a topic is behind.
     pub fn vessels_of(&self, topic: &str) -> Vec<ProcessType> {
         let mut v: Vec<ProcessType> =
@@ -184,6 +242,14 @@ mod tests {
         eras: { "Modern": ["Catalysis"] },
         substances: { 1: (title: "Hydrogen", url: "u", revised: "2026-11-01", lead: "The lightest.", sections: [("History", "Cavendish.")]) },
         values: { 1: (melting_c: Some(-259.16), boiling_c: Some(-252.88), density: Some(0.00008988)), 2: (phase_note: Some("Decomposes at 132 °C")) },
+        glossary: {
+            "Nitrite": (term: "Nitrite", text: "NO2-.", url: "u", forms: ["nitrites", "nitrite"]),
+            "Nitrate": (term: "Nitrate", text: "NO3-.", url: "u", lesson: Some("Catalysis"), forms: ["nitrates", "nitrate"]),
+            "Toxic": (term: "Toxic", text: "Harmful.", url: "u", forms: ["toxic"]),
+            "pH": (term: "pH", text: "Acidity.", url: "u", forms: ["pH"]),
+            "Oxide": (term: "Oxide", text: "With oxygen.", url: "u", forms: ["dioxide", "oxide"]),
+        },
+        substance_terms: { 1: ["Nitrite", "Nitrate"] },
     )"#;
 
     #[test]
@@ -199,6 +265,28 @@ mod tests {
         assert_eq!(p.reactions_of("Catalysis"), vec![7]);
         assert_eq!(p.vessels_of("PackedBed"), vec![ProcessType::Catalysis]);
         assert_eq!(p.substances[&1].sections[0].0, "History");
+    }
+
+    #[test]
+    fn terms_are_found_as_whole_words() {
+        let p: Pages = ron::from_str(SAMPLE).expect("reads");
+        assert_eq!(p.substance_terms[&1], vec!["Nitrite", "Nitrate"]);
+        let keys: Vec<String> = ["Nitrite", "Nitrate", "Toxic", "pH", "Oxide"].iter().map(|s| s.to_string()).collect();
+        let text = "Potassium Nitrite is not nitrates; non-toxic but toxic; PH or pH; carbon dioxide, oxidex.";
+        let found: Vec<(&str, &str)> =
+            p.term_spans(text, &keys).into_iter().map(|(a, b, k)| (&text[a..b], k)).collect();
+        assert_eq!(
+            found,
+            vec![
+                ("Nitrite", "Nitrite"),
+                ("nitrates", "Nitrate"),
+                ("toxic", "Toxic"),
+                ("pH", "pH"),
+                ("dioxide", "Oxide")
+            ],
+            "any case for a lowercase form, exactly as written for 'pH', whole words only, none after a hyphen"
+        );
+        assert!(p.term_spans("Ünitrite", &keys).is_empty(), "a letter outside ASCII is part of the word");
     }
 
     #[test]

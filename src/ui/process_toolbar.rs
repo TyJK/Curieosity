@@ -523,8 +523,13 @@ pub fn milestone_system(
     mut toasts: ResMut<Toasts>,
     mut state: ResMut<FiredMilestones>,
     mut events: MessageWriter<GameEvent>,
+    challenge: Option<Res<crate::ui::challenges::ChallengeMode>>,
 ) {
     let Some(db) = db else { return };
+    // a challenge's discoveries fire nothing: its kit is all it gets
+    if challenge.is_some_and(|c| c.playing()) {
+        return;
+    }
     if !progress.ready || !(progress.is_changed() || !state.primed) {
         return;
     }
@@ -611,8 +616,15 @@ pub fn new_game_button_system(
     links: Query<Entity, With<crate::components::ReactionLink>>,
     mut journal: ResMut<crate::ui::toasts::Journal>,
     mut started: MessageWriter<NewGameStarted>,
-    mut score: ResMut<crate::resources::score::Score>,
+    challenge: Option<Res<crate::ui::challenges::ChallengeMode>>,
 ) {
+    // a new game is the lab's: not from inside a challenge (its lab is set aside)
+    if challenge.is_some_and(|c| c.playing()) {
+        if buttons.iter().any(|(clicked, _, _)| clicked) {
+            toasts.push(ToastKind::Hint, "Leave the challenge first: a new game starts the lab over.");
+        }
+        return;
+    }
     for (clicked, mut btn, children) in &mut buttons {
         let was_armed = btn.armed_for > 0.0;
         btn.armed_for = (btn.armed_for - time.delta_secs()).max(0.0);
@@ -623,7 +635,7 @@ pub fn new_game_button_system(
                     if persistence.0 {
                         keep_copy_before_new_game();
                     }
-                    reset_progress(&mut progress, &mut unlocks, &mut fired, &mut score, db);
+                    reset_progress(&mut progress, &mut unlocks, &mut fired, db);
                     journal.0.clear();
                     for v in &vessels {
                         commands.entity(v).despawn();

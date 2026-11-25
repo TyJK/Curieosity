@@ -508,6 +508,10 @@
   "lib": true,
   "name": "Anthraquinone"
  },
+ "AntimonialLead": {
+  "id": 1533,
+  "lib": false
+ },
  "Ants": {
   "id": 390,
   "lib": false
@@ -749,6 +753,10 @@
   "id": 8085,
   "lib": true,
   "name": "Barium sulfate"
+ },
+ "BabbittMetal": {
+  "id": 1532,
+  "lib": false
  },
  "Bacdanol": {
   "id": 1124,
@@ -6857,6 +6865,10 @@
   "id": 280,
   "lib": false
  },
+ "Solder": {
+  "id": 1530,
+  "lib": false
+ },
  "SorbicAcid": {
   "id": 2601,
   "lib": true,
@@ -7597,6 +7609,10 @@
  },
  "Turpentine": {
   "id": 423,
+  "lib": false
+ },
+ "TypeMetal": {
+  "id": 1531,
   "lib": false
  },
  "Tyrosine": {

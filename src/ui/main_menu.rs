@@ -314,6 +314,7 @@ pub fn main_menu_system(
                     if started { "Continue" } else { "Play" },
                     MenuPlay,
                 );
+                menu_button(col, &fonts, Kind::Accent(theme::GOLD), "Challenges", crate::ui::challenges::OpenBoard);
                 if started {
                     // asks for a second tap before wiping progress, as in Settings
                     menu_button(col, &fonts, Kind::Secondary, "Start a new game", NewGameButton::default());

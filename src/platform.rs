@@ -247,9 +247,9 @@ pub struct Drawing {
     pub changed: Vec<&'static str>,
 }
 
-/// While anything on screen moves, or a finger or the mouse is down, ask for the next frame
-/// straight away; otherwise the game sleeps until the next input or `IDLE_TICK`. Runs last,
-/// so it sees every change the frame made.
+/// While anything on screen moves, or a pointer goes down, lifts or a finger moves, ask for
+/// the next frame straight away; otherwise the game sleeps until the next input or
+/// `IDLE_TICK`. Runs last, so it sees every change the frame made.
 #[allow(clippy::type_complexity)]
 pub fn keep_drawing_system(
     nodes: (
@@ -280,7 +280,17 @@ pub fn keep_drawing_system(
         ("image", !image.is_empty()),
         ("scroll", !scroll.is_empty()),
         ("visibility", !visibility.is_empty()),
-        ("pointer down", mouse.get_pressed().next().is_some() || touches.iter().next().is_some()),
+        // a press or a lift, or a finger moving: a pointer merely held down (or a touch the
+        // system never reported the end of) doesn't keep the screen drawing
+        (
+            "pointer",
+            mouse.get_just_pressed().next().is_some()
+                || mouse.get_just_released().next().is_some()
+                || touches.any_just_pressed()
+                || touches.any_just_released()
+                || touches.any_just_canceled()
+                || touches.iter().any(|t| t.delta() != Vec2::ZERO),
+        ),
     ] {
         if any {
             changed.push(what);

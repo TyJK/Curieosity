@@ -147,8 +147,9 @@ pub fn run() -> AppExit {
         .init_resource::<crate::ui::inventory::ShelfDrag>()
         .init_resource::<crate::ui::inventory::ShelfMenu>()
         .init_resource::<crate::platform::KeyboardInset>()
-        .add_plugins(crate::resources::score::ScorePlugin)
+        .add_plugins(crate::ui::challenges::ChallengesPlugin)
         .add_plugins(crate::ui::curriculum::CurriculumPlugin)
+        .add_plugins(crate::ui::glossary::GlossaryPlugin)
         .add_message::<CheckVesselReaction>()
         .add_message::<GameEvent>()
         .add_message::<shell::TouchScroll>()
@@ -174,6 +175,7 @@ pub fn run() -> AppExit {
                     spawn_codex,
                     spawn_reaction_library,
                     crate::ui::curriculum::spawn_curriculum,
+                    crate::ui::challenges::spawn_challenge_ui,
                     spawn_tech_tree,
                     settings::spawn_settings,
                     toasts::spawn_toast_stack,
@@ -287,7 +289,7 @@ pub fn run() -> AppExit {
         .add_systems(
             Update,
             (
-                shell::nav_input_system,
+                (shell::nav_input_system, shell::pane_back_system),
                 shell::escape_system,
                 shell::nav_highlight_system,
                 shell::header_stats_system,
@@ -300,7 +302,7 @@ pub fn run() -> AppExit {
                 shell::wheel_scroll_system,
                 shell::touch_scroll_system,
                 shell::clamp_scroll_system,
-                (shell::portrait_system, shell::portrait_layout_system).chain(),
+                (shell::portrait_system, shell::portrait_layout_system, shell::one_pane_system).chain(),
                 settings::settings_input_system,
                 settings::fit_interface_system,
                 settings::settings_view_system,

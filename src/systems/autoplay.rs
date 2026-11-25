@@ -199,19 +199,26 @@ enum TourView {
     SubstanceCompound,
     SubstanceElement,
     SubstanceComing,
+    /// the lists of the one-pane views, no page open
+    SubstanceList,
+    ReactionList,
+    LessonList,
     Reactions,
     Learn,
     Settings,
 }
 
-const TOUR: [TourView; 9] = [
+const TOUR: [TourView; 12] = [
     TourView::Lab,
     TourView::TreeGraph,
     TourView::TreeList,
+    TourView::SubstanceList,
     TourView::SubstanceCompound,
     TourView::SubstanceElement,
     TourView::SubstanceComing,
+    TourView::ReactionList,
     TourView::Reactions,
+    TourView::LessonList,
     TourView::Learn,
     TourView::Settings,
 ];
@@ -868,6 +875,7 @@ fn autoplay_drive_system(
                             })
                     };
                     views.codex.selected = pick;
+                    views.codex.page = pick.is_some();
                 }
                 TourView::SubstanceComing => {
                     // the locked previews of later stages, with the first one's page open
@@ -876,10 +884,25 @@ fn autoplay_drive_system(
                     views.codex.selected = subs.and_then(|s| {
                         s.0.values().filter(|x| x.stage.is_some()).min_by_key(|x| x.name.to_lowercase()).map(|x| x.id)
                     });
+                    views.codex.page = views.codex.selected.is_some();
                 }
                 TourView::Reactions => {
                     views.rlib.open = true;
                     views.rlib.selected = ap.results.iter().rev().find(|x| x.ok).map(|x| x.reaction);
+                    views.rlib.page = views.rlib.selected.is_some();
+                }
+                TourView::SubstanceList => {
+                    views.codex.open = true;
+                    views.codex.page = false;
+                    views.codex_filter.category = InvCategory::All;
+                }
+                TourView::ReactionList => {
+                    views.rlib.open = true;
+                    views.rlib.page = false;
+                }
+                TourView::LessonList => {
+                    views.learn.open = true;
+                    views.learn.page = false;
                 }
                 TourView::Learn => {
                     // the curriculum at the idea behind the last step done
@@ -892,6 +915,7 @@ fn autoplay_drive_system(
                                 .filter(|x| x.ok)
                                 .find_map(|x| pg.reactions.get(&x.reaction)?.first().cloned())
                         });
+                    views.learn.page = views.learn.selected.is_some();
                 }
                 TourView::Settings => {
                     views.settings_ui.open = true;
@@ -905,6 +929,9 @@ fn autoplay_drive_system(
                 TourView::SubstanceElement => "substances_element",
                 TourView::SubstanceComing => "substances_coming_later",
                 TourView::Reactions => "reactions",
+                TourView::SubstanceList => "substances_list",
+                TourView::ReactionList => "reactions_list",
+                TourView::LessonList => "lessons_list",
                 TourView::Learn => "learn",
                 TourView::Settings => "settings",
             };

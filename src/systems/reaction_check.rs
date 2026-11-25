@@ -267,7 +267,7 @@ fn dim(c: Color, f: f32) -> Color {
 #[allow(clippy::too_many_arguments)]
 pub fn place_vessel_system(
     mut asks: MessageReader<PlaceVessel>,
-    vessels_q: Query<(), With<VesselCard>>,
+    vessels_q: Query<(), (With<VesselCard>, Without<crate::components::ui_markers::Stashed>)>,
     unlocks: Res<crate::ui::process_toolbar::ProcessUnlocks>,
     mut commands: Commands,
     scrolling_panes: Query<(Entity, &Node), With<CanvasScrollingPane>>,
