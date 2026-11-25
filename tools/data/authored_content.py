@@ -122,7 +122,7 @@ X("Hematite", "Hematite", "Fe2O3", "Solid", "Iron(III) oxide: the red-grey ore t
 X("Limestone", "Limestone", "CaCO3", "Solid", "Rock made from the shells of ancient sea creatures. Burned for lime, fluxed into furnaces, and ground into cement, it is the most-used chemical raw material after water and salt.", "Limestone", id=104, lib=True, color="#d8d2c0")
 X("Sand", "Sand", "SiO2", "Solid", "Quartz sand, silicon dioxide. Melted with soda and lime it becomes glass; reduced with carbon it gives silicon, the heart of every chip.", "Silicon_dioxide", id=105, lib=True, color="#e3c88a")
 X("Calamine", "Calamine", "ZnCO3", "Solid", "Smithsonite, zinc carbonate. Heated with copper and charcoal it made brass long before zinc itself was isolated.", "Smithsonite", id=106, lib=True, color="#c9d8d0")
-X("CaO", "Quicklime", "CaO", "Solid", "Calcium oxide, made by burning limestone. It reacts with water so violently it can boil it; ancient builders slaked it to make mortar.", "Calcium_oxide", id=107, lib=True, props=["IsBase"], color="#f4f1e8")
+X("CaO", "Quicklime", "CaO", "Solid", "Calcium oxide, made by burning limestone. It reacts with water so violently it can boil it. Roman builders blended it dry with volcanic ash and added the water last, hot mixing, which left the self-healing lime clasts in their concrete.", "Calcium_oxide", id=107, lib=True, props=["IsBase"], color="#f4f1e8")
 X("Ca(OH)2", "Slaked Lime", "Ca(OH)2", "Solid", "Calcium hydroxide. The binder in lime mortar and whitewash, and a cheap strong base used to soften water, treat sewage and make bleach.", "Calcium_hydroxide", id=108, lib=True, props=["IsBase"], color="#f8f8f4")
 X("CO", "Carbon Monoxide", "CO", "Gas", "A colourless, odourless, poisonous gas from burning carbon in too little air. It is the real reducing agent inside a furnace, stripping oxygen from ores.", "Carbon_monoxide", id=109, lib=True)
 X("Bronze", "Bronze", "CuSn", "Solid", "Copper hardened with about one part tin in ten. Harder and easier to cast than copper, it gave its name to an age of weapons, tools and bells.", "Bronze", id=110, lib=True, props=["IsMetal"], color="#b0782a")
@@ -201,8 +201,8 @@ X("BurntAlum", "Burnt Alum", "KAl(SO4)2", "Solid", "Anhydrous alum, a light powd
 X("Indican", "Indican", "C14H17NO6", "Solid", "The colourless glucoside in the leaves of woad and the indigo plant. Fermented in a vat, it releases the precursor of indigo.", "Indican", id=0)
 X("Indigo", "Indigo", "C16H10N2O2", "Solid", "The blue of denim and of royal robes. Once the most valuable plant dye in the world, it has been made synthetically since 1897.", "Indigo_dye", id=0, color="#203080")
 X("Seawater", "Seawater", "NaCl(aq)", "Aqueous", "About 3.5% dissolved salts, mostly sodium chloride. Evaporated in pans, it gave salt to every coastal civilisation.", "Seawater", id=0, balance="NaClH2O", color="#2a78b8")
-X("VolcanicAsh", "Pozzolana", "SiO2·Al2O3", "Solid", "Volcanic ash from Pozzuoli near Naples. Mixed with lime it sets even under water: the secret of Roman concrete.", "Pozzolana", id=0, balance="SiAl2O5")
-X("RomanConcrete", "Roman Concrete", "CaO·SiO2·Al2O3", "Solid", "Opus caementicium, lime and volcanic ash bound around rubble. The Pantheon's unreinforced dome has stood for nineteen centuries.", "Roman_concrete", id=0, color="#b8b0a0")
+X("VolcanicAsh", "Pozzolana", "SiO2·Al2O3", "Solid", "Volcanic ash from Pozzuoli near Naples. Hot-mixed with quicklime it sets even under water, and goes on reacting for centuries: the secret of Roman concrete.", "Pozzolana", id=0, balance="SiAl2O5")
+X("RomanConcrete", "Roman Concrete", "CaO·SiO2·Al2O3", "Solid", "Opus caementicium: quicklime and volcanic ash, hot-mixed and packed around rubble. Unlike modern Portland concrete it mends itself: water seeping into a crack dissolves calcium from the lime clasts, which recrystallises as calcite and seals it. In seawater its ash grows aluminous tobermorite and phillipsite, so Roman harbour walls have grown stronger for two thousand years, where modern marine concrete crumbles in decades. Modern concrete's sand and gravel are meant to stay inert, its steel reinforcement rusts and splits it from inside, and its clinker is fired at 1,450 C against about 900 C for Roman lime. Roman concrete is not as strong, but the Pantheon's unreinforced dome has stood for nineteen centuries.", "Roman_concrete", id=0, color="#b8b0a0")
 
 # --- Epoch 2 (alchemy) ---
 X("GreenVitriol", "Green Vitriol", "FeSO4·7H2O", "Solid", "Melanterite, iron(II) sulfate heptahydrate: pale green crystals that, distilled, gave alchemists 'oil of vitriol' (sulfuric acid). Also the base of iron gall ink.", "Iron(II)_sulfate", id=0, color="#8ad0a0")
@@ -401,9 +401,9 @@ E1 = Epoch("Antiquity", "1200 BCE to 500 CE", [
     R("Roasting Pyrite", "4 FeS2 + 11 O2 -> 2 Hematite + 8 SO2", HEAT,
       "Fool's gold roasted in air burns to iron oxide and sulfur dioxide: a source of iron, and later of sulfuric acid.",
       wiki="Pyrite", T=600, dh=-3310),
-    R("Roman Concrete", "Ca(OH)2 + VolcanicAsh -> RomanConcrete", MIX,
-      "Lime and volcanic ash react with water into a stone-like binder that cures even underwater: harbours, aqueducts and the Pantheon dome.",
-      wiki="Roman_concrete", exact=False, dh=-30),
+    R("Hot-Mixed Roman Concrete", "CaO + VolcanicAsh + H2O -> RomanConcrete", MIX,
+      "Hot mixing: quicklime is ground and blended dry with volcanic ash, and the water goes in last. The lime slakes in the mix itself, the heat cooks it, and white lumps of lime, lime clasts, are left through the set concrete. Admir Masic's MIT team proposed it in 2023 from a city wall at Privernum, and confirmed it in 2025 at a Pompeii building site that Vesuvius buried mid-job in 79 CE: its dry piles of premixed quicklime and ash were still waiting for water. Vitruvius had written that the lime was slaked into a paste first.",
+      wiki="Roman_concrete", exact=False, dh=-65),
 ])
 
 E2 = Epoch("Alchemy", "500 to 1700", [

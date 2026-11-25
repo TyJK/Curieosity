@@ -24,6 +24,7 @@ pub enum View {
     Substances,
     Reactions,
     TechTree,
+    Learn,
 }
 
 #[derive(Component)]
@@ -71,6 +72,9 @@ pub struct Portrait(pub bool);
 /// The header's name, the nav tabs' words and the progress track: left out upright.
 #[derive(Component)]
 pub struct HeaderWords;
+/// The header bar itself: closer-set upright.
+#[derive(Component)]
+pub struct HeaderBar;
 
 /// A view of a list beside a page (the Substance and Reaction Libraries): side by side,
 /// or upright the list above the page.
@@ -99,14 +103,24 @@ pub fn portrait_system(windows: Query<&Window, With<bevy::window::PrimaryWindow>
 pub fn portrait_layout_system(
     portrait: Res<Portrait>,
     mut nodes: Query<
-        (&mut Node, Has<HeaderWords>, (Has<SplitRoot>, Option<&SplitList>, Has<SplitPane>)),
-        Or<(With<HeaderWords>, With<SplitRoot>, With<SplitList>, With<SplitPane>)>,
+        (
+            &mut Node,
+            Has<HeaderWords>,
+            (Has<SplitRoot>, Option<&SplitList>, Has<SplitPane>, Has<NavTab>, Has<HeaderBar>),
+        ),
+        Or<(With<HeaderWords>, With<SplitRoot>, With<SplitList>, With<SplitPane>, With<NavTab>, With<HeaderBar>)>,
     >,
 ) {
     let up = portrait.0;
-    for (mut n, words, (split, split_list, split_pane)) in &mut nodes {
+    for (mut n, words, (split, split_list, split_pane, tab, bar)) in &mut nodes {
         let mut want = n.clone();
-        if split {
+        if bar {
+            want.column_gap = Val::Px(if up { 8.0 } else { 18.0 });
+            want.padding = UiRect::horizontal(Val::Px(if up { 10.0 } else { 14.0 }));
+        } else if tab {
+            // upright the tabs are their icons: a little narrower
+            want.padding = UiRect::horizontal(Val::Px(if up { 9.0 } else { 12.0 }));
+        } else if split {
             want.flex_direction = if up { FlexDirection::Column } else { FlexDirection::Row };
         } else if let Some(SplitList(w)) = split_list {
             let list_w = Val::Px(*w);
@@ -138,6 +152,7 @@ pub fn spawn_header(mut commands: Commands, fonts: Res<UiFonts>, assets: Res<Ass
     commands
         .spawn((
             GlobalZIndex(700),
+            HeaderBar,
             Node {
                 position_type: PositionType::Absolute,
                 left: Val::Px(0.0),
@@ -181,6 +196,7 @@ pub fn spawn_header(mut commands: Commands, fonts: Res<UiFonts>, assets: Res<Ass
                         (View::Substances, "book", "Substances"),
                         (View::Reactions, "reaction", "Reactions"),
                         (View::TechTree, "tree", "Tech Tree"),
+                        (View::Learn, "info", "Learn"),
                     ] {
                         nav.spawn((
                             theme::button(
@@ -209,6 +225,8 @@ pub fn spawn_header(mut commands: Commands, fonts: Res<UiFonts>, assets: Res<Ass
             );
             // spacer
             h.spawn(Node { flex_grow: 1.0, ..default() });
+            // the score, while scoring is on
+            crate::resources::score::spawn_score_pill(h, fonts, assets);
             // era + discovery progress
             h.spawn(Node {
                 flex_direction: FlexDirection::Column,
@@ -266,11 +284,13 @@ pub fn nav_input_system(
     mut settings_ui: ResMut<SettingsUi>,
     mut journal_ui: ResMut<crate::ui::toasts::JournalUi>,
     mut picker: ResMut<crate::ui::process_toolbar::VesselPicker>,
+    mut learn: ResMut<crate::ui::curriculum::CurriculumState>,
 ) {
     for tab in &tabs {
         codex.open = tab.0 == View::Substances;
         rlib.open = tab.0 == View::Reactions;
         tree.open = tab.0 == View::TechTree;
+        learn.open = tab.0 == View::Learn;
         if picker.open {
             picker.open = false;
         }
@@ -309,6 +329,7 @@ pub fn escape_system(
         ResMut<crate::ui::discovery_card::DiscoveryCards>,
         Res<Time<Real>>,
     ),
+    mut learn: ResMut<crate::ui::curriculum::CurriculumState>,
 ) {
     // a controller's B and Start do what Esc does, and so does a phone's Back
     let pad = pads.iter().any(|g| g.just_pressed(GamepadButton::East) || g.just_pressed(GamepadButton::Start));
@@ -338,10 +359,11 @@ pub fn escape_system(
         journal_ui.open = false;
     } else if settings_ui.open {
         settings_ui.open = false;
-    } else if codex.open || rlib.open || tree.open {
+    } else if codex.open || rlib.open || tree.open || learn.open {
         codex.open = false;
         rlib.open = false;
         tree.open = false;
+        learn.open = false;
     } else if menu.stage == MenuStage::Menu {
         // back to the game
         menu.hide();
@@ -359,12 +381,13 @@ pub fn nav_highlight_system(
     codex: Res<CodexState>,
     rlib: Res<ReactionLibState>,
     tree: Res<TechTreeState>,
+    learn: Res<crate::ui::curriculum::CurriculumState>,
     mut tabs: Query<(&NavTab, &mut Skin)>,
 ) {
-    if !(codex.is_changed() || rlib.is_changed() || tree.is_changed()) {
+    if !(codex.is_changed() || rlib.is_changed() || tree.is_changed() || learn.is_changed()) {
         return;
     }
-    let v = current_view(&codex, &rlib, &tree);
+    let v = if learn.open { View::Learn } else { current_view(&codex, &rlib, &tree) };
     for (tab, mut skin) in &mut tabs {
         let active = tab.0 == v;
         if skin.active != active {
@@ -382,9 +405,10 @@ pub fn header_stats_system(
     mut era: Query<&mut Text, (With<EraText>, Without<CountText>)>,
     mut count: Query<&mut Text, (With<CountText>, Without<EraText>)>,
     mut bar: Query<&mut Node, With<CountBar>>,
+    portrait: Res<Portrait>,
 ) {
     let Some(db) = db else { return };
-    if !(progress.is_changed() || db.is_changed()) {
+    if !(progress.is_changed() || db.is_changed() || portrait.is_changed()) {
         return;
     }
     let known = |id: &u32| progress.discovered.contains(id);
@@ -406,7 +430,12 @@ pub fn header_stats_system(
     if current.index != e {
         current.index = e; // the era banner watches this
     }
-    let era_label = db.epochs.get(e as usize).map(|ep| format!("{} · {}", ep.name, ep.era)).unwrap_or_default();
+    // upright the header is narrow: the era's name without its dates
+    let era_label = db
+        .epochs
+        .get(e as usize)
+        .map(|ep| if portrait.0 { ep.name.clone() } else { format!("{} · {}", ep.name, ep.era) })
+        .unwrap_or_default();
     if let Ok(mut t) = era.single_mut() {
         t.0 = era_label;
     }

@@ -142,6 +142,10 @@ pub struct Substance {
     /// The stricter grades it is also sold at (everything sells at technical grade).
     #[serde(default)]
     pub grades: Vec<Grade>,
+    /// Said instead of a melting or boiling point it never reaches ("Decomposes at 132 °C"),
+    /// from the checked values in pages.ron (data::pages).
+    #[serde(default)]
+    pub phase_note: Option<String>,
 }
 
 impl Substance {
@@ -183,6 +187,7 @@ impl Substance {
             world_t_year: None,
             transport_class: None,
             grades: Vec::new(),
+            phase_note: None,
         }
     }
 

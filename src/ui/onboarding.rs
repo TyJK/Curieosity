@@ -405,7 +405,13 @@ pub fn coach_system(
     progress: Res<PlayerProgress>,
     names: (Option<Res<GameData>>, Res<Assets<Substances>>),
     mut events: MessageReader<GameEvent>,
-    views: (Res<CodexState>, Res<ReactionLibState>, Res<TechTreeState>, Res<SettingsUi>),
+    views: (
+        Res<CodexState>,
+        Res<ReactionLibState>,
+        Res<TechTreeState>,
+        Res<SettingsUi>,
+        Res<crate::ui::curriculum::CurriculumState>,
+    ),
     targets: CoachTargets,
     mut nodes: CoachNodes,
     ui_scale: Res<UiScale>,
@@ -464,8 +470,8 @@ pub fn coach_system(
     }
 
     // Draw it: hidden away from the lab, and while a step's target is off screen.
-    let (codex, rlib, tree, sui) = views;
-    let in_lab = !(codex.open || rlib.open || tree.open || sui.open);
+    let (codex, rlib, tree, sui, learn) = views;
+    let in_lab = !(codex.open || rlib.open || tree.open || sui.open || learn.open);
     let target = if in_lab { targets.target(coach.step, &db, &coach.made) } else { None };
     let rect = target.and_then(|t| targets.rect(t));
     let CoachNodes { bubble, ring, title: title_q, text: text_q, next_btn } = &mut nodes;

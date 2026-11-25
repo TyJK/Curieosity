@@ -500,6 +500,7 @@ pub fn hint_input_system(
     buttons: Query<AnyOf<(&HintButton, &HintMore, &HintChange, &HintClose, &HintKitToggle)>, With<Clicked>>,
     picks: Query<&HintPick, With<Clicked>>,
     show: Query<&HintShowTree, With<Clicked>>,
+    mut taken: MessageWriter<crate::resources::score::HintTaken>,
 ) {
     let Some(db) = db else { return };
     // the decoy setting changed while chasing: the same target, its kit re-planned
@@ -520,6 +521,9 @@ pub fn hint_input_system(
             }
             state.list_open = true;
         } else if more.is_some() {
+            if state.level < LAST_LEVEL {
+                taken.write(crate::resources::score::HintTaken);
+            }
             state.level = (state.level + 1).min(LAST_LEVEL);
         } else if close.is_some() {
             if state.list_open && state.target.is_some() {
@@ -533,6 +537,7 @@ pub fn hint_input_system(
     }
     for pick in &picks {
         choose(&mut state, pick.0, &db, &progress, &unlocks, settings.decoy_range());
+        taken.write(crate::resources::score::HintTaken);
     }
     for s in &show {
         tree.open = true;
@@ -622,20 +627,21 @@ pub fn hint_view_system(
     game_data: Option<Res<GameData>>,
     substances: Res<Assets<Substances>>,
     look: (Res<UiFonts>, Res<AssetServer>),
-    views: (Res<CodexState>, Res<ReactionLibState>, Res<TechTreeState>),
-    room: (Res<Dock>, ResMut<ToastRoom>),
+    views: (Res<CodexState>, Res<ReactionLibState>, Res<TechTreeState>, Res<crate::ui::curriculum::CurriculumState>),
+    room: (Res<Dock>, ResMut<ToastRoom>, Res<crate::resources::score::Score>, Res<Assets<crate::data::pages::Pages>>),
     mut root: Query<(&mut Node, &ComputedNode), With<HintRoot>>,
     mut button: Query<&mut Node, (With<HintButton>, Without<HintRoot>, Without<HintPanel>)>,
     mut panel: Query<(Entity, &mut Node), (With<HintPanel>, Without<HintRoot>, Without<HintButton>)>,
     mut toast_stack: Query<&mut Node, (With<ToastStack>, Without<HintRoot>, Without<HintButton>, Without<HintPanel>)>,
-    mut last: Local<Option<(bool, Option<Target>, u8, bool, usize)>>,
+    mut last: Local<Option<(bool, Option<Target>, u8, bool, usize, Option<u32>)>>,
 ) {
     let (fonts, assets) = look;
-    let (codex, rlib, tree) = views;
-    let (dock, mut toast_room) = room;
+    let (codex, rlib, tree, learn) = views;
+    let (dock, mut toast_room, score, pages) = room;
     let Ok((mut root_node, computed)) = root.single_mut() else { return };
-    let wanted =
-        settings.as_ref().is_none_or(|s| s.hint_button()) && progress.ready && !(codex.open || rlib.open || tree.open);
+    let wanted = settings.as_ref().is_none_or(|s| s.hint_button())
+        && progress.ready
+        && !(codex.open || rlib.open || tree.open || learn.open);
     let d = if wanted { Display::Flex } else { Display::None };
     if root_node.display != d {
         root_node.display = d;
@@ -684,13 +690,16 @@ pub fn hint_view_system(
     }
 
     let kit_on = settings.as_ref().is_none_or(|s| s.kit);
-    let key = (state.list_open, state.target, state.level, kit_on, state.offered.len());
+    // with scoring on, the next clue says what it costs
+    let cost = settings.as_ref().is_some_and(|s| s.scoring).then(|| score.next_hint_cost());
+    let key = (state.list_open, state.target, state.level, kit_on, state.offered.len(), cost);
     if *last == Some(key) && !state.is_changed() {
         return;
     }
     *last = Some(key);
     let Some(db) = db else { return };
     let subs = game_data.as_ref().and_then(|g| substances.get(&g.substances));
+    let curriculum = game_data.as_ref().and_then(|g| pages.get(&g.pages));
     let name = names(subs);
     commands.entity(panel_e).despawn_children();
     commands.entity(panel_e).with_children(|p| {
@@ -818,6 +827,15 @@ pub fn hint_view_system(
                     theme::para(&fonts, crate::systems::lessons::lesson(r, subs), theme::XS, theme::mix(theme::GOLD, theme::TEXT, 0.35), Val::Px(CARD_W - 26.0)),
                     Pickable::IGNORE,
                 ));
+                // and the idea's own article, in Learn (the reaction's topic, never its
+                // vessel's: the vessel is a later hint)
+                let topic = curriculum
+                    .and_then(|pg| pg.reactions.get(&r.id).and_then(|ts| ts.first()).and_then(|k| pg.topics.get(k).map(|t| (k, t))));
+                if let Some((k, topic)) = topic {
+                    lines.spawn(Node { margin: UiRect::top(Val::Px(4.0)), ..default() }).with_children(|b| {
+                        crate::ui::curriculum::spawn_learn_button(b, &fonts, &assets, k, topic);
+                    });
+                }
             }
         });
         p.spawn(Node {
@@ -832,7 +850,11 @@ pub fn hint_view_system(
             let kit_label = if kit_on { "Shelf: kit" } else { "Shelf: everything" };
             theme::spawn_button(row, &fonts, &assets, Kind::Secondary, Some("flask"), kit_label, HintKitToggle);
             if state.level < LAST_LEVEL {
-                theme::spawn_button(row, &fonts, &assets, Kind::Accent(theme::GOLD), None, "More hint", HintMore);
+                let more = match cost {
+                    Some(c) => format!("More hint (\u{2212}{c})"),
+                    None => "More hint".to_string(),
+                };
+                theme::spawn_button(row, &fonts, &assets, Kind::Accent(theme::GOLD), None, &more, HintMore);
             } else {
                 theme::spawn_button(row, &fonts, &assets, Kind::Secondary, Some("tree"), "In the tree", HintShowTree(t.reaction));
             }

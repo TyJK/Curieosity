@@ -611,6 +611,7 @@ pub fn new_game_button_system(
     links: Query<Entity, With<crate::components::ReactionLink>>,
     mut journal: ResMut<crate::ui::toasts::Journal>,
     mut started: MessageWriter<NewGameStarted>,
+    mut score: ResMut<crate::resources::score::Score>,
 ) {
     for (clicked, mut btn, children) in &mut buttons {
         let was_armed = btn.armed_for > 0.0;
@@ -622,7 +623,7 @@ pub fn new_game_button_system(
                     if persistence.0 {
                         keep_copy_before_new_game();
                     }
-                    reset_progress(&mut progress, &mut unlocks, &mut fired, db);
+                    reset_progress(&mut progress, &mut unlocks, &mut fired, &mut score, db);
                     journal.0.clear();
                     for v in &vessels {
                         commands.entity(v).despawn();

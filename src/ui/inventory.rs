@@ -715,7 +715,7 @@ pub fn spawn_inventory_panel(mut commands: Commands, fonts: Res<UiFonts>, assets
                 .with_children(|scroll| {
                     scroll.spawn((
                         InventoryContent,
-                        VirtualList::new(TILE, Vec2::splat(TILE_GAP)),
+                        VirtualList::new(TILE, Vec2::splat(TILE_GAP)).stretched(),
                         // clipped below, so a label spilling out of the last row's tiles never
                         // lengthens the scroll: the shelf's extent is the grid and nothing else
                         Node {
@@ -797,6 +797,7 @@ pub fn shelf_search_system(
         Res<crate::ui::codex::CodexState>,
         Res<crate::ui::reaction_library::ReactionLibState>,
         Res<crate::ui::tech_tree::TechTreeState>,
+        Res<crate::ui::curriculum::CurriculumState>,
     ),
     pressed: (
         Query<(), (With<Clicked>, With<ShelfSearchBox>)>,
@@ -827,8 +828,8 @@ pub fn shelf_search_system(
             crate::platform::keyboard_show(&search.text);
         }
     }
-    let (codex, rlib, tree) = views;
-    if search.typing && (codex.open || rlib.open || tree.open) {
+    let (codex, rlib, tree, learn) = views;
+    if search.typing && (codex.open || rlib.open || tree.open || learn.open) {
         search.typing = false;
     }
     if search.typing {
@@ -1071,11 +1072,20 @@ pub fn shelf_window_system(
             n.top = Val::Px(at.y);
         }
     }
+    // the tiles widen to fill the row, so the shelf has no strip left over at its right
+    let w = Val::Px(pass.cell_w);
+    for e in list.order() {
+        if let Ok(mut n) = tiles.get_mut(e) {
+            if n.width != w {
+                n.width = w;
+            }
+        }
+    }
     let names_first = settings.as_ref().is_some_and(|s| s.names_first);
     let mut popped = 0;
     for (id, at, fresh) in &pass.build {
         let Some(sub) = substances.0.get(id) else { continue };
-        let e = spawn_shelf_tile(&mut commands, sub, names_first, &fonts, &asset_server, *at);
+        let e = spawn_shelf_tile(&mut commands, sub, names_first, &fonts, &asset_server, *at, pass.cell_w);
         if *fresh {
             commands.entity(e).insert((PopIn::new(popped as f32 * 0.06), NewGlow::default()));
             popped += 1;
@@ -1104,8 +1114,9 @@ pub fn reveal_on_shelf(world: &mut World, id: u32) -> bool {
     true
 }
 
-/// One shelf tile, not yet parented, placed at `at` in the shelf's grid: a periodic-table
-/// card for an element, the drawn structure with formula and name for a compound.
+/// One shelf tile, not yet parented, placed at `at` in the shelf's grid and `width` wide (the
+/// grid widens its cells to fill the row): a periodic-table card for an element, the drawn
+/// structure with formula and name for a compound.
 pub fn spawn_shelf_tile(
     commands: &mut Commands,
     sub: &crate::data::substances::Substance,
@@ -1113,6 +1124,7 @@ pub fn spawn_shelf_tile(
     fonts: &UiFonts,
     asset_server: &AssetServer,
     at: Vec2,
+    width: f32,
 ) -> Entity {
     let ingredient = Ingredient {
         id: sub.id,
@@ -1154,7 +1166,7 @@ pub fn spawn_shelf_tile(
                 position_type: PositionType::Absolute,
                 left: Val::Px(at.x),
                 top: Val::Px(at.y),
-                width: Val::Px(TILE.x),
+                width: Val::Px(width),
                 height: Val::Px(TILE.y),
                 flex_direction: FlexDirection::Column,
                 align_items: AlignItems::Center,

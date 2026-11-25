@@ -18,6 +18,8 @@ pub struct VirtualList {
     pub cell: Vec2,
     /// between columns (x) and rows (y)
     pub gap: Vec2,
+    /// widen the cells so the columns fill the whole width (no strip left over at the right)
+    stretch: bool,
     ids: Vec<u32>,
     index: HashMap<u32, usize>,
     /// the built entries: id -> (entity, the cell it sits in)
@@ -26,8 +28,8 @@ pub struct VirtualList {
     fresh: HashSet<u32>,
     /// bumped whenever `ids` changes, so the next pass re-plans
     version: u64,
-    /// (columns, build range, version) the last pass planned for
-    last: Option<(usize, usize, usize, u64)>,
+    /// (columns, build range, version, cell width in quarter pixels) the last pass planned for
+    last: Option<(usize, usize, usize, u64, i64)>,
 }
 
 /// What one pass asks the view to do.
@@ -41,6 +43,8 @@ pub struct Pass {
     pub moves: Vec<(Entity, Vec2)>,
     /// the content node's full height
     pub height: f32,
+    /// every cell's width (wider than `cell.x` when the list is stretched)
+    pub cell_w: f32,
 }
 
 impl VirtualList {
@@ -48,12 +52,29 @@ impl VirtualList {
         Self {
             cell,
             gap,
+            stretch: false,
             ids: Vec::new(),
             index: HashMap::new(),
             built: HashMap::new(),
             fresh: HashSet::new(),
             version: 0,
             last: None,
+        }
+    }
+
+    /// Widen the cells so a grid's columns fill its width exactly, with no strip left over.
+    pub fn stretched(mut self) -> Self {
+        self.stretch = true;
+        self
+    }
+
+    /// A cell's width in a list `width` wide.
+    pub fn cell_width(&self, width: f32) -> f32 {
+        let cols = self.columns(width);
+        if self.stretch && self.cell.x > 0.0 {
+            ((width - (cols - 1) as f32 * self.gap.x) / cols as f32).max(self.cell.x)
+        } else {
+            self.cell.x
         }
     }
 
@@ -126,7 +147,8 @@ impl VirtualList {
         }
         let cols = self.columns(width);
         let n = self.ids.len();
-        let pitch = self.cell + self.gap;
+        let cell_w = self.cell_width(width);
+        let pitch = Vec2::new(cell_w, self.cell.y) + self.gap;
         let rows = n.div_ceil(cols);
         let height = if rows == 0 { 0.0 } else { rows as f32 * pitch.y - self.gap.y };
         let in_view = (view_h / pitch.y).ceil() as usize + 1;
@@ -136,7 +158,7 @@ impl VirtualList {
         let hi = ((first + 2 * in_view) * cols).min(n);
         let keep_lo = first.saturating_sub(2 * in_view) * cols;
         let keep_hi = ((first + 3 * in_view) * cols).min(n);
-        let key = (cols, lo, hi, self.version);
+        let key = (cols, lo, hi, self.version, (cell_w * 4.0).round() as i64);
         if self.last == Some(key) {
             return None;
         }
@@ -146,7 +168,7 @@ impl VirtualList {
             let x = if self.cell.x <= 0.0 { 0.0 } else { (i % cols) as f32 * pitch.x };
             Vec2::new(x, (i / cols) as f32 * pitch.y)
         };
-        let mut pass = Pass { height, ..default() };
+        let mut pass = Pass { height, cell_w, ..default() };
         let mut keep_built = HashMap::new();
         for (id, (e, at)) in self.built.drain() {
             match self.index.get(&id) {
@@ -436,6 +458,25 @@ mod tests {
         // shown again: built again
         let p = v.plan(1000.0, 230.0, 0.0, |_| false).unwrap();
         assert_eq!(p.build.len(), 50);
+    }
+
+    #[test]
+    fn a_stretched_grid_fills_its_width() {
+        let mut v = VirtualList::new(Vec2::new(84.0, 104.0), Vec2::splat(8.0)).stretched();
+        v.set((0..40).collect(), []);
+        // 1000 wide: still 10 columns, each widened to (1000 - 9 * 8) / 10 = 92.8
+        let p = v.plan(1000.0, 230.0, 0.0, |_| false).unwrap();
+        assert!((p.cell_w - 92.8).abs() < 1e-3);
+        let last = p.build[9].1;
+        assert!((last.x + p.cell_w - 1000.0).abs() < 1e-3, "the last column ends at the right edge");
+        let mut n = 0;
+        apply(&mut v, &p, &mut n);
+        // a little wider: the same columns, wider cells, every built one moved
+        let p = v.plan(1003.0, 230.0, 0.0, |_| false).unwrap();
+        assert!(p.cell_w > 93.0);
+        assert_eq!(p.moves.len(), 36, "all but the first column shift right");
+        // unstretched lists keep their cell width
+        assert_eq!(grid(5).cell_width(1000.0), 84.0);
     }
 
     #[test]
