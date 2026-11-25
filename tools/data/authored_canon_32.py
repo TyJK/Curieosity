@@ -340,3 +340,25 @@ _C.MILESTONES += [
     Milestone("Tartrazine", message="Tartrazine (1884): a coal-tar yellow that became the most familiar food colour in the world."),
     Milestone("Ambroxide", message="Ambrox (Firmenich, 1950): the scent of ambergris, which sperm whales make, rebuilt from a herb."),
 ]
+
+# Links that led to another compound's Wikipedia article (found by tools/data/gen_pages.py
+# --verbose against the fetched articles): the compound's own article where it has one, else
+# its PubChem record.
+from gen_authored import pubchem  # noqa: E402
+_LINK_FIXES = {
+    "ADPA4": "4-Aminodiphenylamine",
+    "TMQ": "2,2,4-Trimethyl-1,2-dihydroquinoline",
+    "DMH": "5,5-Dimethylhydantoin",
+    "TMTM": "Tetramethylthiuram_monosulfide",
+    "CF4": "Carbon_tetrafluoride",
+    "ZrOPr4": pubchem("Zirconium propoxide"),
+    "DPCP": pubchem("Diphenyl chlorophosphate"),
+    "NaMeSO4": pubchem("Sodium methyl sulfate"),
+    "HEP": pubchem("1-(2-Hydroxyethyl)piperazine"),
+    "HCFC244bb": pubchem("2-Chloro-1,1,1,2-tetrafluoropropane"),
+    "AMSDimer": pubchem("2,4-Diphenyl-4-methyl-1-pentene"),
+    "Butylcyclohexane": pubchem("Butylcyclohexane"),
+}
+for _k, _w in _LINK_FIXES.items():
+    _C.SUBSTANCES[_k].wiki = _w
+

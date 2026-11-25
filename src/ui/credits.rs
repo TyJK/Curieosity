@@ -25,7 +25,7 @@ pub struct Credit {
 pub const REPO_URL: &str = "https://github.com/TyJK/Curieosity";
 
 /// Who made the game, and how: the AI use, and whose decisions it carries out.
-pub const MADE_BY: &str = "Curieosity is my game. What it teaches and how, which substances and reactions are in it, and how it looks and plays are my decisions. I built it with AI: the code, and the pages and reactions written for the game, were written by Claude, an AI model made by Anthropic, to my design and direction. The facts come from the open sources further down, and every substance page names the source of its text.";
+pub const MADE_BY: &str = "Curieosity is my game insofar as what it teaches and how, which substances and reactions are in it, and how it looks and plays have been my decisions. The code and some pages and reactions written for the game were written by Claude, an AI model made by Anthropic, to my design and direction. The facts come from the open sources further down, and every substance page names the source of its text. I have only repackaged the work others themselves opened to the world into a new form.";
 
 /// How the pictures and sounds were made (no image or sound generator).
 pub const HOW_MADE: &str = "Nothing in the game was made by an image or sound generator. The vessels and icons are line art drawn by a program from plain geometry (lines, arcs and curves set by numbers), so they share one stroke and one light. The molecule pictures are drawn by RDKit from each compound's recorded structure, the atom diagrams from each element's electron configuration, and the sounds are synthesised from sine waves and filtered noise. Those programs were written with Claude too; they are in the source code, under tools/art.";
@@ -269,7 +269,7 @@ pub fn spawn_credits(mut commands: Commands, fonts: Res<UiFonts>, assets: Res<As
                         theme::spawn_icon_button(h, assets, "close", 32.0, theme::TEXT_2, CreditsClose);
                     });
                 // who made it, and how
-                theme::spawn_section_title(panel, fonts, "Made by Tyler Kolody, with AI");
+                theme::spawn_section_title(panel, fonts, "Assembled by Tyler Kolody, aided by Claude");
                 about_para(panel, fonts, MADE_BY);
                 theme::spawn_section_title(panel, fonts, "How the pictures and sounds are made");
                 about_para(panel, fonts, HOW_MADE);

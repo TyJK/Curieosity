@@ -115,6 +115,8 @@ pub fn run() -> AppExit {
         .init_asset_loader::<RonAssetLoader<Substances>>()
         .init_asset_loader::<RonAssetLoader<Reactions>>()
         .init_asset_loader::<RonAssetLoader<SubstancePatches>>()
+        .init_asset::<crate::data::pages::Pages>()
+        .init_asset_loader::<RonAssetLoader<crate::data::pages::Pages>>()
         .init_resource::<CurrentProcess>()
         .init_resource::<PlayerProgress>()
         .init_resource::<FiredMilestones>()
@@ -145,6 +147,8 @@ pub fn run() -> AppExit {
         .init_resource::<crate::ui::inventory::ShelfDrag>()
         .init_resource::<crate::ui::inventory::ShelfMenu>()
         .init_resource::<crate::platform::KeyboardInset>()
+        .add_plugins(crate::resources::score::ScorePlugin)
+        .add_plugins(crate::ui::curriculum::CurriculumPlugin)
         .add_message::<CheckVesselReaction>()
         .add_message::<GameEvent>()
         .add_message::<shell::TouchScroll>()
@@ -169,6 +173,7 @@ pub fn run() -> AppExit {
                     crate::ui::bench_controls::spawn_confirm,
                     spawn_codex,
                     spawn_reaction_library,
+                    crate::ui::curriculum::spawn_curriculum,
                     spawn_tech_tree,
                     settings::spawn_settings,
                     toasts::spawn_toast_stack,
@@ -354,5 +359,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut config_stor
         substances: asset_server.load("data/substances.ron"),
         authored_reactions: asset_server.load("data/authored_reactions.ron"),
         authored_substances: asset_server.load("data/authored_substances.ron"),
+        pages: asset_server.load("data/pages.ron"),
     });
 }

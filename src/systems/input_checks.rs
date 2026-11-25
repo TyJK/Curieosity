@@ -869,6 +869,7 @@ fn fresh(world: &mut World) {
     world.resource_mut::<ReactionLibState>().open = false;
     world.resource_mut::<ReactionLibState>().search.clear();
     world.resource_mut::<TechTreeState>().open = false;
+    world.resource_mut::<crate::ui::curriculum::CurriculumState>().open = false;
     world.resource_mut::<SettingsUi>().open = false;
     world.resource_mut::<CreditsUi>().open = false;
     *world.resource_mut::<KeyFocus>() = KeyFocus::default();
@@ -932,8 +933,10 @@ fn new_game(world: &mut World) {
     world.resource_scope(|world, db: Mut<RecipeDatabase>| {
         world.resource_scope(|world, mut fired: Mut<FiredMilestones>| {
             world.resource_scope(|world, mut unlocks: Mut<ProcessUnlocks>| {
-                let mut progress = world.resource_mut::<PlayerProgress>();
-                reset_progress(&mut progress, &mut unlocks, &mut fired, &db);
+                world.resource_scope(|world, mut score: Mut<crate::resources::score::Score>| {
+                    let mut progress = world.resource_mut::<PlayerProgress>();
+                    reset_progress(&mut progress, &mut unlocks, &mut fired, &mut score, &db);
+                });
             });
         });
     });
@@ -3028,7 +3031,7 @@ pub fn all_checks(world: &mut World) -> Vec<Check> {
     ));
     v.push(check(
         "Lab: shelf",
-        "A discovery adds its tile in place without rebuilding the shelf",
+        "A discovery adds its tile in place without rebuilding the shelf, and the tiles fill its width",
         vec![
             setup(new_game),
             Op::Wait(10),
@@ -3079,6 +3082,24 @@ pub fn all_checks(world: &mut World) -> Vec<Check> {
                     Ok(())
                 } else {
                     Err("the new tile is out of order".into())
+                }
+            })),
+            Op::Expect(verify(|w| {
+                // the tiles widen so whole columns fill the shelf: no strip left at the right
+                let content = first::<crate::ui::inventory::InventoryContent>(w, |_| true).ok_or("no shelf")?;
+                let cn = w.get::<ComputedNode>(content).ok_or("the shelf isn't laid out")?;
+                let width = cn.size.x * cn.inverse_scale_factor();
+                let tile = first::<ShelfTile>(w, |_| true).ok_or("no tile")?;
+                let Val::Px(tw) = w.get::<Node>(tile).map(|n| n.width).unwrap_or(Val::Auto) else {
+                    return Err("a tile has no width".into());
+                };
+                let gap = 8.0;
+                let cols = ((width + gap) / (tw + gap)).round();
+                let filled = cols * (tw + gap) - gap;
+                if (filled - width).abs() < 1.0 {
+                    Ok(())
+                } else {
+                    Err(format!("{cols} columns of {tw:.1} fill {filled:.1} of {width:.1}"))
                 }
             })),
         ],

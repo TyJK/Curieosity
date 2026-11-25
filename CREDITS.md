@@ -6,7 +6,7 @@ on require. See [LICENSE-CONTENT.md](LICENSE-CONTENT.md) for which is which.
 
 This list is the same as the game's About screen (Settings > About and credits, or About on
 the title menu), which is built from `src/ui/credits.rs`; `cargo test` checks the two agree.
-How the game was made, AI use included, is in the [README](README.md#made-by-tyler-kolody-with-ai).
+How the game was made, AI use included, is in the [README](README.md#assembled-by-tyler-kolody-aided-by-claude).
 
 ## Text and data
 

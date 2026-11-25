@@ -3,7 +3,7 @@
 # Curieosity
 
 A free chemistry discovery game. Start with fire, ore and wood; put substances in vessels
-and react them; discover 2,704 substances across 2,683 reactions and 27 vessels, from the
+and react them; discover 2,916 substances across 2,891 reactions and 27 vessels, from the
 first copper smelted to oganesson. Every substance has a page, written for the game or
 drawn from Wikipedia and other open sources, with a link to read more.
 

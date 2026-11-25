@@ -60,6 +60,9 @@ pub struct Settings {
     pub balanced_amounts: bool,
     /// the shelf's height as set with its grip (interface pixels); 0 sizes it to the screen
     pub shelf_h: f32,
+    /// keep score (resources::score): points for discoveries, a little off for reactions
+    /// that don't go and for hints; shown in the header
+    pub scoring: bool,
 }
 
 impl Settings {
@@ -92,6 +95,7 @@ impl Default for Settings {
             cards_close_themselves: false,
             balanced_amounts: false,
             shelf_h: 0.0,
+            scoring: false,
         }
     }
 }
@@ -167,6 +171,7 @@ pub enum Field {
     DiscoveryCards,
     CardsCloseThemselves,
     BalancedAmounts,
+    Scoring,
 }
 
 #[derive(Component)]
@@ -236,6 +241,7 @@ impl Settings {
             Field::DiscoveryCards => self.discovery_cards = !self.discovery_cards,
             Field::CardsCloseThemselves => self.cards_close_themselves = !self.cards_close_themselves,
             Field::BalancedAmounts => self.balanced_amounts = !self.balanced_amounts,
+            Field::Scoring => self.scoring = !self.scoring,
             _ => {}
         }
     }
@@ -254,6 +260,7 @@ impl Settings {
             Field::DiscoveryCards => self.discovery_cards,
             Field::CardsCloseThemselves => self.cards_close_themselves,
             Field::BalancedAmounts => self.balanced_amounts,
+            Field::Scoring => self.scoring,
             _ => false,
         }
     }
@@ -557,6 +564,13 @@ pub fn spawn_settings(mut commands: Commands, fonts: Res<UiFonts>, assets: Res<A
                                         Field::BalancedAmounts,
                                         "Balanced amounts",
                                         "Put each in as often as the equation says; wrong ratios waste half.",
+                                    );
+                                    toggle(
+                                        c,
+                                        fonts,
+                                        Field::Scoring,
+                                        "Score",
+                                        "10 a discovery; a failed reaction costs 2, each hint since your last discovery 2 more than the last.",
                                     );
                                     toggle(
                                         c,

@@ -21,8 +21,8 @@ use crate::ui::theme::{self, Kind, Skin, Weight};
 use crate::ui::{Button, Clicked, Look};
 
 /// The React button's height; Empty, Remove and Add vessel are a little shorter.
-pub const BAR_H: f32 = 52.0;
-const SMALL_H: f32 = 44.0;
+pub const BAR_H: f32 = 58.0;
+const SMALL_H: f32 = 52.0;
 /// The controls' distance from the bench's edges.
 pub const BAR_GAP: f32 = 12.0;
 /// How far above the shelf the bench's pop-ups (the Hint button, notifications) sit, so
@@ -218,10 +218,10 @@ pub fn spawn_bench_controls(
                         crate::ui::onboarding::Tip::Text(text, tip),
                     ))
                     .with_children(|b| {
-                        b.spawn(theme::icon(&assets, icon, 16.0, theme::TEXT));
+                        b.spawn(theme::icon(&assets, icon, 20.0, theme::TEXT));
                         b.spawn((
                             BenchButtonLabel(action),
-                            theme::label(&fonts, text, theme::SM, Weight::Semibold, theme::TEXT),
+                            theme::label(&fonts, text, theme::MD, Weight::Semibold, theme::TEXT),
                             TextLayout::no_wrap(),
                             Pickable::IGNORE,
                         ));
@@ -252,9 +252,9 @@ pub fn spawn_bench_controls(
                     crate::ui::onboarding::Tip::Text("Add a vessel", "Pick a vessel to put on the bench."),
                 ))
                 .with_children(|b| {
-                    b.spawn(theme::icon(&assets, "plus", 16.0, theme::CYAN));
+                    b.spawn(theme::icon(&assets, "plus", 20.0, theme::CYAN));
                     b.spawn((
-                        theme::label(&fonts, "Vessel", theme::SM, Weight::Semibold, theme::TEXT),
+                        theme::label(&fonts, "Vessel", theme::MD, Weight::Semibold, theme::TEXT),
                         TextLayout::no_wrap(),
                         Pickable::IGNORE,
                     ));
@@ -280,8 +280,8 @@ pub fn spawn_bench_controls(
                         Kind::Accent(theme::CYAN),
                         Node {
                             height: Val::Px(BAR_H),
-                            min_width: Val::Px(132.0),
-                            padding: UiRect::horizontal(Val::Px(22.0)),
+                            min_width: Val::Px(150.0),
+                            padding: UiRect::horizontal(Val::Px(24.0)),
                             column_gap: Val::Px(9.0),
                             align_items: AlignItems::Center,
                             justify_content: JustifyContent::Center,
@@ -297,7 +297,7 @@ pub fn spawn_bench_controls(
                     ),
                 ))
                 .with_children(|b| {
-                    b.spawn(theme::icon(&assets, "spark", 18.0, theme::TEXT));
+                    b.spawn(theme::icon(&assets, "spark", 20.0, theme::TEXT));
                     b.spawn((
                         BenchButtonLabel(BenchAction::React),
                         theme::label(&fonts, "React", theme::LG, Weight::Semibold, theme::TEXT),
@@ -319,7 +319,7 @@ pub struct BarState {
     empty: bool,
     remove: bool,
     narrow: bool,
-    /// a phone's keyboard is up for the shelf search: only React stays
+    /// a phone's keyboard is up for the shelf search: Empty and Remove show their icons only
     typing: bool,
 }
 
@@ -369,7 +369,6 @@ pub fn bench_controls_view_system(
         &mut BorderColor,
     )>,
     mut labels: Query<(&BenchButtonLabel, &mut Text, &mut Node, &mut TextColor)>,
-    mut groups: Query<(&BenchBar, &mut Node), Without<BenchButtonLabel>>,
     typing: (Res<crate::ui::inventory::ShelfSearch>, Res<crate::platform::SoftKeyboard>),
     mut last: Local<Option<BarState>>,
 ) {
@@ -380,12 +379,6 @@ pub fn bench_controls_view_system(
         return;
     }
     let all = state.target.is_none();
-    for (g, mut n) in &mut groups {
-        let d = if state.typing && *g != BenchBar::Right { Display::None } else { Display::Flex };
-        if n.display != d {
-            n.display = d;
-        }
-    }
     for (b, mut skin, hovered, pressed, mut bg, mut border) in &mut buttons {
         let kind = match b.0 {
             BenchAction::React if state.react => Kind::Accent(state.target.map_or(theme::CYAN, |t| t.1)),
@@ -413,8 +406,8 @@ pub fn bench_controls_view_system(
         if color.0 != c {
             color.0 = c;
         }
-        // on a narrow bench Empty and Remove are their icons
-        let shown = l.0 == BenchAction::React || !state.narrow;
+        // on a narrow bench, or over a phone's keyboard, Empty and Remove are their icons
+        let shown = l.0 == BenchAction::React || !(state.narrow || state.typing);
         let d = if shown { Display::Flex } else { Display::None };
         if node.display != d {
             node.display = d;

@@ -20,6 +20,7 @@ use std::path::{Path, PathBuf};
 use crate::data::common::ProcessType;
 use crate::data::substances::Substances;
 use crate::resources::recipe_database::RecipeDatabase;
+pub use crate::resources::score::Score;
 use crate::ui::process_toolbar::ProcessUnlocks;
 use crate::ui::toasts::{Journal, ToastKind, Toasts};
 use crate::GameData;
@@ -126,6 +127,8 @@ pub struct SaveData {
     pub journal: Vec<(String, String)>,
     /// the discoveries in the order they were made, oldest first (empty in older saves)
     pub order: Vec<u32>,
+    /// the score (zero in older saves, and while scoring has never been on)
+    pub score: Score,
 }
 
 /// A vessel as written in a save: a bare name such as `Fire`. Read by name, so a vessel
@@ -178,6 +181,7 @@ struct SaveFile {
     dormant_vessels: Vec<String>,
     journal: Vec<(String, String)>,
     order: Vec<u32>,
+    score: Score,
 }
 
 /// The file as written.
@@ -191,6 +195,7 @@ struct SaveOut<'a> {
     dormant_vessels: &'a [String],
     journal: &'a [(String, String)],
     order: &'a [u32],
+    score: &'a Score,
 }
 
 impl SaveData {
@@ -207,6 +212,7 @@ impl SaveData {
             dormant_vessels: file.dormant_vessels,
             journal: file.journal,
             order: file.order,
+            score: file.score,
         };
         for VesselName(name) in file.unlocked {
             match ron::from_str::<ProcessType>(&name) {
@@ -263,6 +269,7 @@ impl SaveData {
             dormant_vessels: &self.dormant_vessels,
             journal: &self.journal,
             order: &self.order,
+            score: &self.score,
         };
         ron::ser::to_string_pretty(&out, ron::ser::PrettyConfig::default().compact_arrays(true)).unwrap_or_default()
     }
@@ -383,6 +390,7 @@ pub fn load_or_seed_progress_system(
     mut unlocks: ResMut<ProcessUnlocks>,
     mut toasts: ResMut<Toasts>,
     mut journal: ResMut<Journal>,
+    mut score: ResMut<Score>,
 ) {
     if progress.ready {
         return;
@@ -414,6 +422,7 @@ pub fn load_or_seed_progress_system(
             progress.dormant = save.dormant.clone();
             progress.dormant_vessels = save.dormant_vessels.clone();
             *journal = Journal::from_pairs(&save.journal);
+            *score = save.score;
             for p in save.unlocked {
                 unlocks.0.insert(p);
             }
@@ -472,6 +481,7 @@ impl SaveClock {
         progress: &PlayerProgress,
         unlocks: &ProcessUnlocks,
         journal: &Journal,
+        score: &Score,
         persistence: &Persistence,
     ) {
         self.pending_since = None;
@@ -480,17 +490,18 @@ impl SaveClock {
             return;
         }
         let path = save_path();
-        if let Err(e) = write_atomic(&path, &current_save(progress, unlocks, journal).to_text()) {
+        if let Err(e) = write_atomic(&path, &current_save(progress, unlocks, journal, score).to_text()) {
             warn!("Could not write save {}: {}", path.display(), e);
         }
     }
 }
 
-/// Autosave: a short while after discoveries, unlocks or the journal change.
+/// Autosave: a short while after discoveries, unlocks, the journal or the score change.
 pub fn save_progress_system(
     progress: Res<PlayerProgress>,
     unlocks: Res<ProcessUnlocks>,
     journal: Res<Journal>,
+    score: Res<Score>,
     persistence: Res<Persistence>,
     time: Res<Time>,
     mut clock: ResMut<SaveClock>,
@@ -499,11 +510,11 @@ pub fn save_progress_system(
         return;
     }
     let now = time.elapsed_secs();
-    if progress.is_changed() || unlocks.is_changed() || journal.is_changed() {
+    if progress.is_changed() || unlocks.is_changed() || journal.is_changed() || score.is_changed() {
         clock.pending_since.get_or_insert(now);
     }
     if clock.pending_since.is_some_and(|since| now - since >= AUTOSAVE_DELAY) {
-        clock.write(&progress, &unlocks, &journal, &persistence);
+        clock.write(&progress, &unlocks, &journal, &score, &persistence);
     }
 }
 
@@ -514,16 +525,17 @@ pub fn save_on_exit_system(
     progress: Res<PlayerProgress>,
     unlocks: Res<ProcessUnlocks>,
     journal: Res<Journal>,
+    score: Res<Score>,
     persistence: Res<Persistence>,
     mut clock: ResMut<SaveClock>,
 ) {
     if exit.read().count() > 0 && progress.ready && clock.pending() {
-        clock.write(&progress, &unlocks, &journal, &persistence);
+        clock.write(&progress, &unlocks, &journal, &score, &persistence);
     }
 }
 
 /// The save for the game as it stands.
-pub fn current_save(progress: &PlayerProgress, unlocks: &ProcessUnlocks, journal: &Journal) -> SaveData {
+pub fn current_save(progress: &PlayerProgress, unlocks: &ProcessUnlocks, journal: &Journal, score: &Score) -> SaveData {
     let mut discovered: Vec<u32> = progress.discovered.iter().copied().collect();
     discovered.sort_unstable();
     let mut unlocked: Vec<ProcessType> = unlocks.0.iter().cloned().collect();
@@ -536,6 +548,7 @@ pub fn current_save(progress: &PlayerProgress, unlocks: &ProcessUnlocks, journal
         dormant_vessels: progress.dormant_vessels.clone(),
         journal: journal.to_pairs(),
         order: progress.order.clone(),
+        score: *score,
     }
 }
 
@@ -552,8 +565,10 @@ pub fn reset_progress(
     progress: &mut PlayerProgress,
     unlocks: &mut ProcessUnlocks,
     fired: &mut FiredMilestones,
+    score: &mut Score,
     db: &RecipeDatabase,
 ) {
+    *score = Score::default();
     progress.discovered = db.start.iter().copied().collect();
     progress.order.clear();
     progress.dormant.clear();

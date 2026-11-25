@@ -31,6 +31,9 @@ pub struct GameData {
     /// The authored substance layer (canon names, formulas, narrative, links), applied
     /// over `substances` when the RecipeDatabase is built.
     pub authored_substances: Handle<SubstancePatches>,
+    /// What the game draws from Wikipedia and Wikidata: pages, checked values, the
+    /// curriculum (data::pages).
+    pub pages: Handle<crate::data::pages::Pages>,
 }
 
 // FIX: New resource to store the UI Camera ID

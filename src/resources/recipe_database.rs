@@ -268,6 +268,7 @@ pub fn build_recipe_database(
     reactions_assets: Res<Assets<Reactions>>,
     mut substances_assets: ResMut<Assets<Substances>>,
     patches_assets: Res<Assets<SubstancePatches>>,
+    pages_assets: Res<Assets<crate::data::pages::Pages>>,
     recipe_db: Option<Res<RecipeDatabase>>,
 ) {
     // If the database is already built, or if the game_data resource
@@ -278,9 +279,11 @@ pub fn build_recipe_database(
     let Some(game_data) = game_data else { return };
 
     // Wait until every content asset is loaded.
-    let (Some(authored), Some(patches)) =
-        (reactions_assets.get(&game_data.authored_reactions), patches_assets.get(&game_data.authored_substances))
-    else {
+    let (Some(authored), Some(patches), Some(pages)) = (
+        reactions_assets.get(&game_data.authored_reactions),
+        patches_assets.get(&game_data.authored_substances),
+        pages_assets.get(&game_data.pages),
+    ) else {
         return;
     };
     let Some(mut substances) = substances_assets.get_mut(&game_data.substances) else {
@@ -289,6 +292,13 @@ pub fn build_recipe_database(
 
     let (patched, created) = patches.apply_to(&mut substances);
     info!("Authored substance layer applied: {} entries ({} new).", patched, created);
+    let checked = pages.apply_values(&mut substances);
+    info!(
+        "Checked values applied to {} substances; {} pages, {} curriculum topics.",
+        checked,
+        pages.substances.len(),
+        pages.topics.len()
+    );
 
     let mut db = RecipeDatabase::from_authored(authored);
     db.note_transients(&substances);

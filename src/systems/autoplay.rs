@@ -200,10 +200,11 @@ enum TourView {
     SubstanceElement,
     SubstanceComing,
     Reactions,
+    Learn,
     Settings,
 }
 
-const TOUR: [TourView; 8] = [
+const TOUR: [TourView; 9] = [
     TourView::Lab,
     TourView::TreeGraph,
     TourView::TreeList,
@@ -211,6 +212,7 @@ const TOUR: [TourView; 8] = [
     TourView::SubstanceElement,
     TourView::SubstanceComing,
     TourView::Reactions,
+    TourView::Learn,
     TourView::Settings,
 ];
 
@@ -303,6 +305,7 @@ pub struct Game<'w, 's> {
     unlocks: Res<'w, ProcessUnlocks>,
     game_data: Option<Res<'w, GameData>>,
     substances: Res<'w, Assets<Substances>>,
+    pages: Res<'w, Assets<crate::data::pages::Pages>>,
     fonts: Option<Res<'w, UiFonts>>,
     assets: Res<'w, AssetServer>,
     settings: Option<ResMut<'w, Settings>>,
@@ -341,6 +344,7 @@ pub struct Views<'w> {
     settings_ui: ResMut<'w, SettingsUi>,
     coach: ResMut<'w, Coach>,
     hint: ResMut<'w, crate::ui::hint::HintState>,
+    learn: ResMut<'w, crate::ui::curriculum::CurriculumState>,
 }
 
 impl Views<'_> {
@@ -355,6 +359,7 @@ impl Views<'_> {
         }
         self.rlib.open = false;
         self.tree.open = false;
+        self.learn.open = false;
         self.settings_ui.open = false;
     }
 }
@@ -876,6 +881,18 @@ fn autoplay_drive_system(
                     views.rlib.open = true;
                     views.rlib.selected = ap.results.iter().rev().find(|x| x.ok).map(|x| x.reaction);
                 }
+                TourView::Learn => {
+                    // the curriculum at the idea behind the last step done
+                    views.learn.open = true;
+                    views.learn.selected =
+                        game.game_data.as_ref().and_then(|g| game.pages.get(&g.pages)).and_then(|pg| {
+                            ap.results
+                                .iter()
+                                .rev()
+                                .filter(|x| x.ok)
+                                .find_map(|x| pg.reactions.get(&x.reaction)?.first().cloned())
+                        });
+                }
                 TourView::Settings => {
                     views.settings_ui.open = true;
                 }
@@ -888,6 +905,7 @@ fn autoplay_drive_system(
                 TourView::SubstanceElement => "substances_element",
                 TourView::SubstanceComing => "substances_coming_later",
                 TourView::Reactions => "reactions",
+                TourView::Learn => "learn",
                 TourView::Settings => "settings",
             };
             let n = if ap.tour_label == "end" { 90 } else { 10 };

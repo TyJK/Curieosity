@@ -12,6 +12,7 @@ use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 
 use chem_alchemy::data::common::{un_class_name, Grade, ProcessType, Property};
+use chem_alchemy::data::pages::Pages;
 use chem_alchemy::data::reactions::Reactions;
 use chem_alchemy::data::substances::{SubstancePatches, Substances};
 use chem_alchemy::resources::player_progress::{SaveData, SAVE_VERSION};
@@ -27,6 +28,7 @@ struct Content {
     subs: Substances,
     authored: Reactions,
     db: RecipeDatabase,
+    pages: Pages,
 }
 
 fn root() -> PathBuf {
@@ -45,10 +47,12 @@ fn content() -> &'static Content {
         let mut subs: Substances = load("substances.ron");
         let patches: SubstancePatches = load("authored_substances.ron");
         patches.apply_to(&mut subs);
+        let pages: Pages = load("pages.ron");
+        pages.apply_values(&mut subs);
         let authored: Reactions = load("authored_reactions.ron");
         let mut db = RecipeDatabase::from_authored(&authored);
         db.note_transients(&subs);
-        Content { subs, authored, db }
+        Content { subs, authored, db, pages }
     })
 }
 
@@ -611,6 +615,7 @@ fn a_save_round_trips() {
         ],
         // the order things were found in, newest last (the shelf's "Newest first")
         order: vec![1, 5, 8, 12, 15000, 900],
+        score: chem_alchemy::resources::score::Score { points: 140, hints_since: 2 },
     };
     let back = SaveData::parse(&data.to_text()).unwrap();
     assert_eq!(back, data);
@@ -779,4 +784,87 @@ fn steam_achievements_match_the_content() {
         on_disk == csv,
         "steam/achievements.csv is out of date: run the tests with CURIEOSITY_WRITE_STEAM=1 set, then python tools/art/gen_steam_art.py"
     );
+}
+
+/// Nothing the game shows boils below its melting point: pages.ron's checked values replace
+/// the library's, and a pair that contradicts itself is left out (tools/data/gen_pages.py).
+#[test]
+fn nothing_boils_below_its_melting_point() {
+    let c = content();
+    let mut bad = Vec::new();
+    for id in c.db.canon.iter().copied().chain(previews(c)) {
+        let Some(s) = c.subs.0.get(&id) else { continue };
+        if let (Some(m), Some(b)) = (s.melting_point_c, s.boiling_point_c) {
+            if m > b + 0.5 {
+                bad.push(format!("{} melts at {m}, boils at {b}", s.name));
+            }
+        }
+        if s.phase_note.is_some()
+            && s.boiling_point_c.is_some()
+            && s.phase_note.as_deref().is_some_and(|n| n.starts_with("Sublimes"))
+        {
+            bad.push(format!("{} sublimes but has a boiling point", s.name));
+        }
+    }
+    assert!(bad.is_empty(), "{} contradictions: {:?}", bad.len(), &bad[..bad.len().min(20)]);
+}
+
+fn previews(c: &Content) -> impl Iterator<Item = u32> + '_ {
+    c.subs.0.values().filter(|s| s.stage.is_some()).map(|s| s.id)
+}
+
+/// The curriculum links only to its own topics, every topic is a Wikipedia article in one of
+/// its units, and every vessel and era has topics behind it.
+#[test]
+fn the_curriculum_hangs_together() {
+    let c = content();
+    let p = &c.pages;
+    let units: HashSet<&str> = p.units.iter().map(|(k, _)| k.as_str()).collect();
+    assert!(p.topics.len() >= 300, "only {} topics", p.topics.len());
+    for (k, t) in &p.topics {
+        assert!(units.contains(t.unit.as_str()), "{k} is in no unit ({})", t.unit);
+        assert!(t.url.starts_with("https://en.wikipedia.org/wiki/"), "{k} doesn't link to Wikipedia: {}", t.url);
+    }
+    let known = |k: &String| p.topics.contains_key(k);
+    for (id, ts) in &p.reactions {
+        assert!(
+            c.authored.reactions.iter().any(|r| r.id == *id),
+            "pages.ron links reaction {id}, which isn't in the game"
+        );
+        assert!(ts.iter().all(known), "reaction {id} links an unknown topic: {ts:?}");
+    }
+    for v in VESSELS {
+        let ts = p.vessels.get(&v.process).unwrap_or_else(|| panic!("the {} has no topics", v.name));
+        assert!(!ts.is_empty() && ts.iter().all(known), "the {}'s topics: {ts:?}", v.name);
+    }
+    for e in &c.authored.epochs {
+        let ts = p.eras.get(&e.name).unwrap_or_else(|| panic!("the {} era has no topics", e.name));
+        assert!(ts.iter().all(known), "the {} era's topics: {ts:?}", e.name);
+    }
+    let linked = p.reactions.len();
+    assert!(linked * 2 > c.authored.reactions.len(), "only {linked} reactions link a topic");
+}
+
+/// Every page is a Wikipedia article's, credited, readable and short enough for a phone.
+#[test]
+fn pages_are_well_formed() {
+    let c = content();
+    for (id, pg) in &c.pages.substances {
+        let name = c
+            .subs
+            .0
+            .get(id)
+            .map(|s| s.name.as_str())
+            .unwrap_or_else(|| panic!("a page for {id}, which isn't in the game"));
+        assert!(pg.url.starts_with("https://en.wikipedia.org/wiki/"), "{name}'s page links {}", pg.url);
+        assert!(!pg.title.is_empty() && pg.revised.len() == 10, "{name}'s page has no title or revision date");
+        assert!(!pg.lead.trim().is_empty() || !pg.sections.is_empty(), "{name}'s page has no text");
+        assert!(pg.sections.len() <= 4, "{name}'s page has {} sections", pg.sections.len());
+        let total = pg.lead.len() + pg.sections.iter().map(|(h, t)| h.len() + t.len()).sum::<usize>();
+        assert!(total <= 8000, "{name}'s page is {total} bytes");
+        for (h, t) in &pg.sections {
+            assert!(!h.is_empty() && t.trim().len() >= 60, "{name}'s {h} section is empty");
+        }
+        assert!(!pg.lead.contains("displaystyle"), "{name}'s lead has maths markup in it");
+    }
 }

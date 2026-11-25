@@ -13,6 +13,7 @@ use bevy::ui::Pressed;
 pub mod bench_controls;
 pub mod codex;
 pub mod credits;
+pub mod curriculum;
 pub mod detail_panel;
 pub mod discovery_card;
 pub mod focus;

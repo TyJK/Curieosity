@@ -12,6 +12,7 @@ use bevy::ui::ScrollPosition;
 
 use crate::components::format_formula;
 use crate::data::common::{handling, un_class_name, MatterState, Property};
+use crate::data::pages::{Pages, SubstancePage};
 use crate::data::reactions::Reaction;
 use crate::data::substances::{Substance, Substances};
 use crate::resources::player_progress::PlayerProgress;
@@ -120,7 +121,27 @@ fn state_color(s: MatterState) -> Color {
 }
 
 /// (label, value) cards for a substance's physical data.
-pub(crate) fn facts(sub: &Substance) -> Vec<(&'static str, String)> {
+/// A temperature as the pages write it: whole degrees, a true minus sign.
+pub(crate) fn celsius(t: f32) -> String {
+    let v = if t.abs() >= 10.0 { format!("{t:.0}") } else { format!("{t:.1}") };
+    format!("{} °C", v.replace('-', "\u{2212}"))
+}
+
+/// A density in the unit that reads best: a gas's in grams a litre.
+pub(crate) fn density(d: f32) -> String {
+    if d < 0.01 {
+        format!("{:.2} g/L", d * 1000.0)
+    } else {
+        format!("{d:.2} g/cm³")
+    }
+}
+
+/// A substance's page from Wikipedia, once the pages are loaded.
+pub fn page_of(pages: Option<&Pages>, id: u32) -> Option<&SubstancePage> {
+    pages.and_then(|p| p.substances.get(&id))
+}
+
+pub(crate) fn facts(sub: &Substance, page: Option<&SubstancePage>) -> Vec<(&'static str, String)> {
     let mut f = Vec::new();
     if let Some(ei) = &sub.element_info {
         f.push(("Atomic number", ei.atomic_number.to_string()));
@@ -156,13 +177,19 @@ pub(crate) fn facts(sub: &Substance) -> Vec<(&'static str, String)> {
         f.push(("Molar mass", format!("{:.2} g/mol", sub.molar_mass_g_mol)));
     }
     if let Some(mp) = sub.melting_point_c {
-        f.push(("Melts at", format!("{:.0} °C", mp)));
+        f.push(("Melts at", celsius(mp)));
     }
     if let Some(bp) = sub.boiling_point_c {
-        f.push(("Boils at", format!("{:.0} °C", bp)));
+        f.push(("Boils at", celsius(bp)));
+    }
+    if let Some(n) = &sub.phase_note {
+        f.push(("On heating", n.clone()));
     }
     if let Some(d) = sub.density_g_cm3 {
-        f.push(("Density", format!("{:.2} g/cm³", d)));
+        f.push(("Density", density(d)));
+    }
+    if let Some(s) = page.and_then(|p| p.solubility.as_ref()) {
+        f.push(("In water", s.clone()));
     }
     if let Some(s) = sub.solubility_g_per_100ml_h2o {
         f.push(("Solubility", format!("{:.1} g/100 mL", s)));
@@ -170,10 +197,22 @@ pub(crate) fn facts(sub: &Substance) -> Vec<(&'static str, String)> {
     if let Some(h) = sub.enthalpy_formation_kj_mol {
         f.push(("ΔHf°", format!("{:.0} kJ/mol", h)));
     }
-    if let Some(a) = &sub.appearance {
+    if let Some(a) = page.and_then(|p| p.appearance.as_ref()).or(sub.appearance.as_ref()) {
         f.push(("Appearance", a.clone()));
     }
+    if let Some(o) = page.and_then(|p| p.odor.as_ref()) {
+        f.push(("Smell", o.clone()));
+    }
     f
+}
+
+/// The credit under text from a Wikipedia article, as CC BY-SA asks: the article, the
+/// revision, the licence, and that it was shortened.
+pub fn page_credit(pg: &SubstancePage) -> String {
+    format!(
+        "From Wikipedia's article \u{201c}{}\u{201d} (revision of {}), shortened. CC BY-SA 4.0.",
+        pg.title, pg.revised
+    )
 }
 
 /// The name a chemical index files a substance under: leading locants, stereo descriptors and
@@ -901,7 +940,7 @@ pub fn codex_search_input_system(
 }
 
 // --- the substance page ----------------------------------------------------------------------
-fn known_reaction(r: &Reaction, progress: &PlayerProgress) -> bool {
+pub(crate) fn known_reaction(r: &Reaction, progress: &PlayerProgress) -> bool {
     r.reactants.iter().all(|s| progress.discovered.contains(&s.substance_id))
         && r.products.iter().all(|s| progress.discovered.contains(&s.substance_id))
 }
@@ -938,6 +977,7 @@ pub fn update_codex_detail_system(
     asset_server: Res<AssetServer>,
     detail_q: Query<Entity, With<CodexDetail>>,
     mut detail_scroll: Query<(&CodexScrollable, &mut ScrollPosition)>,
+    pages_assets: Res<Assets<Pages>>,
 ) {
     // only while the library is showing (opening it is itself a change)
     if !state.open || !(state.is_changed() || progress.is_changed()) {
@@ -960,6 +1000,7 @@ pub fn update_codex_detail_system(
     let Some(subs) = substances_assets.get(&game_data.substances) else {
         return;
     };
+    let pages = pages_assets.get(&game_data.pages);
     let Some(sub) = state.selected.and_then(|sel| subs.0.get(&sel)) else {
         commands.entity(detail).with_children(|p| {
             p.spawn(Node {
@@ -994,6 +1035,11 @@ pub fn update_codex_detail_system(
         Some(ei) => format!("bohr/{}.png", ei.atomic_number),
         None => format!("structures/{}.png", sub.id),
     };
+    let page = page_of(pages, sub.id);
+    // the page's article leads the links; else the substance's own first link
+    let lead_ref = page
+        .map(|pg| ("Wikipedia".to_string(), pg.url.clone()))
+        .or_else(|| crate::data::common::primary_reference(&sub.references).cloned());
 
     commands.entity(detail).with_children(|p| {
         // --- hero: picture + name, formula, tags, link ---
@@ -1084,7 +1130,7 @@ pub fn update_codex_detail_system(
                             theme::spawn_chip(chips, fonts, "Coming later", theme::GOLD);
                         }
                     });
-                    if let Some((label, url)) = crate::data::common::primary_reference(&sub.references) {
+                    if let Some((label, url)) = &lead_ref {
                         info.spawn(Node { margin: UiRect::top(Val::Px(6.0)), ..default() }).with_children(|b| {
                             theme::spawn_button(
                                 b,
@@ -1115,14 +1161,19 @@ pub fn update_codex_detail_system(
             ));
         }
 
-        // --- the story ---
+        // --- the story: the game's own words, then the article's ---
         let mut story: Vec<String> = Vec::new();
         if let Some(d) = &sub.description {
-            story.push(d.clone());
+            // the library's copy of the article's lead gives way to the article itself
+            if page.is_none() || sub.text_source.as_deref() != Some("Wikipedia") {
+                story.push(d.clone());
+            }
         }
         if let Some(ei) = &sub.element_info {
-            if let Some(o) = &ei.overview {
-                story.push(o.clone());
+            if page.is_none() {
+                if let Some(o) = &ei.overview {
+                    story.push(o.clone());
+                }
             }
             if let Some(ds) = &ei.discovery_story {
                 story.push(ds.clone());
@@ -1143,10 +1194,31 @@ pub fn update_codex_detail_system(
         if sub.properties.contains(&Property::IsMedicine) {
             p.spawn(theme::para(fonts, MEDICINE_NOTE.to_string(), theme::SM, theme::GOLD, Val::Px(820.0)));
         }
+        if let Some(pg) = page {
+            if let Some(about) = &pg.about {
+                theme::spawn_section_title(p, fonts, &format!("About {about}"));
+            }
+            for line in pg.lead.lines().map(str::trim).filter(|l| !l.is_empty()) {
+                p.spawn(theme::para(fonts, line.to_string(), theme::MD, theme::TEXT_2, Val::Px(820.0)));
+            }
+            for (heading, text) in &pg.sections {
+                theme::spawn_section_title(p, fonts, heading);
+                for line in text.lines().map(str::trim).filter(|l| !l.is_empty()) {
+                    p.spawn(theme::para(fonts, line.to_string(), theme::SM, theme::TEXT_2, Val::Px(820.0)));
+                }
+            }
+        }
         // where the text comes from, as its licence asks
-        let mut credit: Vec<String> =
-            sub.text_source.as_deref().and_then(crate::ui::credits::text_credit).into_iter().collect();
-        if sub.element_info.as_ref().is_some_and(|e| e.overview.is_some())
+        let mut credit: Vec<String> = sub
+            .text_source
+            .as_deref()
+            .filter(|t| page.is_none() || *t != "Wikipedia")
+            .and_then(crate::ui::credits::text_credit)
+            .into_iter()
+            .collect();
+        if let Some(pg) = page {
+            credit.push(page_credit(pg));
+        } else if sub.element_info.as_ref().is_some_and(|e| e.overview.is_some())
             && sub.text_source.as_deref() != Some("Wikipedia")
         {
             credit.push("Overview: Wikipedia, CC BY-SA 4.0.".to_string());
@@ -1156,10 +1228,27 @@ pub fn update_codex_detail_system(
         }
 
         // --- facts ---
-        let facts = facts(sub);
+        let facts = facts(sub, page);
         if !facts.is_empty() {
             theme::spawn_section_title(p, fonts, "Properties");
             spawn_fact_grid(p, fonts, facts, false);
+        }
+
+        // --- the ideas behind the reactions that make it, in Learn ---
+        if let (Some(db), Some(pg)) = (db.as_ref(), pages) {
+            let mut keys: Vec<&str> = Vec::new();
+            for r in db.authored.iter().filter(|r| r.products.iter().any(|s| s.substance_id == sub.id)) {
+                for k in pg.reactions.get(&r.id).into_iter().flatten() {
+                    if !keys.contains(&k.as_str()) && !matches!(k.as_str(), "Exothermic" | "Endothermic") {
+                        keys.push(k);
+                    }
+                }
+            }
+            keys.truncate(6);
+            if !keys.is_empty() {
+                theme::spawn_section_title(p, fonts, "Learn more");
+                crate::ui::curriculum::spawn_learn_row(p, fonts, assets, pg, &keys);
+            }
         }
 
         // --- industry ---
@@ -1225,11 +1314,8 @@ pub fn update_codex_detail_system(
                 p.spawn(theme::para(fonts, e, theme::SM, theme::TEXT_2, Val::Px(820.0)));
             }
         }
-        let others: Vec<&(String, String)> = sub
-            .references
-            .iter()
-            .filter(|x| Some(*x) != crate::data::common::primary_reference(&sub.references))
-            .collect();
+        let others: Vec<&(String, String)> =
+            sub.references.iter().filter(|x| lead_ref.as_ref().is_none_or(|l| x.1 != l.1)).collect();
         if !others.is_empty() {
             theme::spawn_section_title(p, fonts, "References");
             p.spawn(Node { flex_wrap: FlexWrap::Wrap, column_gap: Val::Px(8.0), row_gap: Val::Px(8.0), ..default() })
@@ -1251,7 +1337,13 @@ pub fn update_codex_detail_system(
 }
 
 /// One reaction on a substance page: vessel, name, equation; opens the Reaction Library.
-fn reaction_row(p: &mut ChildSpawnerCommands, fonts: &UiFonts, assets: &AssetServer, r: &Reaction, subs: &Substances) {
+pub(crate) fn reaction_row(
+    p: &mut ChildSpawnerCommands,
+    fonts: &UiFonts,
+    assets: &AssetServer,
+    r: &Reaction,
+    subs: &Substances,
+) {
     let accent = theme::process_color(&r.process);
     p.spawn((
         theme::button(

@@ -620,7 +620,7 @@ fn spawn_notice(p: &mut ChildSpawnerCommands, fonts: &UiFonts) {
         for (text, color) in [
             ("The code is MIT or Apache-2.0. The content (data, text, pictures and sounds) is CC BY-SA 4.0, as its sources require.", theme::TEXT),
             ("Text adapted from Wikipedia (CC BY-SA 4.0). Data from PubChem and CAMEO Chemicals (public domain, U.S. government), ChEBI (CC BY 4.0), Wikidata (CC0) and the Chemical Reaction Database. Molecule pictures drawn with RDKit; made with Bevy.", theme::TEXT_2),
-            ("Made by Tyler Kolody, with AI. Every substance page names its source; how it was made, the full credits and where to give are under About.", theme::TEXT_3),
+            ("Assembled by Tyler Kolody, aided by Claude. Every substance page names its source; how it was made, the full credits and where to give are under About.", theme::TEXT_3),
         ] {
             c.spawn((
                 Text::new(text),

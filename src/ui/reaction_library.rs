@@ -175,6 +175,7 @@ pub fn spawn_reaction_library(mut commands: Commands, fonts: Res<UiFonts>, asset
                     ReactionLibScrollable { is_left: true },
                     ScrollPosition::default(),
                     Node {
+                        flex_direction: FlexDirection::Column,
                         flex_grow: 1.0,
                         flex_basis: Val::Px(0.0),
                         min_height: Val::Px(0.0),
@@ -551,11 +552,13 @@ pub fn update_reaction_detail_system(
     detail_q: Query<Entity, With<ReactionLibDetail>>,
     mut detail_scroll: Query<(&ReactionLibScrollable, &mut ScrollPosition)>,
     mut prev_sel: Local<Option<Option<u32>>>,
+    pages_assets: Res<Assets<crate::data::pages::Pages>>,
 ) {
     // rebuild only when the selection changes (typing in the search also changes state)
     if *prev_sel == Some(state.selected) {
         return;
     }
+    let pages = pages_assets.get(&game_data.pages);
     let Ok(detail) = detail_q.single() else {
         return;
     };
@@ -761,6 +764,15 @@ pub fn update_reaction_detail_system(
             Weight::Regular,
             theme::TEXT_3,
         ));
+
+        // --- the ideas behind it, and its vessel's, in Learn ---
+        if let Some(pg) = pages {
+            let keys = pg.reaction_topics(r.id, &r.process);
+            if !keys.is_empty() {
+                theme::spawn_section_title(p, fonts, "Learn more");
+                crate::ui::curriculum::spawn_learn_row(p, fonts, assets, pg, &keys);
+            }
+        }
 
         let others: Vec<&(String, String)> =
             r.references.iter().filter(|x| Some(*x) != crate::data::common::primary_reference(&r.references)).collect();

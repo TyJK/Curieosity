@@ -74,25 +74,48 @@ pub struct DiscoveryCardReadMore;
 #[derive(Component)]
 pub struct DiscoveryCardWiki(pub String);
 
-/// What the card tells about a substance: an element's discovery or overview, a
-/// compound's description, cut at a sentence once it is long enough.
-pub fn card_story(sub: &Substance) -> String {
-    let text = sub
-        .element_info
-        .as_ref()
-        .and_then(|e| e.discovery_story.clone().or_else(|| e.overview.clone()))
-        .or_else(|| sub.description.clone())
-        .unwrap_or_default();
-    let first = text.lines().map(str::trim).find(|l| !l.is_empty()).unwrap_or("").to_string();
-    if first.chars().count() <= STORY_MAX {
-        return first;
+/// What the card tells about a substance: an element's discovery, or the game's own line
+/// about it, then the Wikipedia article's lead as far as it fits, cut at a sentence. With no
+/// article, an element's overview or the library's description.
+pub fn card_story(sub: &Substance, page: Option<&crate::data::pages::SubstancePage>) -> String {
+    let ours = sub.text_source.as_deref() == Some(crate::data::substances::CURIEOSITY);
+    let mut parts: Vec<String> = Vec::new();
+    if let Some(d) = sub.element_info.as_ref().and_then(|e| e.discovery_story.clone()) {
+        parts.push(d);
+    } else if ours {
+        parts.extend(sub.description.clone());
     }
-    // the last full sentence that fits, or a clean cut with an ellipsis
-    let cut: String = first.chars().take(STORY_MAX).collect();
-    match cut.rfind(". ") {
-        Some(i) if i > STORY_MAX / 3 => cut[..=i].to_string(),
-        _ => format!("{}…", cut.trim_end()),
+    match page {
+        // an article on a related subject is for the Library page, not the card's story
+        Some(pg) if pg.about.is_none() => {
+            parts.extend(pg.lead.lines().map(str::trim).filter(|l| !l.is_empty()).map(String::from))
+        }
+        Some(_) => parts.extend(sub.description.clone().filter(|_| !ours)),
+        None => {
+            parts.extend(sub.element_info.as_ref().and_then(|e| e.overview.clone()).or_else(|| sub.description.clone()))
+        }
     }
+    let mut out = String::new();
+    for part in parts.iter().flat_map(|p| p.lines()).map(str::trim).filter(|l| !l.is_empty()) {
+        if out.contains(part) {
+            continue;
+        }
+        let sep = if out.is_empty() { "" } else { "\n\n" };
+        if out.chars().count() + sep.len() + part.chars().count() <= STORY_MAX {
+            out = format!("{out}{sep}{part}");
+            continue;
+        }
+        // the last full sentence that fits, or (for the first part) a clean cut
+        let room = STORY_MAX.saturating_sub(out.chars().count() + sep.len());
+        let cut: String = part.chars().take(room).collect();
+        match cut.rfind(". ") {
+            Some(i) if i > room / 3 => out = format!("{out}{sep}{}", &cut[..=i]),
+            _ if out.is_empty() => out = format!("{}…", cut.trim_end()),
+            _ => {}
+        }
+        break;
+    }
+    out
 }
 
 /// New discoveries join the queue (while cards are on).
@@ -205,6 +228,7 @@ pub fn discovery_card_view_system(
     game_data: Option<Res<GameData>>,
     substances: Res<Assets<Substances>>,
     db: Option<Res<crate::resources::recipe_database::RecipeDatabase>>,
+    pages: Res<Assets<crate::data::pages::Pages>>,
     mut root: Query<(Entity, &mut Node, &mut BackgroundColor, Option<&Children>), With<DiscoveryCardRoot>>,
     mut shown: Local<Option<(u32, bool, usize)>>,
 ) {
@@ -226,6 +250,7 @@ pub fn discovery_card_view_system(
         return;
     };
     let Some(sub) = subs.and_then(|s| s.0.get(&id)) else { return };
+    let page = crate::ui::codex::page_of(game_data.as_ref().and_then(|g| pages.get(&g.pages)), id);
     *shown = want;
     *node = if open { page_layout() } else { Node { display: Display::Flex, ..sealed_layout() } };
     // open, it covers the lab (and a tap on what's around the card goes nowhere)
@@ -369,8 +394,17 @@ pub fn discovery_card_view_system(
                 });
                 p.spawn((
                     DiscoveryCardStory,
-                    theme::para(&fonts, card_story(sub), theme::MD, theme::TEXT, Val::Px(PAGE_W - 60.0)),
+                    theme::para(&fonts, card_story(sub, page), theme::MD, theme::TEXT, Val::Px(PAGE_W - 60.0)),
                 ));
+                if let Some(pg) = page.filter(|pg| pg.about.is_none()) {
+                    p.spawn(theme::para(
+                        &fonts,
+                        crate::ui::codex::page_credit(pg),
+                        theme::XS,
+                        theme::TEXT_3,
+                        Val::Px(PAGE_W - 60.0),
+                    ));
+                }
                 // how it is made (the earliest recipe for it), and what it leads to
                 if let (Some(db), Some(all)) = (db.as_ref(), subs) {
                     let made = db
@@ -451,12 +485,14 @@ pub fn discovery_card_view_system(
                         Val::Px(PAGE_W - 60.0),
                     ));
                 }
-                let facts = crate::ui::codex::facts(sub);
+                let facts = crate::ui::codex::facts(sub, page);
                 if !facts.is_empty() {
                     crate::ui::codex::spawn_fact_grid(p, &fonts, facts, false);
                 }
             });
-            let wiki = sub.references.iter().find(|(site, _)| site == "Wikipedia").map(|(_, url)| url.clone());
+            let wiki = page
+                .map(|pg| pg.url.clone())
+                .or_else(|| sub.references.iter().find(|(site, _)| site == "Wikipedia").map(|(_, url)| url.clone()));
             card.spawn(Node {
                 justify_content: JustifyContent::FlexEnd,
                 flex_wrap: FlexWrap::Wrap,
