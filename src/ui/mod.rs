@@ -11,12 +11,14 @@ use bevy::prelude::{ChildOf, Node};
 use bevy::ui::Pressed;
 
 pub mod bench_controls;
+pub mod challenges;
 pub mod codex;
 pub mod credits;
 pub mod curriculum;
 pub mod detail_panel;
 pub mod discovery_card;
 pub mod focus;
+pub mod glossary;
 pub mod hint;
 pub mod inventory;
 pub mod main_menu;
@@ -90,12 +92,24 @@ impl Look {
 }
 
 /// The pointers that are down: where each went down and the furthest it has been from
-/// there since, and the button it holds.
+/// there since, and the button it holds. And the fingers on the screen: two that come down
+/// together (within TOGETHER of each other) make a two-finger scroll, and nothing it
+/// touches is pressed, tapped or dragged until every finger has lifted. A finger resting on
+/// the screen a while (a thumb holding the phone) doesn't make the next tap a scroll, and
+/// one the system never reports lifting is let go of after STALE.
 #[derive(Resource, Default)]
 pub struct Presses {
     travel: HashMap<PointerId, (Vec2, f32)>,
     held: HashMap<PointerId, Entity>,
+    /// (finger, when it came down, when it last did anything)
+    fingers: Vec<(PointerId, f64, f64)>,
+    multi: bool,
 }
+
+/// Two fingers landing this close together (seconds) are one gesture.
+const TOGETHER: f64 = 0.4;
+/// A finger silent this long (seconds) is taken to have lifted.
+const STALE: f64 = 10.0;
 
 impl Presses {
     /// How far a pointer has moved since it went down, counting where it is now: for a
@@ -105,7 +119,18 @@ impl Presses {
     }
 
     pub fn is_tap(&self, id: PointerId, now: Vec2) -> bool {
-        self.travel(id, now) <= TAP_SLOP
+        !self.multi && self.travel(id, now) <= TAP_SLOP
+    }
+
+    /// Two or more fingers have been down together since the last time none were: the
+    /// gesture only scrolls.
+    pub fn multi_touch(&self) -> bool {
+        self.multi
+    }
+
+    /// How many fingers are on the screen.
+    pub fn fingers(&self) -> usize {
+        self.fingers.len()
     }
 }
 
@@ -121,9 +146,11 @@ impl Plugin for ButtonPlugin {
 
 /// Turns picking's presses and clicks into `Pressed` and `Clicked` on the buttons they
 /// landed on (or on the button around the text or icon they landed on).
+#[allow(clippy::too_many_arguments)]
 pub fn button_pointer_system(
     mut commands: Commands,
     mut state: ResMut<Presses>,
+    time: Res<bevy::time::Time<bevy::time::Real>>,
     mut inputs: MessageReader<PointerInput>,
     mut presses: MessageReader<PointerPress>,
     mut clicks: MessageReader<PointerClick>,
@@ -142,15 +169,32 @@ pub fn button_pointer_system(
     let mut restyle: Vec<Entity> = Vec::new();
     let mut ended: Vec<PointerId> = Vec::new();
 
+    let now = time.elapsed_secs_f64();
+    state.fingers.retain(|(_, _, seen)| now - seen < STALE);
+    // a gesture that ended last frame is over now (its lifts' clicks came and were ignored)
+    if state.fingers.is_empty() && state.multi {
+        state.multi = false;
+    }
     for input in inputs.read() {
         let at = input.location.position;
         match input.action {
             PointerAction::Press(PointerButton::Primary) => {
                 state.travel.insert(input.pointer_id, (at, 0.0));
+                let id = input.pointer_id;
+                if matches!(id, PointerId::Touch(_)) && !state.fingers.iter().any(|f| f.0 == id) {
+                    let together = state.fingers.iter().any(|(_, down, _)| now - down < TOGETHER);
+                    state.fingers.push((id, now, now));
+                    if together {
+                        state.multi = true;
+                    }
+                }
             }
             PointerAction::Move { .. } => {
                 if let Some((start, far)) = state.travel.get_mut(&input.pointer_id) {
                     *far = far.max(at.distance(*start));
+                }
+                if let Some(f) = state.fingers.iter_mut().find(|f| f.0 == input.pointer_id) {
+                    f.2 = now;
                 }
             }
             PointerAction::Release(PointerButton::Primary) => ended.push(input.pointer_id),
@@ -164,6 +208,15 @@ pub fn button_pointer_system(
         }
     }
 
+    // two fingers: every finger's press is a scroll's, not a tap's
+    if state.multi {
+        let fingers: Vec<PointerId> = state.fingers.iter().map(|f| f.0).collect();
+        for id in fingers {
+            if let Some((_, far)) = state.travel.get_mut(&id) {
+                *far = f32::INFINITY;
+            }
+        }
+    }
     for p in presses.read() {
         if p.button != PointerButton::Primary {
             continue;
@@ -207,6 +260,7 @@ pub fn button_pointer_system(
 
     for id in ended {
         state.travel.remove(&id);
+        state.fingers.retain(|f| f.0 != id);
         if let Some(b) = state.held.remove(&id) {
             commands.entity(b).try_remove::<Pressed>();
             restyle.push(b);

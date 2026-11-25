@@ -82,6 +82,7 @@ use crate::ui::virtual_list::VirtualList;
 use crate::GameData;
 
 // Sound, keyboard and controller, hover states, saves, credits and achievements.
+mod pages;
 mod polish;
 
 /// The checks drive the mouse's own picking pointer, so hover works as it does for a player.
@@ -865,11 +866,21 @@ fn bench_spot() -> Target {
 // ---------------------------------------------------------------------------------------
 /// Close everything, clear the bench and the selection, default settings.
 fn fresh(world: &mut World) {
-    world.resource_mut::<CodexState>().open = false;
-    world.resource_mut::<ReactionLibState>().open = false;
-    world.resource_mut::<ReactionLibState>().search.clear();
+    *world.resource_mut::<CodexState>() = CodexState::default();
+    *world.resource_mut::<ReactionLibState>() = ReactionLibState::default();
     world.resource_mut::<TechTreeState>().open = false;
-    world.resource_mut::<crate::ui::curriculum::CurriculumState>().open = false;
+    *world.resource_mut::<crate::ui::curriculum::CurriculumState>() = Default::default();
+    world.resource_mut::<crate::ui::glossary::OpenTerm>().0 = None;
+    // a challenge left running ends, and its lab comes back
+    if let Some(save) = world.resource_mut::<crate::ui::challenges::ChallengeMode>().abandon() {
+        world.resource_scope(|world, mut unlocks: Mut<ProcessUnlocks>| {
+            world.resource_scope(|world, mut journal: Mut<crate::ui::toasts::Journal>| {
+                let mut progress = world.resource_mut::<PlayerProgress>();
+                crate::ui::challenges::restore(&save, &mut progress, &mut unlocks, &mut journal);
+            });
+        });
+    }
+    world.resource_mut::<crate::ui::hint::HintState>().challenge_step = None;
     world.resource_mut::<SettingsUi>().open = false;
     world.resource_mut::<CreditsUi>().open = false;
     *world.resource_mut::<KeyFocus>() = KeyFocus::default();
@@ -933,10 +944,8 @@ fn new_game(world: &mut World) {
     world.resource_scope(|world, db: Mut<RecipeDatabase>| {
         world.resource_scope(|world, mut fired: Mut<FiredMilestones>| {
             world.resource_scope(|world, mut unlocks: Mut<ProcessUnlocks>| {
-                world.resource_scope(|world, mut score: Mut<crate::resources::score::Score>| {
-                    let mut progress = world.resource_mut::<PlayerProgress>();
-                    reset_progress(&mut progress, &mut unlocks, &mut fired, &mut score, &db);
-                });
+                let mut progress = world.resource_mut::<PlayerProgress>();
+                reset_progress(&mut progress, &mut unlocks, &mut fired, &db);
             });
         });
     });
@@ -2267,6 +2276,7 @@ pub fn all_checks(world: &mut World) -> Vec<Check> {
             let mut c = w.resource_mut::<CodexState>();
             c.open = true;
             c.selected = id;
+            c.page = id.is_some();
         })
     };
     v.push(check(
@@ -3272,6 +3282,7 @@ pub fn all_checks(world: &mut World) -> Vec<Check> {
     v.extend(era_checks(world));
     v.extend(chain_checks(world));
     v.extend(polish::transient_checks(world));
+    v.extend(pages::pages_checks());
     v.extend(polish::battery_checks());
     v
 }

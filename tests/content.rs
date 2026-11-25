@@ -615,10 +615,52 @@ fn a_save_round_trips() {
         ],
         // the order things were found in, newest last (the shelf's "Newest first")
         order: vec![1, 5, 8, 12, 15000, 900],
-        score: chem_alchemy::resources::score::Score { points: 140, hints_since: 2 },
     };
     let back = SaveData::parse(&data.to_text()).unwrap();
     assert_eq!(back, data);
+    // a save from the build that kept a free-play score still reads
+    let older = "(version:3,discovered:[1,5],unlocked:[Mix],score:(points:140,hints_since:2))";
+    assert_eq!(SaveData::parse(older).unwrap().discovered, vec![1, 5]);
+}
+
+/// Every challenge can be made from its kit alone, in its vessels, in its steps' order; each
+/// era the challenges cover has a few; and every step's product is one the route needs.
+#[test]
+fn every_challenge_can_be_made_from_its_kit() {
+    let c = content();
+    let all = chem_alchemy::resources::challenge::all_challenges(&c.db);
+    assert!(all.len() >= 50, "only {} challenges", all.len());
+    let mut eras: HashSet<u8> = HashSet::new();
+    for ch in &all {
+        eras.insert(ch.era);
+        let mut have: HashSet<u32> = ch.kit.iter().copied().collect();
+        assert!(!have.contains(&ch.target), "{}: the kit holds the target", name(c, ch.target));
+        assert!((2..=4).contains(&ch.steps.len()), "{}: {} steps", name(c, ch.target), ch.steps.len());
+        assert_eq!(ch.steps.len(), ch.step_products.len());
+        for (i, id) in ch.steps.iter().enumerate() {
+            let r = c.db.authored.iter().find(|r| r.id == *id).expect("a step exists");
+            assert!(ch.vessels.contains(&r.process), "{}: {} is not among its vessels", name(c, ch.target), r.name);
+            assert!(
+                r.reactants.iter().all(|s| have.contains(&s.substance_id))
+                    && r.required_catalyst().is_none_or(|k| have.contains(&k)),
+                "{}: step {} ({}) can't run from what came before",
+                name(c, ch.target),
+                i + 1,
+                r.name
+            );
+            assert!(
+                r.products.iter().any(|p| p.substance_id == ch.step_products[i]),
+                "{}: step {} doesn't make {}",
+                name(c, ch.target),
+                i + 1,
+                name(c, ch.step_products[i])
+            );
+            have.extend(r.products.iter().map(|p| p.substance_id));
+        }
+        assert_eq!(ch.step_products.last(), Some(&ch.target));
+        assert!(ch.decoys.iter().all(|d| !ch.kit.contains(d)), "{}: a decoy is in the kit", name(c, ch.target));
+    }
+    assert!(eras.len() >= 6, "challenges in only {} eras", eras.len());
 }
 
 /// Saves written by earlier builds (tests/saves) load against today's content: what the

@@ -124,8 +124,10 @@ pub fn discovery_card_feed_system(
     settings: Option<Res<Settings>>,
     mut cards: ResMut<DiscoveryCards>,
     time: Res<Time<Real>>,
+    challenge: Option<Res<crate::ui::challenges::ChallengeMode>>,
 ) {
-    let on = settings.as_ref().is_none_or(|s| s.discovery_cards);
+    // a challenge's steps are its own bar's to show
+    let on = settings.as_ref().is_none_or(|s| s.discovery_cards) && !challenge.is_some_and(|c| c.playing());
     if !on {
         events.clear();
         if !cards.queue.is_empty() {
@@ -166,8 +168,7 @@ pub fn discovery_card_input_system(
     } else if !got.is_empty() {
         cards.next(now);
     } else if !more.is_empty() {
-        codex.open = true;
-        codex.selected = Some(id);
+        codex.show(id);
         cards.next(now);
     } else if !cards.open
         && settings.as_ref().is_some_and(|s| s.cards_close_themselves)

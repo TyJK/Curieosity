@@ -1,10 +1,12 @@
 // src/ui/codex.rs
 //
 // The Substance Library: every substance the player has discovered, searchable and
-// filterable on the left; on the right, its page: structure (or Bohr model), formula,
-// state and tags, the description, physical data, what industry does with it (how much is
-// made, how it travels and is kept, the grades it sells at), the known reactions that make it
-// and use it (click one to open it in the Reaction Library), and its references.
+// filterable, across the screen; a tap opens its page in the list's place (Back returns to
+// the list where it was left): structure (or Bohr model), formula, state and tags, the
+// description and the Wikipedia article's text with its chemistry words marked and defined
+// (ui::glossary), physical data, what industry does with it (how much is made, how it
+// travels and is kept, the grades it sells at), the known reactions that make it and use it
+// (tap one to open it in the Reaction Library), and its references.
 use crate::ui::{Button, Clicked};
 use bevy::prelude::*;
 use bevy::ui::Pressed;
@@ -18,6 +20,7 @@ use crate::data::substances::{Substance, Substances};
 use crate::resources::player_progress::PlayerProgress;
 use crate::resources::recipe_database::RecipeDatabase;
 use crate::resources::ui_fonts::UiFonts;
+use crate::ui::glossary::spawn_glossed_para;
 use crate::ui::inventory::{element_tile_color, is_element_formula, matches_category, short, InvCategory};
 use crate::ui::process_toolbar::{vessel_art_path, vessel_name};
 use crate::ui::reaction_library::ReactionLibState;
@@ -29,6 +32,17 @@ use crate::GameData;
 pub struct CodexState {
     pub open: bool,
     pub selected: Option<u32>,
+    /// showing the selected substance's page, rather than the list
+    pub page: bool,
+}
+
+impl CodexState {
+    /// Open the library at a substance's page.
+    pub fn show(&mut self, id: u32) {
+        self.open = true;
+        self.selected = Some(id);
+        self.page = true;
+    }
 }
 
 #[derive(Resource, Default)]
@@ -50,7 +64,8 @@ const CODEX_TABS: [(InvCategory, &str); 10] = [
     (InvCategory::Coming, "Coming later"),
 ];
 
-const LIST_W: f32 = 380.0;
+/// A list cell's least width: the list fills the screen with as many columns as fit.
+const CELL_W: f32 = 300.0;
 
 #[derive(Component)]
 pub struct CodexCloseButton;
@@ -86,10 +101,10 @@ pub struct CodexEntry(pub u32);
 #[derive(Component)]
 pub struct CodexEmptyText;
 
-/// A list row's height (one line of name, one of formula, beside a 36 px picture), and the
-/// gap between rows. Rows are one fixed height so the list can build only those in sight.
-const ROW_H: f32 = 48.0;
-const ROW_GAP: f32 = 4.0;
+/// A list cell's height (one line of name, one of formula, beside a 40 px picture), and the
+/// gap between cells. Cells are one fixed size so the list can build only those in sight.
+const ROW_H: f32 = 54.0;
+const ROW_GAP: f32 = 6.0;
 #[derive(Component)]
 pub struct CodexRefLink(pub String);
 /// A reaction row on a substance page: opens it in the Reaction Library.
@@ -328,6 +343,23 @@ const WORLD_NOTE: &str = "World figures are rough estimates, rounded: totals thi
 track precisely.";
 
 /// A wrapping grid of (label, value) cards; the industry ones carry `CodexIndustryCard`.
+/// Each kind of value's colour, so the eye finds the melting point in the same place in the
+/// same colour on every page: warm for heat, blue for weight and density, cyan for water.
+pub(crate) fn fact_color(label: &str) -> Color {
+    match label {
+        "Melts at" => Color::srgb(1.0, 0.72, 0.36),
+        "Boils at" => Color::srgb(1.0, 0.47, 0.42),
+        "On heating" => Color::srgb(1.0, 0.60, 0.40),
+        "Density" => Color::srgb(0.52, 0.70, 1.0),
+        "Molar mass" | "Atomic weight" => theme::mix(theme::VIOLET, theme::TEXT, 0.25),
+        "In water" | "Solubility" => theme::CYAN,
+        "ΔHf°" => theme::GOLD,
+        "Atomic number" | "Group" | "Period" | "Block" | "Configuration" => Color::srgb(0.70, 0.62, 1.0),
+        "Electronegativity" | "1st ionisation" | "Atomic radius" => Color::srgb(0.45, 0.88, 0.75),
+        _ => theme::TEXT_2,
+    }
+}
+
 pub(crate) fn spawn_fact_grid(
     p: &mut ChildSpawnerCommands,
     fonts: &UiFonts,
@@ -337,24 +369,42 @@ pub(crate) fn spawn_fact_grid(
     p.spawn(Node { flex_wrap: FlexWrap::Wrap, column_gap: Val::Px(10.0), row_gap: Val::Px(10.0), ..default() })
         .with_children(|grid| {
             for (k, v) in facts {
+                let c = if industry { theme::TEXT_2 } else { fact_color(k) };
                 grid.spawn((
                     Node {
                         border_radius: BorderRadius::all(Val::Px(theme::R_MD)),
                         min_width: Val::Px(150.0),
-                        max_width: Val::Px(320.0),
+                        max_width: Val::Px(340.0),
+                        flex_grow: 1.0,
                         flex_direction: FlexDirection::Column,
-                        row_gap: Val::Px(2.0),
-                        padding: UiRect::axes(Val::Px(12.0), Val::Px(9.0)),
-                        border: UiRect::all(Val::Px(1.0)),
+                        row_gap: Val::Px(3.0),
+                        padding: UiRect::new(Val::Px(13.0), Val::Px(12.0), Val::Px(9.0), Val::Px(10.0)),
+                        border: UiRect::left(Val::Px(4.0)),
                         ..default()
                     },
-                    BackgroundColor(theme::RAISED),
-                    BorderColor::all(theme::LINE),
+                    BackgroundColor(theme::mix(theme::RAISED, c, 0.07)),
+                    BorderColor::all(c),
                 ))
                 .insert_if(CodexIndustryCard, || industry)
-                .with_children(|c| {
-                    c.spawn(theme::label(fonts, k.to_uppercase(), 10.0, Weight::Bold, theme::TEXT_3));
-                    c.spawn(theme::para(fonts, v, theme::MD, theme::TEXT, Val::Px(296.0)));
+                .with_children(|card| {
+                    card.spawn(theme::label(
+                        fonts,
+                        k.to_uppercase(),
+                        theme::XS,
+                        Weight::Bold,
+                        theme::mix(c, theme::TEXT, 0.25),
+                    ));
+                    card.spawn((
+                        Text::new(v),
+                        TextFont {
+                            font: fonts.semibold.clone().into(),
+                            font_size: FontSize::Px(theme::LG),
+                            ..default()
+                        },
+                        TextColor(theme::TEXT),
+                        TextLayout::linebreak(LineBreak::WordBoundary),
+                        Node { max_width: Val::Px(316.0), ..default() },
+                    ));
                 });
             }
         });
@@ -396,37 +446,34 @@ fn tags(sub: &Substance) -> Vec<(&'static str, Color)> {
 }
 
 pub fn spawn_codex(mut commands: Commands, fonts: Res<UiFonts>, assets: Res<AssetServer>) {
+    use crate::ui::shell::{PaneList, PanePad, PanePage, View};
     let fonts = &*fonts;
     let assets = &*assets;
     commands
-        .spawn((CodexRoot, crate::ui::shell::SplitRoot, theme::view_root(600), Name::new("CodexRoot")))
+        .spawn((CodexRoot, theme::view_root(600), Name::new("CodexRoot")))
         .insert(Node {
             position_type: PositionType::Absolute,
             left: Val::Px(0.0),
             right: Val::Px(0.0),
             top: Val::Px(theme::HEADER_H),
             bottom: Val::Px(0.0),
-            flex_direction: FlexDirection::Row,
+            flex_direction: FlexDirection::Column,
             display: Display::None,
             ..default()
         })
         .with_children(|root| {
-            // --- left column: header, search, categories, list ---
+            // --- the list: header, search, categories, the substances ---
             root.spawn((
-                crate::ui::shell::SplitList(LIST_W),
+                PaneList(View::Substances),
+                PanePad(28.0, 14.0, 0.0),
                 Node {
-                    width: Val::Px(LIST_W),
-                    min_width: Val::Px(LIST_W),
-                    flex_shrink: 0.0,
+                    width: Val::Percent(100.0),
                     height: Val::Percent(100.0),
                     flex_direction: FlexDirection::Column,
-                    padding: UiRect::new(Val::Px(16.0), Val::Px(12.0), Val::Px(14.0), Val::Px(0.0)),
                     row_gap: Val::Px(10.0),
-                    border: UiRect::right(Val::Px(1.0)),
                     ..default()
                 },
                 BackgroundColor(theme::SURFACE),
-                BorderColor::all(theme::LINE),
             ))
             .with_children(|col| {
                 col.spawn(Node {
@@ -440,7 +487,7 @@ pub fn spawn_codex(mut commands: Commands, fonts: Res<UiFonts>, assets: Res<Asse
                         t.spawn(theme::label(fonts, "Substance Library", theme::XL, Weight::Semibold, theme::TEXT));
                         t.spawn((CodexCountText, theme::label(fonts, "", theme::XS, Weight::Regular, theme::TEXT_3)));
                     });
-                    theme::spawn_icon_button(hdr, assets, "close", 32.0, theme::TEXT_2, CodexCloseButton);
+                    theme::spawn_icon_button(hdr, assets, "close", 40.0, theme::TEXT_2, CodexCloseButton);
                 });
                 // search field (type anywhere while the library is open; on a phone, tap it
                 // for the keyboard)
@@ -448,11 +495,12 @@ pub fn spawn_codex(mut commands: Commands, fonts: Res<UiFonts>, assets: Res<Asse
                     theme::button(
                         Kind::Secondary,
                         Node {
-                            height: Val::Px(38.0),
+                            height: Val::Px(42.0),
+                            max_width: Val::Px(620.0),
                             flex_shrink: 0.0,
                             align_items: AlignItems::Center,
                             column_gap: Val::Px(9.0),
-                            padding: UiRect::horizontal(Val::Px(11.0)),
+                            padding: UiRect::horizontal(Val::Px(12.0)),
                             ..default()
                         },
                         theme::R_MD,
@@ -460,7 +508,7 @@ pub fn spawn_codex(mut commands: Commands, fonts: Res<UiFonts>, assets: Res<Asse
                     CodexSearchBox,
                 ))
                 .with_children(|s| {
-                    s.spawn(theme::icon(assets, "search", 16.0, theme::TEXT_3));
+                    s.spawn(theme::icon(assets, "search", 17.0, theme::TEXT_3));
                     s.spawn((
                         CodexSearchText,
                         theme::label(fonts, search_prompt(), theme::SM, Weight::Regular, theme::TEXT_3),
@@ -468,8 +516,8 @@ pub fn spawn_codex(mut commands: Commands, fonts: Res<UiFonts>, assets: Res<Asse
                 });
                 col.spawn(Node {
                     flex_wrap: FlexWrap::Wrap,
-                    column_gap: Val::Px(5.0),
-                    row_gap: Val::Px(5.0),
+                    column_gap: Val::Px(6.0),
+                    row_gap: Val::Px(6.0),
                     flex_shrink: 0.0,
                     ..default()
                 })
@@ -479,8 +527,8 @@ pub fn spawn_codex(mut commands: Commands, fonts: Res<UiFonts>, assets: Res<Asse
                             theme::button(
                                 Kind::Tab,
                                 Node {
-                                    height: Val::Px(24.0),
-                                    padding: UiRect::horizontal(Val::Px(10.0)),
+                                    height: Val::Px(30.0),
+                                    padding: UiRect::horizontal(Val::Px(12.0)),
                                     align_items: AlignItems::Center,
                                     ..default()
                                 },
@@ -490,7 +538,7 @@ pub fn spawn_codex(mut commands: Commands, fonts: Res<UiFonts>, assets: Res<Asse
                         ))
                         .with_children(|b| {
                             b.spawn((
-                                theme::label(fonts, label, 11.5, Weight::Semibold, theme::TEXT),
+                                theme::label(fonts, label, theme::SM, Weight::Semibold, theme::TEXT),
                                 Pickable::IGNORE,
                             ));
                         });
@@ -504,14 +552,14 @@ pub fn spawn_codex(mut commands: Commands, fonts: Res<UiFonts>, assets: Res<Asse
                         flex_basis: Val::Px(0.0),
                         min_height: Val::Px(0.0),
                         overflow: Overflow::scroll_y(),
-                        padding: UiRect::bottom(Val::Px(12.0)),
+                        padding: UiRect::bottom(Val::Px(16.0)),
                         ..default()
                     },
                 ))
                 .with_children(|scroll| {
                     scroll.spawn((
                         CodexListContent,
-                        VirtualList::new(Vec2::new(0.0, ROW_H), Vec2::new(0.0, ROW_GAP)),
+                        VirtualList::new(Vec2::new(CELL_W, ROW_H), Vec2::new(8.0, ROW_GAP)).stretched(),
                         Node { width: Val::Percent(100.0), height: Val::Px(0.0), flex_shrink: 0.0, ..default() },
                     ));
                     scroll.spawn((
@@ -521,33 +569,52 @@ pub fn spawn_codex(mut commands: Commands, fonts: Res<UiFonts>, assets: Res<Asse
                     ));
                 });
             });
-            // --- right column: the substance page ---
+            // --- the page, in the list's place ---
             root.spawn((
-                crate::ui::shell::SplitPane,
-                CodexScrollable { is_left: false },
-                ScrollPosition::default(),
+                PanePage(View::Substances),
                 Node {
-                    flex_grow: 1.0,
+                    width: Val::Percent(100.0),
                     height: Val::Percent(100.0),
-                    overflow: Overflow::scroll_y(),
-                    padding: UiRect::new(Val::Px(32.0), Val::Px(32.0), Val::Px(26.0), Val::Px(40.0)),
+                    flex_direction: FlexDirection::Column,
+                    display: Display::None,
                     ..default()
                 },
             ))
-            .with_children(|pane| {
-                pane.spawn((
-                    CodexDetail,
+            .with_children(|page| {
+                crate::ui::shell::spawn_page_bar(page, fonts, assets, View::Substances, "Substances", CodexCloseButton);
+                page.spawn((
+                    CodexScrollable { is_left: false },
+                    ScrollPosition::default(),
+                    PanePad(32.0, 22.0, 40.0),
                     Node {
-                        width: Val::Percent(100.0),
-                        max_width: Val::Px(980.0),
+                        flex_grow: 1.0,
+                        flex_basis: Val::Px(0.0),
+                        min_height: Val::Px(0.0),
                         flex_direction: FlexDirection::Column,
-                        row_gap: Val::Px(14.0),
+                        align_items: AlignItems::Center,
+                        overflow: Overflow::scroll_y(),
                         ..default()
                     },
-                ));
+                ))
+                .with_children(|pane| {
+                    pane.spawn((
+                        CodexDetail,
+                        Node {
+                            width: Val::Percent(100.0),
+                            max_width: Val::Px(PAGE_W),
+                            flex_shrink: 0.0,
+                            flex_direction: FlexDirection::Column,
+                            row_gap: Val::Px(14.0),
+                            ..default()
+                        },
+                    ));
+                });
             });
         });
 }
+
+/// How wide a page's text runs at most: a comfortable line on a big screen.
+pub const PAGE_W: f32 = 900.0;
 
 /// Show/hide the library; the close button returns to the lab.
 pub fn codex_button_system(
@@ -679,7 +746,8 @@ pub fn codex_window_system(
     };
     let focused = focus.and_then(|f| f.entity);
     let keep = |e: Entity| Some(e) == focused || pressed.contains(e);
-    let (width, view_h) = if state.open {
+    // a page in the list's place hides the list: its cells go (and come back on Back)
+    let (width, view_h) = if state.open && !state.page {
         (cn.size.x * cn.inverse_scale_factor(), view.size.y * view.inverse_scale_factor())
     } else {
         (0.0, 0.0)
@@ -687,7 +755,7 @@ pub fn codex_window_system(
     let Some(pass) = list.plan(width, view_h, scroll.0.y, keep) else {
         return;
     };
-    if state.open && node.height != Val::Px(pass.height) {
+    if state.open && !state.page && node.height != Val::Px(pass.height) {
         node.height = Val::Px(pass.height);
     }
     for e in &pass.drop {
@@ -695,12 +763,22 @@ pub fn codex_window_system(
     }
     for (e, at) in &pass.moves {
         if let Ok(mut n) = rows.get_mut(*e) {
+            n.left = Val::Px(at.x);
             n.top = Val::Px(at.y);
+        }
+    }
+    // the cells widen to fill the row, so the list has no strip left over at its right
+    let w = Val::Px(pass.cell_w);
+    for e in list.order() {
+        if let Ok(mut n) = rows.get_mut(e) {
+            if n.width != w {
+                n.width = w;
+            }
         }
     }
     for (id, at, _) in &pass.build {
         let Some(sub) = subs.0.get(id) else { continue };
-        let e = spawn_codex_row(&mut commands, sub, Some(sub.id) == state.selected, at.y, &fonts, &assets);
+        let e = spawn_codex_row(&mut commands, sub, Some(sub.id) == state.selected, *at, pass.cell_w, &fonts, &assets);
         list.record(*id, e, *at);
     }
     if !pass.build.is_empty() || !pass.drop.is_empty() {
@@ -708,12 +786,13 @@ pub fn codex_window_system(
     }
 }
 
-/// One list row, not yet parented, `top` pixels down the list: picture, name, formula.
+/// One list cell, not yet parented, at `at` in the list, `width` wide: picture, name, formula.
 fn spawn_codex_row(
     commands: &mut Commands,
     sub: &Substance,
     selected: bool,
-    top: f32,
+    at: Vec2,
+    width: f32,
     fonts: &UiFonts,
     assets: &AssetServer,
 ) -> Entity {
@@ -722,9 +801,9 @@ fn spawn_codex_row(
             Kind::Row,
             Node {
                 position_type: PositionType::Absolute,
-                left: Val::Px(0.0),
-                right: Val::Px(0.0),
-                top: Val::Px(top),
+                left: Val::Px(at.x),
+                top: Val::Px(at.y),
+                width: Val::Px(width),
                 height: Val::Px(ROW_H),
                 align_items: AlignItems::Center,
                 column_gap: Val::Px(10.0),
@@ -739,7 +818,7 @@ fn spawn_codex_row(
         row.insert(Skin::active(Kind::Row, true));
     }
     row.with_children(|row| {
-        spawn_thumb(row, fonts, assets, sub, 36.0);
+        spawn_thumb(row, fonts, assets, sub, 40.0);
         // one line each, so every row is the same height; the page shows the full name
         row.spawn((
             Node {
@@ -753,12 +832,12 @@ fn spawn_codex_row(
         ))
         .with_children(|c| {
             c.spawn((
-                theme::label(fonts, short(&sub.name, 40), theme::SM, Weight::Semibold, theme::TEXT),
+                theme::label(fonts, short(&sub.name, 40), theme::MD, Weight::Semibold, theme::TEXT),
                 TextLayout::no_wrap(),
                 Pickable::IGNORE,
             ));
             c.spawn((
-                theme::label(fonts, format_formula(&sub.formula), theme::XS, Weight::Regular, theme::CYAN),
+                theme::label(fonts, format_formula(&sub.formula), theme::SM, Weight::Regular, theme::CYAN),
                 TextLayout::no_wrap(),
                 Pickable::IGNORE,
             ));
@@ -802,7 +881,7 @@ fn spawn_thumb(parent: &mut ChildSpawnerCommands, fonts: &UiFonts, assets: &Asse
 
 pub fn codex_entry_click_system(q: Query<&CodexEntry, (With<Clicked>, With<Button>)>, mut state: ResMut<CodexState>) {
     for entry in &q {
-        state.selected = Some(entry.0);
+        state.show(entry.0);
     }
 }
 
@@ -908,7 +987,7 @@ pub fn codex_search_input_system(
     mut typing: ResMut<crate::ui::inventory::TypingBox>,
 ) {
     use crate::ui::inventory::TypingBox;
-    if !state.open {
+    if !state.open || state.page {
         if *typing == TypingBox::Codex {
             *typing = TypingBox::None;
             crate::platform::keyboard_hide();
@@ -978,15 +1057,22 @@ pub fn update_codex_detail_system(
     detail_q: Query<Entity, With<CodexDetail>>,
     mut detail_scroll: Query<(&CodexScrollable, &mut ScrollPosition)>,
     pages_assets: Res<Assets<Pages>>,
+    mut shown: Local<Option<Option<u32>>>,
 ) {
-    // only while the library is showing (opening it is itself a change)
-    if !state.open || !(state.is_changed() || progress.is_changed()) {
+    // only while a page is showing, and only when it is another substance's (or progress
+    // changes what it can say); going Back to the list and into the same page keeps it
+    if !(state.open && state.page) {
+        return;
+    }
+    let fresh = *shown != Some(state.selected);
+    if !fresh && !progress.is_changed() {
         return;
     }
     let Ok(detail) = detail_q.single() else {
         return;
     };
-    if state.is_changed() {
+    *shown = Some(state.selected);
+    if fresh {
         for (marker, mut sp) in &mut detail_scroll {
             if !marker.is_left {
                 sp.0.y = 0.0;
@@ -1042,110 +1128,111 @@ pub fn update_codex_detail_system(
         .or_else(|| crate::data::common::primary_reference(&sub.references).cloned());
 
     commands.entity(detail).with_children(|p| {
-        // --- hero: picture + name, formula, tags, link ---
-        p.spawn(Node { column_gap: Val::Px(26.0), align_items: AlignItems::Center, ..default() }).with_children(
-            |hero| {
-                hero.spawn((
-                    Node {
-                        border_radius: BorderRadius::all(Val::Px(theme::R_LG)),
-                        width: Val::Px(230.0),
-                        height: Val::Px(230.0),
-                        flex_shrink: 0.0,
-                        padding: UiRect::all(Val::Px(16.0)),
-                        border: UiRect::all(Val::Px(1.0)),
-                        ..default()
-                    },
-                    BackgroundGradient::from(RadialGradient {
-                        color_space: default(),
-                        position: UiPosition::CENTER,
-                        shape: RadialGradientShape::FarthestCorner,
-                        stops: vec![ColorStop::auto(theme::mix(theme::RAISED, tint, 0.22)), ColorStop::auto(theme::BG)],
-                    }),
-                    BorderColor::all(theme::mix(theme::LINE, tint, 0.3)),
-                ))
-                .with_children(|card| {
+        // --- hero: picture + name, formula, tags, link (the words under the picture, upright) ---
+        p.spawn(Node {
+            column_gap: Val::Px(26.0),
+            row_gap: Val::Px(16.0),
+            flex_wrap: FlexWrap::Wrap,
+            align_items: AlignItems::Center,
+            ..default()
+        })
+        .with_children(|hero| {
+            hero.spawn((
+                Node {
+                    border_radius: BorderRadius::all(Val::Px(theme::R_LG)),
+                    width: Val::Px(220.0),
+                    height: Val::Px(220.0),
+                    flex_shrink: 0.0,
+                    padding: UiRect::all(Val::Px(16.0)),
+                    border: UiRect::all(Val::Px(1.0)),
+                    ..default()
+                },
+                BackgroundGradient::from(RadialGradient {
+                    color_space: default(),
+                    position: UiPosition::CENTER,
+                    shape: RadialGradientShape::FarthestCorner,
+                    stops: vec![ColorStop::auto(theme::mix(theme::RAISED, tint, 0.22)), ColorStop::auto(theme::BG)],
+                }),
+                BorderColor::all(theme::mix(theme::LINE, tint, 0.3)),
+            ))
+            .with_children(|card| {
+                card.spawn((
+                    ImageNode::new(assets.load(img_path)),
+                    Node { width: Val::Percent(100.0), height: Val::Percent(100.0), ..default() },
+                ));
+                // elements also carry their periodic tile in the corner
+                if let Some(ei) = &sub.element_info {
+                    let c = element_tile_color(&sub.formula);
                     card.spawn((
-                        ImageNode::new(assets.load(img_path)),
-                        Node { width: Val::Percent(100.0), height: Val::Percent(100.0), ..default() },
-                    ));
-                    // elements also carry their periodic tile in the corner
-                    if let Some(ei) = &sub.element_info {
-                        let c = element_tile_color(&sub.formula);
-                        card.spawn((
-                            Node {
-                                border_radius: BorderRadius::all(Val::Px(theme::R_SM)),
-                                position_type: PositionType::Absolute,
-                                left: Val::Px(10.0),
-                                top: Val::Px(10.0),
-                                width: Val::Px(54.0),
-                                height: Val::Px(60.0),
-                                flex_direction: FlexDirection::Column,
-                                align_items: AlignItems::Center,
-                                justify_content: JustifyContent::Center,
-                                border: UiRect::all(Val::Px(1.0)),
-                                ..default()
-                            },
-                            BackgroundColor(theme::mix(theme::BG, c, 0.16)),
-                            BorderColor::all(c.with_alpha(0.7)),
-                        ))
-                        .with_children(|t| {
-                            t.spawn(theme::label(
-                                fonts,
-                                ei.atomic_number.to_string(),
-                                10.0,
-                                Weight::Regular,
-                                theme::TEXT_2,
-                            ));
-                            t.spawn(theme::label(fonts, sub.formula.clone(), 24.0, Weight::Bold, c));
-                        });
-                    }
-                });
-                hero.spawn(Node {
-                    flex_direction: FlexDirection::Column,
-                    row_gap: Val::Px(8.0),
-                    flex_shrink: 1.0,
+                        Node {
+                            border_radius: BorderRadius::all(Val::Px(theme::R_SM)),
+                            position_type: PositionType::Absolute,
+                            left: Val::Px(10.0),
+                            top: Val::Px(10.0),
+                            width: Val::Px(54.0),
+                            height: Val::Px(60.0),
+                            flex_direction: FlexDirection::Column,
+                            align_items: AlignItems::Center,
+                            justify_content: JustifyContent::Center,
+                            border: UiRect::all(Val::Px(1.0)),
+                            ..default()
+                        },
+                        BackgroundColor(theme::mix(theme::BG, c, 0.16)),
+                        BorderColor::all(c.with_alpha(0.7)),
+                    ))
+                    .with_children(|t| {
+                        t.spawn(theme::label(
+                            fonts,
+                            ei.atomic_number.to_string(),
+                            10.0,
+                            Weight::Regular,
+                            theme::TEXT_2,
+                        ));
+                        t.spawn(theme::label(fonts, sub.formula.clone(), 24.0, Weight::Bold, c));
+                    });
+                }
+            });
+            hero.spawn(Node {
+                flex_direction: FlexDirection::Column,
+                row_gap: Val::Px(8.0),
+                flex_shrink: 1.0,
+                flex_basis: Val::Px(280.0),
+                flex_grow: 1.0,
+                ..default()
+            })
+            .with_children(|info| {
+                info.spawn(theme::para(fonts, sub.name.clone(), theme::XXL, theme::TEXT, Val::Percent(100.0)));
+                info.spawn(theme::label(fonts, format_formula(&sub.formula), theme::LG, Weight::Semibold, theme::CYAN));
+                info.spawn(Node {
+                    flex_wrap: FlexWrap::Wrap,
+                    column_gap: Val::Px(6.0),
+                    row_gap: Val::Px(6.0),
                     ..default()
                 })
-                .with_children(|info| {
-                    info.spawn(theme::label(fonts, sub.name.clone(), theme::XXL, Weight::Bold, theme::TEXT));
-                    info.spawn(theme::label(
-                        fonts,
-                        format_formula(&sub.formula),
-                        theme::LG,
-                        Weight::Semibold,
-                        theme::CYAN,
-                    ));
-                    info.spawn(Node {
-                        flex_wrap: FlexWrap::Wrap,
-                        column_gap: Val::Px(6.0),
-                        row_gap: Val::Px(6.0),
-                        ..default()
-                    })
-                    .with_children(|chips| {
-                        theme::spawn_chip(chips, fonts, state_name(sub.state), state_color(sub.state));
-                        for (t, c) in tags(sub) {
-                            theme::spawn_chip(chips, fonts, t, c);
-                        }
-                        if sub.stage.is_some() {
-                            theme::spawn_chip(chips, fonts, "Coming later", theme::GOLD);
-                        }
-                    });
-                    if let Some((label, url)) = &lead_ref {
-                        info.spawn(Node { margin: UiRect::top(Val::Px(6.0)), ..default() }).with_children(|b| {
-                            theme::spawn_button(
-                                b,
-                                fonts,
-                                assets,
-                                Kind::Primary,
-                                Some("external"),
-                                &format!("Read on {label}"),
-                                CodexRefLink(url.clone()),
-                            );
-                        });
+                .with_children(|chips| {
+                    theme::spawn_chip(chips, fonts, state_name(sub.state), state_color(sub.state));
+                    for (t, c) in tags(sub) {
+                        theme::spawn_chip(chips, fonts, t, c);
+                    }
+                    if sub.stage.is_some() {
+                        theme::spawn_chip(chips, fonts, "Coming later", theme::GOLD);
                     }
                 });
-            },
-        );
+                if let Some((label, url)) = &lead_ref {
+                    info.spawn(Node { margin: UiRect::top(Val::Px(6.0)), ..default() }).with_children(|b| {
+                        theme::spawn_button(
+                            b,
+                            fonts,
+                            assets,
+                            Kind::Primary,
+                            Some("external"),
+                            &format!("Read on {label}"),
+                            CodexRefLink(url.clone()),
+                        );
+                    });
+                }
+            });
+        });
 
         // --- a locked preview says what it is waiting for ---
         if let Some(stage) = &sub.stage {
@@ -1157,7 +1244,7 @@ pub fn update_codex_detail_system(
                 ),
                 theme::MD,
                 theme::GOLD,
-                Val::Px(820.0),
+                Val::Percent(100.0),
             ));
         }
 
@@ -1179,32 +1266,37 @@ pub fn update_codex_detail_system(
                 story.push(ds.clone());
             }
         }
-        // one paragraph per line of text (scraped text can carry stray blank lines)
+        // one paragraph per line of text (scraped text can carry stray blank lines), each
+        // chemistry word marked where the page first uses it
+        let no_terms = Vec::new();
+        let terms = pages.and_then(|pg| pg.substance_terms.get(&sub.id)).unwrap_or(&no_terms);
+        let mut seen: Vec<String> = Vec::new();
+        let full = Val::Percent(100.0);
         for s in &story {
             for line in s.lines().map(str::trim).filter(|l| !l.is_empty()) {
-                p.spawn(theme::para(fonts, line.to_string(), theme::MD, theme::TEXT_2, Val::Px(820.0)));
+                spawn_glossed_para(p, fonts, pages, terms, &mut seen, line, theme::MD, theme::TEXT, full);
             }
         }
         if sub.properties.contains(&Property::IsClass) {
-            p.spawn(theme::para(fonts, CLASS_NOTE.to_string(), theme::SM, theme::TEXT_3, Val::Px(820.0)));
+            p.spawn(theme::para(fonts, CLASS_NOTE.to_string(), theme::SM, theme::TEXT_2, full));
         }
         if sub.is_transient() {
-            p.spawn(theme::para(fonts, TRANSIENT_NOTE.to_string(), theme::SM, theme::GOLD, Val::Px(820.0)));
+            p.spawn(theme::para(fonts, TRANSIENT_NOTE.to_string(), theme::SM, theme::GOLD, full));
         }
         if sub.properties.contains(&Property::IsMedicine) {
-            p.spawn(theme::para(fonts, MEDICINE_NOTE.to_string(), theme::SM, theme::GOLD, Val::Px(820.0)));
+            p.spawn(theme::para(fonts, MEDICINE_NOTE.to_string(), theme::SM, theme::GOLD, full));
         }
         if let Some(pg) = page {
             if let Some(about) = &pg.about {
                 theme::spawn_section_title(p, fonts, &format!("About {about}"));
             }
             for line in pg.lead.lines().map(str::trim).filter(|l| !l.is_empty()) {
-                p.spawn(theme::para(fonts, line.to_string(), theme::MD, theme::TEXT_2, Val::Px(820.0)));
+                spawn_glossed_para(p, fonts, pages, terms, &mut seen, line, theme::MD, theme::TEXT_2, full);
             }
             for (heading, text) in &pg.sections {
                 theme::spawn_section_title(p, fonts, heading);
                 for line in text.lines().map(str::trim).filter(|l| !l.is_empty()) {
-                    p.spawn(theme::para(fonts, line.to_string(), theme::SM, theme::TEXT_2, Val::Px(820.0)));
+                    spawn_glossed_para(p, fonts, pages, terms, &mut seen, line, theme::MD, theme::TEXT_2, full);
                 }
             }
         }
@@ -1224,7 +1316,12 @@ pub fn update_codex_detail_system(
             credit.push("Overview: Wikipedia, CC BY-SA 4.0.".to_string());
         }
         if !credit.is_empty() {
-            p.spawn((CodexTextCredit, theme::para(fonts, credit.join("  "), theme::XS, theme::TEXT_3, Val::Px(820.0))));
+            p.spawn((CodexTextCredit, theme::para(fonts, credit.join("  "), theme::XS, theme::TEXT_3, full)));
+        }
+
+        // --- the chemistry words it uses, defined ---
+        if let Some(pg) = pages {
+            crate::ui::glossary::spawn_term_row(p, fonts, pg, terms);
         }
 
         // --- facts ---
@@ -1246,7 +1343,7 @@ pub fn update_codex_detail_system(
             }
             keys.truncate(6);
             if !keys.is_empty() {
-                theme::spawn_section_title(p, fonts, "Learn more");
+                theme::spawn_section_title(p, fonts, "Lessons");
                 crate::ui::curriculum::spawn_learn_row(p, fonts, assets, pg, &keys);
             }
         }
@@ -1257,10 +1354,10 @@ pub fn update_codex_detail_system(
             theme::spawn_section_title(p, fonts, "In industry");
             spawn_fact_grid(p, fonts, industry, true);
             if sub.world_t_year.is_some() {
-                p.spawn(theme::para(fonts, WORLD_NOTE.to_string(), theme::XS, theme::TEXT_3, Val::Px(820.0)));
+                p.spawn(theme::para(fonts, WORLD_NOTE.to_string(), theme::XS, theme::TEXT_3, full));
             }
             if sub.production_t_year.is_some() {
-                p.spawn(theme::para(fonts, PRODUCTION_NOTE.to_string(), theme::XS, theme::TEXT_3, Val::Px(820.0)));
+                p.spawn(theme::para(fonts, PRODUCTION_NOTE.to_string(), theme::XS, theme::TEXT_3, full));
             }
         }
 
@@ -1311,7 +1408,7 @@ pub fn update_codex_detail_system(
         if !extra.is_empty() {
             theme::spawn_section_title(p, fonts, "Notes");
             for e in extra {
-                p.spawn(theme::para(fonts, e, theme::SM, theme::TEXT_2, Val::Px(820.0)));
+                p.spawn(theme::para(fonts, e, theme::SM, theme::TEXT_2, full));
             }
         }
         let others: Vec<&(String, String)> =
@@ -1352,7 +1449,7 @@ pub(crate) fn reaction_row(
                 align_items: AlignItems::Center,
                 column_gap: Val::Px(12.0),
                 padding: UiRect::axes(Val::Px(10.0), Val::Px(7.0)),
-                max_width: Val::Px(820.0),
+                max_width: Val::Percent(100.0),
                 ..default()
             },
             theme::R_MD,
@@ -1398,8 +1495,7 @@ pub fn codex_link_click_system(
     }
     for link in &reactions {
         codex.open = false;
-        rlib.open = true;
-        rlib.selected = Some(link.0);
+        rlib.show(link.0);
     }
 }
 

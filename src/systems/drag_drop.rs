@@ -84,7 +84,14 @@ impl Plugin for DragDropPlugin {
             .add_systems(PreUpdate, attach_drag_observers_to_draggables)
             .add_systems(
                 Update,
-                (sweep_drags_system, add_to_active_system, active_vessel_system, bench_zoom_system, link_pick_system),
+                (
+                    two_finger_system,
+                    sweep_drags_system,
+                    add_to_active_system,
+                    active_vessel_system,
+                    bench_zoom_system,
+                    link_pick_system,
+                ),
             );
     }
 }
@@ -137,6 +144,11 @@ pub const LIFT_HOLD: f64 = 0.3;
 /// When a finger came down on a shelf tile.
 #[derive(Component)]
 struct FingerDown(f64);
+
+/// A drag that a second finger turned into a two-finger scroll: put back, and dropped
+/// nowhere when it ends.
+#[derive(Component)]
+struct DragCancelled;
 
 /// A shelf tile a finger is swiping across rather than lifting.
 #[derive(Component)]
@@ -352,10 +364,20 @@ fn start_drag(
     ui_scale: Res<UiScale>,
     fonts: Res<UiFonts>,
     assets: Res<AssetServer>,
+    presses: Res<Presses>,
 ) {
     // Don't let the drag bubble up to the bench pane (which would pan it).
     trigger.propagate(false);
     let e = trigger.entity;
+    // two fingers only scroll: a shelf tile swipes the shelf, anything else stays put
+    if presses.multi_touch() {
+        if tile_query.contains(e) && !chips.contains(e) {
+            commands.entity(e).try_insert((Swiping, DragCancelled));
+        } else {
+            commands.entity(e).try_insert(DragCancelled);
+        }
+        return;
+    }
 
     if let Ok((mut outline, node)) = vessel_query.get_mut(e) {
         outline.width = Val::Px(2.0);
@@ -454,9 +476,11 @@ fn update_drag(
     ghosts: Query<&DragGhost>,
     mut ghost_nodes: Query<&mut Node, Without<VesselCard>>,
     swiping: Query<(), With<Swiping>>,
+    cancelled: Query<(), With<DragCancelled>>,
     mut swipes: MessageWriter<TouchScroll>,
     ui_scale: Res<UiScale>,
     zoom: Res<BenchZoom>,
+    presses: Res<Presses>,
 ) {
     let s = ui_scale.0.max(0.01);
     let e = trigger.entity;
@@ -464,7 +488,12 @@ fn update_drag(
         commands.entity(e).try_insert(DragMoved);
     }
     if swiping.contains(e) {
-        swipes.write(TouchScroll { from: e, moved: trigger.delta });
+        // two fingers swipe as one: each moves the list its share
+        let n = presses.fingers().max(1) as f32;
+        swipes.write(TouchScroll { from: e, moved: trigger.delta / n });
+        return;
+    }
+    if cancelled.contains(e) {
         return;
     }
     if let Ok((mut node, start)) = vessel_query.get_mut(e) {
@@ -501,12 +530,22 @@ fn stop_drag_ingredient(
     fonts: Res<UiFonts>,
     assets: Res<AssetServer>,
     mut active: ResMut<ActiveVessel>,
+    cancelled: Query<(), With<DragCancelled>>,
 ) {
     trigger.propagate(false);
     let e = trigger.entity;
     if let Ok(g) = ghosts.get(e) {
         commands.entity(g.ghost).despawn();
         commands.entity(e).remove::<DragGhost>();
+    }
+    // a second finger took this drag over for scrolling: it lands nowhere
+    if cancelled.contains(e) {
+        commands.entity(e).remove::<(DragCancelled, Swiping, DragMoved, FingerDown)>();
+        if let Ok((mut outline, _)) = tiles.get_mut(e) {
+            outline.color = Color::NONE;
+        }
+        commands.entity(e).try_remove::<GlobalZIndex>();
+        return;
     }
     // DragEnd comes after the release's Click, so the flag can go now
     let was_moved = moved.contains(e);
@@ -627,8 +666,13 @@ fn stop_drag_vessel(
     mut commands: Commands,
     mut vessels: Query<(&mut Node, &mut Outline), With<VesselCard>>,
     mut active: ResMut<ActiveVessel>,
+    cancelled: Query<(), With<DragCancelled>>,
 ) {
     let e = trigger.entity;
+    if cancelled.contains(e) {
+        commands.entity(e).remove::<(DragCancelled, DragMoved)>();
+        return;
+    }
     let Ok((mut node, mut outline)) = vessels.get_mut(e) else { return };
     active.0 = Some(e);
     let snap = |v: Val| if let Val::Px(px) = v { Val::Px((px / 20.0).round() * 20.0) } else { v };
@@ -654,11 +698,13 @@ fn click_card(
     assets: Res<AssetServer>,
     mut active: ResMut<ActiveVessel>,
     links: (ResMut<LinkPick>, Query<&ReactionLink>),
+    presses: Res<Presses>,
 ) {
     trigger.propagate(false);
     if trigger.button != PointerButton::Primary
         || moved.contains(trigger.entity)
         || moved.contains(trigger.original_event_target())
+        || presses.multi_touch()
     {
         return;
     }
@@ -751,9 +797,14 @@ fn active_vessel_system(
         (Entity, &crate::components::ui_markers::ProcessVessel, &mut Outline),
         (With<VesselCard>, Without<DragStartPos>),
     >,
+    mut seen: Local<Option<Entity>>,
 ) {
-    if active.0.is_some_and(|e| !all.contains(e)) {
-        active.0 = None;
+    // a card that was on the bench and is gone lets go of the selection; one just placed
+    // (its spawn still queued) keeps it
+    match active.0 {
+        Some(e) if all.contains(e) => *seen = Some(e),
+        Some(e) if *seen == Some(e) => active.0 = None,
+        _ => {}
     }
     for (e, pv, mut outline) in &mut cards {
         let want = if active.0 == Some(e) {
@@ -768,6 +819,82 @@ fn active_vessel_system(
         if outline.color != want.color || outline.width != want.width {
             *outline = want;
         }
+    }
+}
+
+/// Two fingers on the screen only scroll. The moment a second finger lands, any drag the
+/// first had begun is put back (a card to where it was, a floating copy gone, a half-drawn
+/// link let go), and while both are on the bench they pan it together, by the fingers'
+/// average movement. (Lists scroll by shell::touch_scroll_system; taps are ignored by
+/// ui::Presses.)
+#[allow(clippy::too_many_arguments, clippy::type_complexity)]
+fn two_finger_system(
+    mut commands: Commands,
+    presses: Res<Presses>,
+    touches: Res<Touches>,
+    mut was: Local<bool>,
+    mut on_bench: Local<bool>,
+    ghosts: Query<(Entity, &DragGhost)>,
+    mut cards: Query<(Entity, &mut Node, &DragStartPos, &mut Outline), With<VesselCard>>,
+    mut tiles: Query<&mut Outline, (With<DragGhost>, Without<VesselCard>)>,
+    mut panes: Query<&mut Node, (With<CanvasScrollingPane>, Without<VesselCard>)>,
+    bench: Query<(&ComputedNode, &UiGlobalTransform), With<ReactionCanvasRoot>>,
+    windows: Query<&Window, With<bevy::window::PrimaryWindow>>,
+    ui_scale: Res<UiScale>,
+    zoom: Res<BenchZoom>,
+    mut link: ResMut<LinkDragState>,
+) {
+    let multi = presses.multi_touch();
+    if !multi {
+        *was = false;
+        return;
+    }
+    if !*was {
+        *was = true;
+        for (e, g) in &ghosts {
+            commands.entity(g.ghost).despawn();
+            if let Ok(mut o) = tiles.get_mut(e) {
+                o.color = Color::NONE;
+            }
+            commands.entity(e).remove::<DragGhost>().try_insert(DragCancelled).try_remove::<GlobalZIndex>();
+        }
+        for (e, mut node, start, mut outline) in &mut cards {
+            node.left = Val::Px(start.left);
+            node.top = Val::Px(start.top);
+            outline.color = Color::NONE;
+            commands.entity(e).remove::<(DragStartPos, GlobalZIndex)>().try_insert(DragCancelled);
+        }
+        if link.0.is_some() {
+            link.0 = None;
+        }
+        // the bench pans if the fingers came down on it
+        let fingers: Vec<Vec2> = touches.iter().map(|t| t.start_position()).collect();
+        let scale = windows.single().map(|w| w.scale_factor()).unwrap_or(1.0);
+        *on_bench = !fingers.is_empty()
+            && bench.single().is_ok_and(|(cn, at)| {
+                let half = cn.size / 2.0;
+                let c = at.translation;
+                fingers.iter().all(|f| {
+                    let p = *f * scale;
+                    (p - c).abs().cmple(half).all()
+                })
+            });
+    }
+    if !*on_bench {
+        return;
+    }
+    let n = touches.iter().count();
+    if n == 0 {
+        return;
+    }
+    let d: Vec2 = touches.iter().map(|t| t.delta()).sum::<Vec2>() / n as f32 / ui_scale.0.max(0.01);
+    if d == Vec2::ZERO {
+        return;
+    }
+    let view = bench.single().map(|(cn, _)| cn.size * cn.inverse_scale_factor()).unwrap_or(Vec2::new(1000.0, 500.0));
+    if let Ok(mut pane) = panes.single_mut() {
+        let at = pane_offset(&pane) + d;
+        pan_bench(&mut pane, view, at, zoom.0);
     }
 }
 
@@ -834,7 +961,12 @@ fn update_pan_canvas(
     bench: Query<&ComputedNode, With<ReactionCanvasRoot>>,
     ui_scale: Res<UiScale>,
     zoom: Res<BenchZoom>,
+    presses: Res<Presses>,
 ) {
+    // two fingers pan the bench together (two_finger_system)
+    if presses.multi_touch() {
+        return;
+    }
     let Ok((mut node, start)) = panes.get_mut(trigger.entity) else { return };
     let d = trigger.distance / ui_scale.0.max(0.01);
     pan_bench(&mut node, bench_view(&bench), Vec2::new(start.left, start.top) + d, zoom.0);
@@ -1000,9 +1132,11 @@ fn tap_bench(
 // ---------------------------------------------------------------------------------------
 // Linking vessels
 // ---------------------------------------------------------------------------------------
-fn start_draw_link(mut trigger: On<PointerDragStart>, mut state: ResMut<LinkDragState>) {
+fn start_draw_link(mut trigger: On<PointerDragStart>, mut state: ResMut<LinkDragState>, presses: Res<Presses>) {
     trigger.propagate(false); // not a pan, not a card move
-    state.0 = Some(trigger.entity);
+    if !presses.multi_touch() {
+        state.0 = Some(trigger.entity);
+    }
 }
 
 /// Feed `to_vessel` from the output port `from_port`. False if that can't be (a vessel

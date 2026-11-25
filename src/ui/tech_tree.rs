@@ -433,8 +433,7 @@ pub fn tech_button_system(
     }
     for o in &opens {
         state.open = false;
-        rlib.open = true;
-        rlib.selected = Some(o.0);
+        rlib.show(o.0);
     }
     if let Ok(mut node) = root_q.single_mut() {
         let d = if state.open { Display::Flex } else { Display::None };

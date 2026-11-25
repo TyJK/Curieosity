@@ -243,12 +243,15 @@ pub struct HintState {
     pub decoys: (usize, usize),
     /// what the button suggests trying next: the first target the list would offer
     pub suggested: Option<Target>,
+    /// in a challenge: the step in hand, which Hint helps with (no list, no kit on the
+    /// shelf: the shelf is the challenge's own)
+    pub challenge_step: Option<Target>,
 }
 
 impl HintState {
     /// The kit, while it is what the shelf shows.
     pub fn shelf_kit(&self, settings: Option<&Settings>) -> Option<&Kit> {
-        if settings.is_some_and(|s| !s.kit || !s.hints) {
+        if settings.is_some_and(|s| !s.kit || !s.hints) || self.challenge_step.is_some() {
             return None;
         }
         self.target.and(self.kit.as_ref())
@@ -500,7 +503,7 @@ pub fn hint_input_system(
     buttons: Query<AnyOf<(&HintButton, &HintMore, &HintChange, &HintClose, &HintKitToggle)>, With<Clicked>>,
     picks: Query<&HintPick, With<Clicked>>,
     show: Query<&HintShowTree, With<Clicked>>,
-    mut taken: MessageWriter<crate::resources::score::HintTaken>,
+    mut taken: MessageWriter<crate::resources::challenge::HintTaken>,
 ) {
     let Some(db) = db else { return };
     // the decoy setting changed while chasing: the same target, its kit re-planned
@@ -510,6 +513,11 @@ pub fn hint_input_system(
         state.level = level;
     }
     for (open, more, change, close, kit) in &buttons {
+        // in a challenge, Hint is about the step in hand
+        if let (Some(t), true) = (state.challenge_step, open.is_some() || change.is_some()) {
+            choose(&mut state, t, &db, &progress, &unlocks, settings.decoy_range());
+            continue;
+        }
         if open.is_some() || change.is_some() {
             let known = |id: u32| progress.discovered.contains(&id);
             let vessels = |p: &ProcessType| unlocks.0.contains(p);
@@ -522,7 +530,7 @@ pub fn hint_input_system(
             state.list_open = true;
         } else if more.is_some() {
             if state.level < LAST_LEVEL {
-                taken.write(crate::resources::score::HintTaken);
+                taken.write(crate::resources::challenge::HintTaken);
             }
             state.level = (state.level + 1).min(LAST_LEVEL);
         } else if close.is_some() {
@@ -537,7 +545,7 @@ pub fn hint_input_system(
     }
     for pick in &picks {
         choose(&mut state, pick.0, &db, &progress, &unlocks, settings.decoy_range());
-        taken.write(crate::resources::score::HintTaken);
+        taken.write(crate::resources::challenge::HintTaken);
     }
     for s in &show {
         tree.open = true;
@@ -553,7 +561,8 @@ pub fn hint_progress_system(
     substances: Res<Assets<Substances>>,
     mut toasts: ResMut<Toasts>,
 ) {
-    if !progress.is_changed() {
+    // (a challenge moves its card on itself: ui::challenges)
+    if !progress.is_changed() || state.challenge_step.is_some() {
         return;
     }
     let Some(t) = state.target else { return };
@@ -587,6 +596,16 @@ pub fn hint_suggest_system(
     mut turn: Local<(usize, f64)>,
 ) {
     let Some(db) = db else { return };
+    // in a challenge the button just says Hint
+    if state.challenge_step.is_some() {
+        for mut t in &mut text {
+            if t.0 != "Hint" {
+                t.0 = "Hint".to_string();
+            }
+        }
+        *done_for = None;
+        return;
+    }
     let subs = game_data.as_ref().and_then(|g| substances.get(&g.substances));
     let key = (progress.discovered.len(), unlocks.0.len(), subs.is_some(), text.iter().count());
     let now = time.elapsed_secs_f64();
@@ -628,7 +647,12 @@ pub fn hint_view_system(
     substances: Res<Assets<Substances>>,
     look: (Res<UiFonts>, Res<AssetServer>),
     views: (Res<CodexState>, Res<ReactionLibState>, Res<TechTreeState>, Res<crate::ui::curriculum::CurriculumState>),
-    room: (Res<Dock>, ResMut<ToastRoom>, Res<crate::resources::score::Score>, Res<Assets<crate::data::pages::Pages>>),
+    room: (
+        Res<Dock>,
+        ResMut<ToastRoom>,
+        Res<crate::ui::challenges::ChallengeMode>,
+        Res<Assets<crate::data::pages::Pages>>,
+    ),
     mut root: Query<(&mut Node, &ComputedNode), With<HintRoot>>,
     mut button: Query<&mut Node, (With<HintButton>, Without<HintRoot>, Without<HintPanel>)>,
     mut panel: Query<(Entity, &mut Node), (With<HintPanel>, Without<HintRoot>, Without<HintButton>)>,
@@ -637,7 +661,7 @@ pub fn hint_view_system(
 ) {
     let (fonts, assets) = look;
     let (codex, rlib, tree, learn) = views;
-    let (dock, mut toast_room, score, pages) = room;
+    let (dock, mut toast_room, challenge, pages) = room;
     let Ok((mut root_node, computed)) = root.single_mut() else { return };
     let wanted = settings.as_ref().is_none_or(|s| s.hint_button())
         && progress.ready
@@ -690,8 +714,8 @@ pub fn hint_view_system(
     }
 
     let kit_on = settings.as_ref().is_none_or(|s| s.kit);
-    // with scoring on, the next clue says what it costs
-    let cost = settings.as_ref().is_some_and(|s| s.scoring).then(|| score.next_hint_cost());
+    // in a challenge, the next clue says what it costs
+    let cost = challenge.run().map(|r| r.hint_cost());
     let key = (state.list_open, state.target, state.level, kit_on, state.offered.len(), cost);
     if *last == Some(key) && !state.is_changed() {
         return;
@@ -722,7 +746,7 @@ pub fn hint_view_system(
             };
             h.spawn((theme::label(&fonts, title, theme::XS, Weight::Bold, theme::GOLD), Pickable::IGNORE));
             h.spawn(Node { column_gap: Val::Px(4.0), align_items: AlignItems::Center, ..default() }).with_children(|b| {
-                if state.target.is_some() && !state.list_open {
+                if state.target.is_some() && !state.list_open && state.challenge_step.is_none() {
                     theme::spawn_button(b, &fonts, &assets, Kind::Ghost, None, "Change", HintChange);
                 }
                 theme::spawn_icon_button(b, &assets, "close", 28.0, theme::TEXT_2, HintClose);
@@ -847,8 +871,12 @@ pub fn hint_view_system(
             ..default()
         })
         .with_children(|row| {
-            let kit_label = if kit_on { "Shelf: kit" } else { "Shelf: everything" };
-            theme::spawn_button(row, &fonts, &assets, Kind::Secondary, Some("flask"), kit_label, HintKitToggle);
+            if state.challenge_step.is_none() {
+                let kit_label = if kit_on { "Shelf: kit" } else { "Shelf: everything" };
+                theme::spawn_button(row, &fonts, &assets, Kind::Secondary, Some("flask"), kit_label, HintKitToggle);
+            } else {
+                row.spawn(Node::default());
+            }
             if state.level < LAST_LEVEL {
                 let more = match cost {
                     Some(c) => format!("More hint (\u{2212}{c})"),

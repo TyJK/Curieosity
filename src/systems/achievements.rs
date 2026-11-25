@@ -154,8 +154,13 @@ pub fn achievements_system(
     state: (Res<PlayerProgress>, Res<FiredMilestones>, Res<CurrentEra>, Res<ProcessUnlocks>),
     mut ach: ResMut<Achievements>,
     mut earned_now: MessageWriter<AchievementEarned>,
+    challenge: Option<Res<crate::ui::challenges::ChallengeMode>>,
 ) {
     let Some(db) = db else { return };
+    // a challenge's discoveries are not the lab's
+    if challenge.is_some_and(|c| c.playing()) {
+        return;
+    }
     let (progress, fired, era, unlocks) = state;
     if ach.list.is_empty() {
         let Some(subs) = substances.get(&game_data.substances) else { return };

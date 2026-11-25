@@ -1,9 +1,10 @@
 // src/ui/reaction_library.rs
 //
 // The Reaction Library: every reaction the player knows (all reactants and all products
-// discovered), grouped by era, searchable. The page on the right shows the vessel, the
-// balanced equation, the conditions, the reactants and products (click one to open it in
-// the Substance Library), the history blurb and the references.
+// discovered), grouped by era, searchable, across the screen. A tap opens the reaction's
+// page in the list's place (Back returns to the list where it was left): the vessel, the
+// balanced equation, the conditions, the reactants and products (tap one to open it in the
+// Substance Library), the history blurb, the ideas behind it in Lessons, and the references.
 use crate::ui::{Button, Clicked};
 use bevy::prelude::*;
 use bevy::ui::Pressed;
@@ -29,9 +30,21 @@ pub struct ReactionLibState {
     pub open: bool,
     pub selected: Option<u32>,
     pub search: String,
+    /// showing the selected reaction's page, rather than the list
+    pub page: bool,
 }
 
-const LIST_W: f32 = 400.0;
+impl ReactionLibState {
+    /// Open the library at a reaction's page.
+    pub fn show(&mut self, id: u32) {
+        self.open = true;
+        self.selected = Some(id);
+        self.page = true;
+    }
+}
+
+/// The list's width at most: one column of rows, centred on a wide screen.
+const LIST_MAX_W: f32 = 960.0;
 
 #[derive(Component)]
 pub struct ReactionLibCloseButton;
@@ -76,8 +89,8 @@ pub struct ReactionLibEmptyText;
 
 /// Every list entry is one fixed height, so the list can build only those in sight: a row
 /// (vessel picture, name, one line of equation) or an era heading in the same cell.
-const ROW_H: f32 = 48.0;
-const ROW_GAP: f32 = 4.0;
+const ROW_H: f32 = 54.0;
+const ROW_GAP: f32 = 6.0;
 /// List ids at and above this are era headings (the base plus the epoch); below, reaction ids.
 const HEADING_BASE: u32 = u32::MAX - 255;
 
@@ -101,36 +114,34 @@ fn condition_chip(c: &Condition, subs: &Substances) -> (String, Color) {
 }
 
 pub fn spawn_reaction_library(mut commands: Commands, fonts: Res<UiFonts>, assets: Res<AssetServer>) {
+    use crate::ui::shell::{PaneList, PanePad, PanePage, View};
     let fonts = &*fonts;
     let assets = &*assets;
     commands
-        .spawn((ReactionLibRoot, crate::ui::shell::SplitRoot, theme::view_root(610), Name::new("ReactionLibRoot")))
+        .spawn((ReactionLibRoot, theme::view_root(610), Name::new("ReactionLibRoot")))
         .insert(Node {
             position_type: PositionType::Absolute,
             left: Val::Px(0.0),
             right: Val::Px(0.0),
             top: Val::Px(theme::HEADER_H),
             bottom: Val::Px(0.0),
-            flex_direction: FlexDirection::Row,
+            flex_direction: FlexDirection::Column,
             display: Display::None,
             ..default()
         })
         .with_children(|root| {
+            // --- the list: header, search, the reactions by era ---
             root.spawn((
-                crate::ui::shell::SplitList(LIST_W),
+                PaneList(View::Reactions),
+                PanePad(28.0, 14.0, 0.0),
                 Node {
-                    width: Val::Px(LIST_W),
-                    min_width: Val::Px(LIST_W),
-                    flex_shrink: 0.0,
+                    width: Val::Percent(100.0),
                     height: Val::Percent(100.0),
                     flex_direction: FlexDirection::Column,
-                    padding: UiRect::new(Val::Px(16.0), Val::Px(12.0), Val::Px(14.0), Val::Px(0.0)),
                     row_gap: Val::Px(10.0),
-                    border: UiRect::right(Val::Px(1.0)),
                     ..default()
                 },
                 BackgroundColor(theme::SURFACE),
-                BorderColor::all(theme::LINE),
             ))
             .with_children(|col| {
                 col.spawn(Node {
@@ -147,17 +158,18 @@ pub fn spawn_reaction_library(mut commands: Commands, fonts: Res<UiFonts>, asset
                             theme::label(fonts, "", theme::XS, Weight::Regular, theme::TEXT_3),
                         ));
                     });
-                    theme::spawn_icon_button(hdr, assets, "close", 32.0, theme::TEXT_2, ReactionLibCloseButton);
+                    theme::spawn_icon_button(hdr, assets, "close", 40.0, theme::TEXT_2, ReactionLibCloseButton);
                 });
                 col.spawn((
                     theme::button(
                         Kind::Secondary,
                         Node {
-                            height: Val::Px(38.0),
+                            height: Val::Px(42.0),
+                            max_width: Val::Px(620.0),
                             flex_shrink: 0.0,
                             align_items: AlignItems::Center,
                             column_gap: Val::Px(9.0),
-                            padding: UiRect::horizontal(Val::Px(11.0)),
+                            padding: UiRect::horizontal(Val::Px(12.0)),
                             ..default()
                         },
                         theme::R_MD,
@@ -165,7 +177,7 @@ pub fn spawn_reaction_library(mut commands: Commands, fonts: Res<UiFonts>, asset
                     ReactionLibSearchBox,
                 ))
                 .with_children(|s| {
-                    s.spawn(theme::icon(assets, "search", 16.0, theme::TEXT_3));
+                    s.spawn(theme::icon(assets, "search", 17.0, theme::TEXT_3));
                     s.spawn((
                         ReactionLibSearchText,
                         theme::label(fonts, search_prompt(), theme::SM, Weight::Regular, theme::TEXT_3),
@@ -176,11 +188,12 @@ pub fn spawn_reaction_library(mut commands: Commands, fonts: Res<UiFonts>, asset
                     ScrollPosition::default(),
                     Node {
                         flex_direction: FlexDirection::Column,
+                        align_items: AlignItems::Center,
                         flex_grow: 1.0,
                         flex_basis: Val::Px(0.0),
                         min_height: Val::Px(0.0),
                         overflow: Overflow::scroll_y(),
-                        padding: UiRect::bottom(Val::Px(12.0)),
+                        padding: UiRect::bottom(Val::Px(16.0)),
                         ..default()
                     },
                 ))
@@ -188,7 +201,13 @@ pub fn spawn_reaction_library(mut commands: Commands, fonts: Res<UiFonts>, asset
                     scroll.spawn((
                         ReactionLibListContent,
                         VirtualList::new(Vec2::new(0.0, ROW_H), Vec2::new(0.0, ROW_GAP)),
-                        Node { width: Val::Percent(100.0), height: Val::Px(0.0), flex_shrink: 0.0, ..default() },
+                        Node {
+                            width: Val::Percent(100.0),
+                            max_width: Val::Px(LIST_MAX_W),
+                            height: Val::Px(0.0),
+                            flex_shrink: 0.0,
+                            ..default()
+                        },
                     ));
                     scroll.spawn((
                         ReactionLibEmptyText,
@@ -197,29 +216,53 @@ pub fn spawn_reaction_library(mut commands: Commands, fonts: Res<UiFonts>, asset
                     ));
                 });
             });
+            // --- the page, in the list's place ---
             root.spawn((
-                crate::ui::shell::SplitPane,
-                ReactionLibScrollable { is_left: false },
-                ScrollPosition::default(),
+                PanePage(View::Reactions),
                 Node {
-                    flex_grow: 1.0,
+                    width: Val::Percent(100.0),
                     height: Val::Percent(100.0),
-                    overflow: Overflow::scroll_y(),
-                    padding: UiRect::new(Val::Px(32.0), Val::Px(32.0), Val::Px(26.0), Val::Px(40.0)),
+                    flex_direction: FlexDirection::Column,
+                    display: Display::None,
                     ..default()
                 },
             ))
-            .with_children(|pane| {
-                pane.spawn((
-                    ReactionLibDetail,
+            .with_children(|page| {
+                crate::ui::shell::spawn_page_bar(
+                    page,
+                    fonts,
+                    assets,
+                    View::Reactions,
+                    "Reactions",
+                    ReactionLibCloseButton,
+                );
+                page.spawn((
+                    ReactionLibScrollable { is_left: false },
+                    ScrollPosition::default(),
+                    PanePad(32.0, 22.0, 40.0),
                     Node {
-                        width: Val::Percent(100.0),
-                        max_width: Val::Px(980.0),
+                        flex_grow: 1.0,
+                        flex_basis: Val::Px(0.0),
+                        min_height: Val::Px(0.0),
                         flex_direction: FlexDirection::Column,
-                        row_gap: Val::Px(14.0),
+                        align_items: AlignItems::Center,
+                        overflow: Overflow::scroll_y(),
                         ..default()
                     },
-                ));
+                ))
+                .with_children(|pane| {
+                    pane.spawn((
+                        ReactionLibDetail,
+                        Node {
+                            width: Val::Percent(100.0),
+                            max_width: Val::Px(crate::ui::codex::PAGE_W),
+                            flex_shrink: 0.0,
+                            flex_direction: FlexDirection::Column,
+                            row_gap: Val::Px(14.0),
+                            ..default()
+                        },
+                    ));
+                });
             });
         });
 }
@@ -251,7 +294,7 @@ pub fn reaction_lib_search_system(
     mut typing: ResMut<crate::ui::inventory::TypingBox>,
 ) {
     use crate::ui::inventory::TypingBox;
-    if !state.open {
+    if !state.open || state.page {
         if *typing == TypingBox::Reactions {
             *typing = TypingBox::None;
             crate::platform::keyboard_hide();
@@ -386,7 +429,8 @@ pub fn reaction_lib_window_system(
     };
     let focused = focus.and_then(|f| f.entity);
     let keep = |e: Entity| Some(e) == focused || pressed.contains(e);
-    let (width, view_h) = if state.open {
+    // a page in the list's place hides the list: its rows go (and come back on Back)
+    let (width, view_h) = if state.open && !state.page {
         (cn.size.x * cn.inverse_scale_factor(), view.size.y * view.inverse_scale_factor())
     } else {
         (0.0, 0.0)
@@ -394,7 +438,7 @@ pub fn reaction_lib_window_system(
     let Some(pass) = list.plan(width, view_h, scroll.0.y, keep) else {
         return;
     };
-    if state.open && node.height != Val::Px(pass.height) {
+    if state.open && !state.page && node.height != Val::Px(pass.height) {
         node.height = Val::Px(pass.height);
     }
     for e in &pass.drop {
@@ -513,13 +557,13 @@ fn spawn_list_row(
         ))
         .with_children(|c| {
             c.spawn((
-                theme::label(fonts, r.name.clone(), theme::SM, Weight::Semibold, theme::TEXT),
+                theme::label(fonts, r.name.clone(), theme::MD, Weight::Semibold, theme::TEXT),
                 TextLayout::no_wrap(),
                 Pickable::IGNORE,
             ));
             c.spawn((
                 Text::new(equation_text(r, subs)),
-                TextFont { font: fonts.symbols.clone().into(), font_size: FontSize::Px(11.0), ..default() },
+                TextFont { font: fonts.symbols.clone().into(), font_size: FontSize::Px(12.5), ..default() },
                 TextColor(theme::mix(accent, theme::TEXT, 0.55)),
                 TextLayout::no_wrap(),
                 Pickable::IGNORE,
@@ -534,9 +578,7 @@ pub fn reaction_lib_entry_click_system(
     mut state: ResMut<ReactionLibState>,
 ) {
     for entry in &q {
-        if state.selected != Some(entry.0) {
-            state.selected = Some(entry.0);
-        }
+        state.show(entry.0);
     }
 }
 
@@ -755,7 +797,7 @@ pub fn update_reaction_detail_system(
 
         if let Some(desc) = &r.description {
             theme::spawn_section_title(p, fonts, "The story");
-            p.spawn(theme::para(fonts, desc.clone(), theme::MD, theme::TEXT_2, Val::Px(820.0)));
+            p.spawn(theme::para(fonts, desc.clone(), theme::MD, theme::TEXT, Val::Percent(100.0)));
         }
         p.spawn(theme::label(
             fonts,
@@ -769,7 +811,7 @@ pub fn update_reaction_detail_system(
         if let Some(pg) = pages {
             let keys = pg.reaction_topics(r.id, &r.process);
             if !keys.is_empty() {
-                theme::spawn_section_title(p, fonts, "Learn more");
+                theme::spawn_section_title(p, fonts, "Lessons");
                 crate::ui::curriculum::spawn_learn_row(p, fonts, assets, pg, &keys);
             }
         }
@@ -875,7 +917,6 @@ pub fn reaction_lib_link_click_system(
     }
     for link in &subs {
         state.open = false;
-        codex.open = true;
-        codex.selected = Some(link.0);
+        codex.show(link.0);
     }
 }

@@ -177,6 +177,10 @@ X("Cinnabar", "Cinnabar (vermilion)", "HgS", "Solid", "Mercury sulfide: scarlet 
 X("Stibnite", "Stibnite", "Sb2S3", "Solid", "Antimony sulfide in long grey needles. Ancient Egyptians used it as kohl eyeliner.", "Stibnite", id=0, color="#5c6068")
 X("FeS", "Iron(II) Sulfide", "FeS", "Solid", "A black solid formed when iron and sulfur are heated together. Hydrochloric or sulfuric acid on it releases rotten-egg hydrogen sulfide.", "Iron(II)_sulfide", id=0, color="#2a2420")
 X("Pb3O4", "Red Lead", "Pb3O4", "Solid", "Minium, a brilliant red lead oxide: the original 'miniature' paint for manuscripts and the rust-proof primer on old ironwork.", "Lead(II,IV)_oxide", id=0, color="#e8381c")
+X("Solder", "Tin-Lead Solder", "Sn3Pb", "Solid", "About two parts tin to one of lead: the mix that melts lowest of all, at 183 C, below either metal alone. Roman plumbers joined lead water pipes with tin-lead solder; electronics were soldered with it until lead-free tin, silver and copper replaced it in the 2000s.", "Solder", id=0, props=["IsMetal"], color="#b8bcc0")
+X("TypeMetal", "Type Metal", "Pb6Sb2Sn", "Solid", "Lead hardened with antimony and a little tin, for casting printing type: antimony stiffens the letters so they survive the press, and keeps the metal from shrinking as it sets, so even fine serifs cast sharp.", "Type_metal", id=0, props=["IsMetal"], color="#8c9096")
+X("AntimonialLead", "Antimonial Lead", "Pb12Sb", "Solid", "Hard lead: lead with a few percent of antimony, stiff enough to hold its shape. Musket balls and shot were cast from it, and the grids of lead-acid batteries still are, since pure lead would sag under its own weight.", "Lead#Alloys", id=0, props=["IsMetal"], color="#7c8088")
+X("BabbittMetal", "Babbitt Metal", "Sn13SbCu", "Solid", "Isaac Babbitt's 1839 bearing metal: tin with a little antimony and copper. Hard tin-antimony crystals carry the shaft while the soft tin around them wears into a perfect bed for it.", "Babbitt_(alloy)", id=0, props=["IsMetal"], color="#c4c6c8")
 X("Pewter", "Pewter", "Sn4Pb", "Solid", "A soft, silvery alloy of mostly tin. Medieval plates, tankards and spoons were pewter; modern pewter replaces the lead with antimony and copper.", "Pewter", id=0, props=["IsMetal"], color="#a8acb0")
 X("EgyptianBlue", "Egyptian Blue", "CaCuSi4O10", "Solid", "Calcium copper silicate, the first synthetic pigment (around 2500 BCE). It glows in infrared, which lets archaeologists find traces of it on ancient statues.", "Egyptian_blue", id=0, color="#2850c8")
 X("Goethite", "Yellow Ochre", "FeO(OH)", "Solid", "Goethite, hydrated iron oxide: the yellow-brown earth pigment of cave painters for 40,000 years, and the main ingredient of rust.", "Ochre", id=0, color="#c8962a")
@@ -864,6 +868,26 @@ E3.reactions += [
     R("Davy's Phosgene", "CO + Cl2 -> COCl2", LIGHT,
       "John Davy (1812) exposed carbon monoxide and chlorine to sunlight and they combined. He named the gas phosgene, 'born of light'. Today it is a key building block of polycarbonates and polyurethanes.",
       wiki="Phosgene#History", dh=-108),
+]
+
+# --- the antimony alloys: solder, type and bearings ---
+E1.reactions += [
+    R("Tin-Lead Solder", "3 Sn + Pb -> Solder", SMELT,
+      "Tin and lead melted together run at a lower heat than either: Roman plumbers sealed the seams of lead water pipes with it.",
+      wiki="Solder", T=250, dh=-2),
+]
+E2.reactions += [
+    R("Casting Type Metal", "6 Pb + 2 Sb + Sn -> TypeMetal", HEAT,
+      "Printers from Gutenberg's time on cast movable type from lead stiffened with antimony and tin: hard enough to print thousands of pages, and setting sharp in the mould.",
+      wiki="Type_metal", T=350, dh=-3),
+    R("Hardening Lead", "12 Pb + Sb -> AntimonialLead", HEAT,
+      "A pinch of antimony stirred into molten lead makes it hard enough for shot that keeps its shape and, later, for battery grids that don't sag.",
+      wiki="Lead#Alloys", T=340, dh=-2),
+]
+E3.reactions += [
+    R("Babbitt Metal", "13 Sn + Sb + Cu -> BabbittMetal", HEAT,
+      "Tin with a little antimony and copper, poured into a bearing shell: Isaac Babbitt's 1839 alloy, hard crystals in a soft bed, kept steam engines' shafts turning.",
+      wiki="Babbitt_(alloy)", T=420, dh=-4),
 ]
 
 # --- Epoch 4 (Second Industrial Revolution) ---

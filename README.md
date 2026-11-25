@@ -3,9 +3,12 @@
 # Curieosity
 
 A free chemistry discovery game. Start with fire, ore and wood; put substances in vessels
-and react them; discover 2,916 substances across 2,891 reactions and 27 vessels, from the
+and react them; discover 2,920 substances across 2,895 reactions and 27 vessels, from the
 first copper smelted to oganesson. Every substance has a page, written for the game or
-drawn from Wikipedia and other open sources, with a link to read more.
+drawn from Wikipedia and other open sources, with a link to read more, and Lessons teaches
+the ideas behind the reactions, with the chemistry words they use defined. Challenges set
+a target to make by its route from a kit of its own, for stars and a score, with a new
+one each day; the lab itself is never scored.
 
 ## Play
 
@@ -31,7 +34,8 @@ drawn from Wikipedia and other open sources, with a link to read more.
 
 Progress saves itself. Mouse, keyboard (Tab, arrows, Enter, Esc) and controllers all work.
 On a phone, swipe the shelf to scroll it; hold a tile a moment to lift it onto a vessel, or
-tap a tile and then a vessel. Back works as Esc.
+tap a tile and then a vessel. Two fingers only ever scroll (or pan the bench). Back works
+as Esc.
 
 ## Build from source
 
