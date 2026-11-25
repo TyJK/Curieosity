@@ -12,14 +12,6 @@
 # downloads: they are uploaded to Steam, not handed out. Set the repository variable
 # STEAM_APP_ID once the game has its own Steam app; until then they use 480, Valve's test
 # app.
-#
-# The phone apps aren't built twice. A merged pull request's CI run (ci.yml) has already
-# built them from the same code, so the release takes that run's APK and IPA when the
-# merged commit holds exactly the files the pull request's last commit did (a merge or a
-# squash of a branch made from the current main) and that run passed. Anything else (a
-# direct push, main having moved on since the branch was made, a run started by hand)
-# builds them here as before. The desktop and Steam builds are made here either way: CI
-# doesn't make them.
 name: Release
 
 on:
@@ -121,88 +113,25 @@ jobs:
           name: ${{ matrix.steam && 'steam-' || '' }}${{ matrix.name }}
           path: ${{ env.ARCHIVE }}
 
-  # the CI run whose phone apps this release can take, if any
-  reuse:
-    name: The phone apps CI built
-    runs-on: ubuntu-latest
-    permissions:
-      actions: read
-      contents: read
-      pull-requests: read
-    outputs:
-      run: ${{ steps.find.outputs.run }}
-    steps:
-      - id: find
-        env:
-          GH_TOKEN: ${{ github.token }}
-          REPO: ${{ github.repository }}
-          SHA: ${{ github.sha }}
-        run: |
-          # nothing here may fail the release: at worst the phone apps are built again
-          set +e
-          RUN=""
-          if [ "${{ github.event_name }}" = "push" ]; then
-            # GitHub links the merge to its pull request a moment after the push
-            for i in 1 2 3 4 5 6; do
-              HEAD=$(gh api "repos/$REPO/commits/$SHA/pulls" --jq '[.[] | select(.merged_at != null)][0].head.sha // empty')
-              [ -n "$HEAD" ] && break
-              sleep 10
-            done
-            if [ -n "$HEAD" ]; then
-              MERGED=$(gh api "repos/$REPO/commits/$SHA" --jq .commit.tree.sha)
-              TESTED=$(gh api "repos/$REPO/commits/$HEAD" --jq .commit.tree.sha)
-              if [ -n "$MERGED" ] && [ "$MERGED" = "$TESTED" ]; then
-                RUN=$(gh api "repos/$REPO/actions/workflows/ci.yml/runs?head_sha=$HEAD&event=pull_request&status=success" --jq '.workflow_runs[0].id // empty')
-              else
-                echo "main had moved on since the pull request's last commit: building the phone apps here."
-              fi
-            fi
-          fi
-          if [ -n "$RUN" ]; then
-            echo "Taking the phone apps from CI run $RUN (https://github.com/$REPO/actions/runs/$RUN)."
-          else
-            echo "No passing CI run built this exact code: building the phone apps here."
-          fi
-          echo "run=$RUN" >> "$GITHUB_OUTPUT"
-
   android:
     name: Android
-    needs: reuse
-    if: needs.reuse.outputs.run == ''
     uses: ./.github/workflows/android.yml
     secrets: inherit
 
   ios:
     name: iOS
-    needs: reuse
-    if: needs.reuse.outputs.run == ''
     uses: ./.github/workflows/ios.yml
     secrets: inherit
 
   publish:
     name: Publish the release
-    needs: [version, build, reuse, android, ios]
-    # the phone apps are either built here or taken from CI: skipped builds are fine
-    if: >-
-      !cancelled() && needs.version.result == 'success' && needs.build.result == 'success'
-      && needs.reuse.result == 'success'
-      && contains(fromJSON('["success", "skipped"]'), needs.android.result)
-      && contains(fromJSON('["success", "skipped"]'), needs.ios.result)
+    needs: [version, build, android, ios]
     runs-on: ubuntu-latest
     permissions:
-      actions: read
       contents: write
     steps:
       - uses: actions/download-artifact@v4
         with:
-          path: dist
-      - name: The phone apps from CI
-        if: needs.reuse.outputs.run != ''
-        uses: actions/download-artifact@v4
-        with:
-          run-id: ${{ needs.reuse.outputs.run }}
-          github-token: ${{ github.token }}
-          pattern: Curieosity-*
           path: dist
       # the phone apps under fixed names, for the README's links
       - name: Name the phone apps
