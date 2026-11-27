@@ -271,7 +271,7 @@ E4.reactions += [
       "Aniline displaces the chlorine.", wiki=5047795, T=200),
     R("Benzotriazole", "OPD + NaNO2 + AcOH -> Benzotriazole + NaC2H3O2 + 2 H2O", FLASK,
       "Nitrous acid diazotises one amine, which closes onto the other.", wiki=11363337, T=10),
-    R("1,10-Phenanthroline", "OPD + 2 Glycerol + O2 -> Phenanthroline + 8 H2O", FLASK,
+    R("1,10-Phenanthroline", "OPD + 2 Glycerol + O2 + H2SO4 -> Phenanthroline + 8 H2O + H2SO4", FLASK,
       "Two Skraup reactions on one ring: sulfuric acid turns glycerol into acrolein, which closes a "
       "pyridine onto each amine.", wiki=1584707, T=150),
     R("1,2-Diaminocyclohexane", "OPD + 3 H2 -> DACH", HIGHP,
@@ -442,7 +442,7 @@ E5.reactions += [
       wiki=3059400, T=10),
     R("Tetrahydro-2-furoic Acid", "FuroicAcid + 2 H2 -> THFoic", CAT,
       "The furan ring hydrogenated.", wiki=41170521, cat="Pd", T=80),
-    R("2,2-Di-2-furylpropane", "2 Furan + Acetone -> DFP + H2O", FLASK,
+    R("2,2-Di-2-furylpropane", "2 Furan + Acetone + HCl -> DFP + H2O + HCl", FLASK,
       "Two furans condensed with acetone in hydrochloric acid.", wiki="2,2-Di-2-furylpropane", T=20),
     R("Dichlormid", "Diallylamine + DCAC -> Dichlormid + HCl", FLASK,
       "Diallylamine acylated with dichloroacetyl chloride.", wiki=75668939, T=10),

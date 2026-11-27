@@ -22,6 +22,8 @@ G(key, term, forms, wiki, text, lesson=None, also=())
           behind -ate and -ite
 """
 
+import re
+
 TERMS = {}
 
 
@@ -69,7 +71,8 @@ G("PolyatomicIon", "Polyatomic ion", ["polyatomic ion"], "Polyatomic ion",
 G("Salt", "Salt", ["salt"], "Salt (chemistry)",
   "A compound of cations and anions, the product of an acid meeting a base. Table salt is one "
   "(sodium chloride); so are chalk, saltpetre and alum.", lesson="Salt")
-G("IdeEnding", "-ide", [], "Binary compound",
+G("IdeEnding", "-ide", ["selenide", "telluride", "phosphide", "arsenide", "antimonide", "boride", "silicide"],
+  "Binary compound",
   "The ending of an anion made from a single element: chloride (Cl⁻) from chlorine, oxide "
   "(O²⁻) from oxygen, sulfide (S²⁻) from sulfur. A few groups keep it too: hydroxide (OH⁻) "
   "and cyanide (CN⁻).", plural=False)
@@ -208,6 +211,159 @@ G("Ferrous", "Ferrous and ferric", ["ferrous", "ferric", "cuprous", "cupric", "s
   "Ferrous",
   "Old names for a metal's two oxidation states: -ous is the lower, -ic the higher. Ferrous "
   "is iron(II), ferric iron(III); cuprous is copper(I), cupric copper(II).", plural=False)
+
+# --------------------------------------------------------------------------------------
+# Naming: what the parts of a name say (name_parts() below finds them in a substance's name)
+# --------------------------------------------------------------------------------------
+G("IcOus", "-ic and -ous acids", [], "Oxyacid",
+  "An acid's ending says how much oxygen it has: the -ic acid more (sulfuric, H₂SO₄), the "
+  "-ous acid less (sulfurous, H₂SO₃). Their salts are the -ates and the -ites. Hydro-…-ic "
+  "acids, such as hydrochloric, have no oxygen at all.", plural=False, also=["AteIte"])
+G("Multiplier", "di-, tri-, tetra-…", [], "Numeral prefix",
+  "Number prefixes, mostly Greek: mono- 1, di- 2, tri- 3, tetra- 4, penta- 5, hexa- 6. Each "
+  "counts the part after it (dimethyl: two methyl groups; carbon dioxide: two oxygens). Bis- "
+  "and tris- count larger groups written in brackets.", plural=False)
+G("ChainRoot", "meth-, eth-, prop-, but-…", [], "IUPAC nomenclature of organic chemistry",
+  "How many carbons the main chain has: meth- 1, eth- 2, prop- 3 and but- 4 come from older "
+  "names (methyl, ether, propionic and butyric acids); pent- 5, hex- 6, hept- 7, oct- 8 and "
+  "on are Greek numbers. The ending then gives the kind of compound: -ane, -ene, -ol, -one.",
+  plural=False)
+G("BranchPrefix", "iso-, sec-, tert-, cyclo-", [], "Structural isomer",
+  "Shape prefixes: iso- marks a chain that forks at its end (isopropyl, isobutyl); sec- and "
+  "tert- say the group joins through a carbon bonded to two or three others (tert-butyl); "
+  "cyclo- closes the chain into a ring (cyclohexane).", plural=False, also=["Isomer"])
+G("HaloPrefix", "chloro-, bromo-, fluoro-, iodo-", [], "Organohalogen compound",
+  "A halogen atom standing in for a hydrogen on carbon: chlorobenzene is benzene with one "
+  "chlorine, dichloromethane is methane with two.", plural=False, also=["Halogen"])
+G("Methyl", "Methyl", ["methyl"], "Methyl group",
+  "–CH₃, one carbon with three hydrogens. The name comes from methylene, coined in 1834 from "
+  "Greek methy (wine) and hylē (wood), after methanol, the spirit of wood.", also=["Alkyl"])
+G("Ethyl", "Ethyl", ["ethyl"], "Ethyl group",
+  "–C₂H₅, two carbons. Liebig named it in 1834 from ether, which he took to be its oxide, with "
+  "-yl from Greek hylē (stuff, matter).", also=["Alkyl"])
+G("Propyl", "Propyl", ["propyl", "isopropyl"], "Propyl group",
+  "–C₃H₇, three carbons; isopropyl is its forked form. From propionic acid: Greek prōtos "
+  "(first) and piōn (fat), the smallest acid that behaves like one from fat.", also=["Alkyl"])
+G("Butyl", "Butyl", ["butyl", "isobutyl"], "Butyl group",
+  "–C₄H₉, four carbons, in four shapes (n-, iso-, sec- and tert-butyl). From butyric acid, "
+  "the smell of rancid butter (Latin butyrum).", also=["Alkyl"])
+G("Amyl", "Amyl (pentyl)", ["amyl", "isoamyl", "pentyl"], "Pentyl group",
+  "–C₅H₁₁, five carbons, now called pentyl. Amyl is from Latin amylum (starch): amyl alcohol "
+  "was found in fusel oil, distilled from fermented starch.", also=["Alkyl"])
+G("Phenyl", "Phenyl", ["phenyl"], "Phenyl group",
+  "C₆H₅–, a benzene ring with one hydrogen taken off to make a bond. From phène, Laurent's "
+  "name for benzene, after Greek phainein (to shine): it came from the coal gas that lit "
+  "cities.", also=["Aromatic"])
+G("Benzyl", "Benzyl", ["benzyl"], "Benzyl group",
+  "C₆H₅CH₂–, a benzene ring on a CH₂. Named, like benzene and benzoic acid, after gum benzoin, "
+  "the Southeast Asian resin benzoic acid was first distilled from.", also=["Aromatic"])
+G("Vinyl", "Vinyl", ["vinyl"], "Vinyl group",
+  "CH₂=CH–, ethylene with one hydrogen taken off, two fewer than ethyl. From Latin vinum "
+  "(wine), through ethyl alcohol. Vinyl chloride links into PVC.", also=["Alkene"])
+G("Acetyl", "Acetyl", ["acetyl"], "Acetyl group",
+  "CH₃CO–, the part of acetic acid that carries over into acetates, aspirin and "
+  "acetylcholine. From Latin acetum (vinegar).", also=["Carbonyl"])
+G("Allyl", "Allyl", ["allyl"], "Allyl group",
+  "CH₂=CH–CH₂–, named from Allium, the garlic genus, by Theodor Wertheim, who found it in "
+  "garlic oil in 1844.", also=["Alkene"])
+G("Alkoxy", "Alkoxy", ["alkoxy", "methoxy", "ethoxy", "butoxy", "propoxy"], "Alkoxy group",
+  "An alkyl group joined on through an oxygen, –O–R: methoxy (–OCH₃), ethoxy, butoxy. It is "
+  "an ether link on a molecule.", also=["Ether"])
+G("Alkoxide", "Alkoxide", ["alkoxide", "methoxide", "ethoxide", "butoxide", "propoxide", "isopropoxide"],
+  "Alkoxide",
+  "An alcohol that has given up the hydrogen of its –OH, leaving O⁻: sodium methoxide, "
+  "aluminium isopropoxide. Strong bases, made by dissolving a reactive metal in the alcohol.",
+  also=["Alcohol"])
+G("Nitro", "Nitro group", ["nitro group", "nitro compound"], "Nitro compound",
+  "–NO₂ on a carbon, as in nitrobenzene, picric acid and TNT. It carries oxygen right beside "
+  "the fuel, which is why many nitro compounds burn or explode so fast.")
+G("Thiol", "Thio- and thiols", ["thiol", "mercaptan"], "Thiol",
+  "Thio- (Greek theion, sulfur) puts a sulfur where an oxygen would be: thiosulfate, thiourea, "
+  "and the thiols (–SH), behind the smells of skunks and garlic.")
+G("Azide", "Azide", ["azide"], "Azide",
+  "The azide ion, N₃⁻: three nitrogens in a row. From azote, Lavoisier's name for nitrogen "
+  "(Greek a- zōē, no life: animals die in it). Sodium azide, set off by a spark, filled early "
+  "car airbags with nitrogen.", also=["IdeEnding"])
+G("Cyanate", "Cyanate", ["cyanate", "isocyanate", "diisocyanate"], "Cyanate",
+  "OCN⁻, cyanide with an oxygen added (the -ate of cyanic acid); its twin isocyanate, –N=C=O "
+  "on carbon, makes polyurethane. Wöhler's ammonium cyanate turned into urea in 1828, an "
+  "organic compound from inorganic ones.", also=["AteIte"])
+G("Iodate", "Iodate and bromate", ["iodate", "periodate", "bromate"], "Iodate",
+  "IO₃⁻ and BrO₃⁻, iodine or bromine with three oxygens, named like chlorate; periodate (IO₄⁻) "
+  "has four. Potassium iodate is the iodine in much iodized salt.", also=["AteIte"])
+G("PeroxySalt", "Persulfate and perborate", ["persulfate", "persulphate", "peroxydisulfate",
+                                              "peroxymonosulfate", "perborate", "percarbonate"],
+  "Peroxydisulfate",
+  "Salts with a peroxide link (O–O) inside the ion: persulfate, perborate, percarbonate. In "
+  "water they release active oxygen, so they bleach in laundry powders and hair lighteners.",
+  also=["Peroxide"])
+G("Superoxide", "Superoxide", ["superoxide", "ozonide"], "Superoxide",
+  "O₂⁻, an oxygen molecule with one extra electron. Potassium superoxide in rebreathers takes "
+  "in breathed-out carbon dioxide and gives back oxygen.", also=["Peroxide"])
+G("Manganate", "Manganate", ["manganate"], "Manganate",
+  "MnO₄²⁻, green, one charge more than purple permanganate. Manganese dioxide fused with "
+  "potash in air makes it, the first step to permanganate.", also=["Permanganate"])
+G("Arsenate", "Arsenate and arsenite", ["arsenate", "arsenite"], "Arsenate",
+  "AsO₄³⁻ and AsO₃³⁻, arsenic with four or three oxygens. Lead and calcium arsenate were early "
+  "insecticides; arsenite pigments such as Scheele's green poisoned the Victorians.",
+  also=["AteIte"])
+G("Phosphite", "Phosphite", ["phosphite", "hypophosphite"], "Phosphite anion",
+  "PO₃³⁻, phosphorus with three oxygens, one fewer than phosphate (hypophosphite has two). "
+  "Organic phosphites guard plastics against oxidation; hypophosphite plates nickel without "
+  "electricity.", also=["AteIte"])
+G("Pyrophosphate", "Pyrophosphate", ["pyrophosphate", "diphosphate", "polyphosphate", "tripolyphosphate",
+                                     "metaphosphate", "hexametaphosphate"], "Pyrophosphate",
+  "Two phosphates joined through an oxygen, made by heating (pyro-, fire) until they lose "
+  "water; longer chains and rings are polyphosphates and metaphosphates. ATP stores its energy "
+  "in such links.", also=["Phosphate"])
+G("Metalate", "Metal -ates", ["aluminate", "titanate", "molybdate", "tungstate", "vanadate", "stannate",
+                              "zincate", "plumbate", "ferrate", "zirconate", "niobate", "tantalate",
+                              "germanate", "metaborate"], "Oxyanion",
+  "A metal's name with -ate: the metal bound up with oxygen in an anion, as in an acid's salt. "
+  "Aluminate, titanate, molybdate, tungstate and stannate form when the metal's oxide meets a "
+  "strong base.", also=["AteIte"])
+G("Ferrocyanide", "Ferrocyanide", ["ferrocyanide", "ferricyanide", "hexacyanoferrate"], "Ferrocyanide",
+  "[Fe(CN)₆]⁴⁻ and its oxidized form ferricyanide, [Fe(CN)₆]³⁻: iron gripped so tightly by six "
+  "cyanides that they are far less poisonous than free cyanide. With more iron they make "
+  "Prussian blue.", also=["Complex"])
+G("Sulfonate", "Sulfonic acid", ["sulfonate", "sulphonate", "sulfonic", "sulphonic", "sulfonyl"], "Sulfonic acid",
+  "–SO₃H on carbon, a sulfonic acid, and its salts the sulfonates: strong acids that dissolve "
+  "well in water. They make most detergents and the water-soluble dyes.", also=["Surfactant"])
+G("Carbamate", "Carbamate", ["carbamate", "dithiocarbamate", "urethane"], "Carbamate",
+  "H₂N–CO–O–, half amide and half ester, from carbamic acid. Polyurethanes are held together "
+  "by carbamate links, and many pesticides are carbamates.", also=["Ester"])
+G("FattyNames", "Stearate, oleate, laurate…", ["stearate", "stearic", "palmitate", "palmitic", "oleate", "oleic",
+                                               "laurate", "lauric", "myristate", "myristic", "linoleate",
+                                               "linoleic", "ricinoleate", "ricinoleic"], "Fatty acid",
+  "Fatty acids are named for where they were first found: stearic in tallow (Greek stear), "
+  "palmitic in palm oil, oleic in olive oil (Latin oleum), lauric in laurel berries, myristic "
+  "in nutmeg (Myristica). Their -ate salts are soaps.", also=["CarboxylicAcid"])
+G("Benzoate", "Benzoate", ["benzoate", "benzoic"], "Benzoic acid",
+  "From benzoic acid, distilled from gum benzoin resin in the 1500s. Sodium benzoate keeps "
+  "soft drinks and pickles from spoiling.", also=["CarboxylicAcid"])
+G("Salicylate", "Salicylate", ["salicylate", "salicylic"], "Salicylic acid",
+  "From salicylic acid, first got from willow bark (Latin salix), an old remedy for pain and "
+  "fever that led to aspirin, acetylsalicylic acid.", also=["CarboxylicAcid"])
+G("Phthalate", "Phthalate", ["phthalate", "phthalic"], "Phthalic acid",
+  "From phthalic acid, which Laurent made by oxidizing naphthalene in 1836 and named by "
+  "clipping that word. Phthalate esters soften PVC.", also=["CarboxylicAcid"])
+G("Tartrate", "Tartrate", ["tartrate", "bitartrate", "tartaric"], "Tartaric acid",
+  "From tartaric acid, the acid of tartar, the crust grape juice leaves in wine barrels. Cream "
+  "of tartar is potassium bitartrate; Pasteur found mirror-image molecules in its crystals.",
+  also=["CarboxylicAcid"])
+G("Butyrate", "Butyrate", ["butyrate", "butyric"], "Butyric acid",
+  "From butyric acid, which gives rancid butter its smell (Latin butyrum, butter). Its esters, "
+  "by contrast, smell of pineapple and apricot.", also=["CarboxylicAcid"])
+G("Propionate", "Propionate", ["propionate", "propionic"], "Propionic acid",
+  "From propionic acid: Greek prōtos (first) and piōn (fat), the smallest acid with the "
+  "properties of the fatty acids. Its salts keep bread from going mouldy.", also=["CarboxylicAcid"])
+G("Acrylate", "Acrylate", ["acrylate", "methacrylate", "acrylic"], "Acrylic acid",
+  "From acrolein, the sharp vapour of burnt fat (Latin acer, sharp, and oleum, oil). "
+  "Acrylates and methacrylates link into acrylic plastics, paints and superglue.",
+  also=["Polymer"])
+G("Adipate", "Adipate", ["adipate", "adipic"], "Adipic acid",
+  "From adipic acid, first made by oxidizing fats (Latin adeps, fat). It is one half of "
+  "nylon 6,6.", also=["CarboxylicAcid"])
 
 # --------------------------------------------------------------------------------------
 # Matter, mixtures and solutions
@@ -755,3 +911,122 @@ G("Vitamin", "Vitamin", ["vitamin"], "Vitamin",
 G("AminoAcid", "Amino acid", ["amino acid"], "Amino acid",
   "A molecule with both an amine and a carboxylic acid group; twenty kinds chain together to "
   "build every protein.", lesson="AminoAcid")
+
+
+# --------------------------------------------------------------------------------------
+# Reading a name: which of the terms above its parts are
+# --------------------------------------------------------------------------------------
+# pieces that can begin a word of a name, and their term (longest tried first)
+PREFIX_PARTS = sorted([
+    ("tetrakis", "Multiplier"), ("tris", "Multiplier"), ("bis", "Multiplier"), ("mono", "Multiplier"),
+    ("penta", "Multiplier"), ("hexa", "Multiplier"), ("hepta", "Multiplier"), ("octa", "Multiplier"),
+    ("tetra", "Multiplier"), ("tri", "Multiplier"), ("di", "Multiplier"), ("poly", "Polymer"),
+    ("cyclo", "BranchPrefix"), ("iso", "BranchPrefix"), ("tert", "BranchPrefix"), ("sec", "BranchPrefix"),
+    ("neo", "BranchPrefix"),
+    ("chloro", "HaloPrefix"), ("bromo", "HaloPrefix"), ("fluoro", "HaloPrefix"), ("iodo", "HaloPrefix"),
+    ("hydroxy", "Hydroxyl"), ("amino", "Amine"), ("nitro", "Nitro"), ("cyano", "Nitrile"), ("thio", "Thiol"),
+    ("methoxy", "Alkoxy"), ("ethoxy", "Alkoxy"), ("propoxy", "Alkoxy"), ("butoxy", "Alkoxy"),
+    ("methyl", "Methyl"), ("ethyl", "Ethyl"), ("propyl", "Propyl"), ("butyl", "Butyl"), ("pentyl", "Amyl"),
+    ("amyl", "Amyl"), ("phenyl", "Phenyl"), ("benzyl", "Benzyl"), ("vinyl", "Vinyl"), ("acetyl", "Acetyl"),
+    ("allyl", "Allyl"),
+], key=lambda p: -len(p[0]))
+# prefixes that only count when what follows them is a known part too ("diamond" is no di-)
+NEEDS_KNOWN_REST = {"Multiplier", "BranchPrefix", "Polymer", "Amine", "Nitro", "Nitrile", "Thiol", "Hydroxyl"}
+# whole words whose parts the rules would misread
+WORD_PARTS = {
+    "ethylene": ["ChainRoot", "Alkene"], "propylene": ["ChainRoot", "Alkene"], "butylene": ["ChainRoot", "Alkene"],
+    "methylene": ["Methyl"], "acetylene": ["Alkyne"], "benzene": ["Aromatic"], "toluene": ["Aromatic"],
+    "xylene": ["Aromatic"], "styrene": ["Aromatic"], "naphthalene": ["Aromatic"],
+    "tert": ["BranchPrefix"], "sec": ["BranchPrefix"], "iso": ["BranchPrefix"], "neo": ["BranchPrefix"],
+}
+# a carbon-chain root, then an ending that says what kind of compound (benzene has no root, so
+# it is no alkene; vitriol none, so it is no alcohol)
+CHAIN_ROOTS = ("dodec", "undec", "dec", "non", "oct", "hept", "hex", "pent", "but", "prop", "eth", "meth")
+CHAIN_ENDINGS = [("anediol", "Glycol"), ("anoate", "CarboxylicAcid"), ("anoic", "CarboxylicAcid"),
+                 ("anamide", "Amide"), ("anamine", "Amine"), ("ylamine", "Amine"), ("anol", "Alcohol"),
+                 ("anone", "Ketone"), ("anal", "Aldehyde"), ("ane", "Alkane"), ("ene", "Alkene"), ("yne", "Alkyne")]
+# -ic and -ous before "acid" mean more or less oxygen only for these mineral acids
+OXYACIDS = {"sulfuric", "sulphuric", "sulfurous", "sulphurous", "nitric", "nitrous", "phosphoric", "phosphorous",
+            "hypophosphorous", "chloric", "chlorous", "perchloric", "hypochlorous", "bromic", "iodic", "periodic",
+            "carbonic", "boric", "arsenous", "selenic", "selenous", "chromic", "silicic", "telluric",
+            "hydrochloric", "hydrofluoric", "hydrobromic", "hydroiodic", "hydriodic"}
+
+
+def _forms():
+    owner = {}
+    for key, t in TERMS.items():
+        for f in t["forms"]:
+            owner.setdefault(f.lower(), key)
+    return owner
+
+
+def _chain(word):
+    for root in CHAIN_ROOTS:
+        if word.startswith(root):
+            rest = word[len(root):]
+            for end, key in CHAIN_ENDINGS:
+                if rest == end:
+                    return ["ChainRoot", key]
+    return None
+
+
+def _word_parts(word, owner):
+    """The terms a single lowercase word of a name is built from, in order."""
+    keys = []
+
+    def known(rest):
+        return bool(rest) and (rest in owner or rest in WORD_PARTS or _chain(rest) is not None
+                               or any(rest.startswith(p) and k not in NEEDS_KNOWN_REST for p, k in PREFIX_PARTS))
+    while word:
+        if word in owner:
+            return keys + [owner[word]]
+        if word in WORD_PARTS:
+            return keys + WORD_PARTS[word]
+        # a prefix first (methylamine is methyl + amine), then a chain and its ending
+        for p, k in PREFIX_PARTS:
+            if word.startswith(p) and len(word) > len(p):
+                rest = word[len(p):]
+                if k in NEEDS_KNOWN_REST and not known(rest):
+                    continue
+                keys.append(k)
+                word = rest
+                break
+        else:
+            return keys + (_chain(word) or [])
+    return keys
+
+
+def name_parts(name, limit=6):
+    """The glossary terms a substance's name is built from, in the name's order: whole words
+    and phrases the glossary knows (hypochlorite, hydrogen carbonate), then the parts of
+    organic names (di- + methyl, eth- + -anol), an oxidation state's Roman numeral, and the
+    -ic/-ous of a mineral acid."""
+    owner = _forms()
+    found = []
+    taken = []
+    low = name.lower()
+    # phrases and whole words first, longest first, as the page text is read
+    for f in sorted(owner, key=len, reverse=True):
+        for m in re.finditer(r"(?<![a-z])" + re.escape(f) + r"(?![a-z])", low):
+            if not any(a < m.end() and m.start() < b for a, b in taken):
+                taken.append((m.start(), m.end()))
+                found.append((m.start(), owner[f]))
+    words = list(re.finditer(r"[a-z]+", low))
+    for i, m in enumerate(words):
+        if any(a <= m.start() < b for a, b in taken):
+            continue
+        w = m.group(0)
+        nxt = words[i + 1].group(0) if i + 1 < len(words) else ""
+        if w in OXYACIDS and nxt == "acid":
+            found.append((m.start(), "IcOus"))
+            continue
+        for k in _word_parts(w, owner):
+            found.append((m.start(), k))
+    roman = re.search(r"\((?:i|ii|iii|iv|v|vi|vii|viii)\)", low)
+    if roman:
+        found.append((roman.start(), "OxidationState"))
+    out = []
+    for _, k in sorted(found, key=lambda x: x[0]):
+        if k not in out:
+            out.append(k)
+    return out[:limit]

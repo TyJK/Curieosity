@@ -125,7 +125,7 @@ E4.reactions += [
       "Guanidine neutralised with thiocyanic acid.", wiki=2870145),
     R("Nitroguanidine", "Guanidine + HNO3 -> Nitroguanidine + H2O", CAT,
       "Guanidine nitrate dehydrated in sulfuric acid.", wiki=1810132, cat="H2SO4", T=10),
-    R("3-Bromopyridine", "Pyridine + Br2 -> BromoPyridine3 + HBr", HEAT,
+    R("3-Bromopyridine", "Pyridine + Br2 + Oleum -> BromoPyridine3 + HBr + Oleum", HEAT,
       "Pyridine brominated in oleum at 130 C.", wiki=65585407, T=130),
     R("Sodium Tosylate", "pTsOH + NaOH -> NapTs + H2O", MIX,
       "p-Toluenesulfonic acid neutralised.", wiki=73307706),

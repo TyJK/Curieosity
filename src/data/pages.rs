@@ -37,6 +37,63 @@ pub struct Pages {
     pub substance_terms: HashMap<u32, Vec<String>>,
     /// topic key -> the terms its lesson uses
     pub topic_terms: HashMap<String, Vec<String>>,
+    /// substance id -> the terms its name is built from, in the name's order
+    pub name_terms: HashMap<u32, Vec<String>>,
+    /// substance id -> its NFPA 704 ratings, from its article's Chembox
+    pub safety: HashMap<u32, Nfpa>,
+}
+
+/// The NFPA 704 "fire diamond": three hazards rated 0 (none) to 4 (severe), and a special
+/// hazard where there is one ("W" reacts with water, "OX" oxidizer, "SA" simple asphyxiant,
+/// "W OX" both of the first two).
+#[derive(Debug, Deserialize, Clone, Default, PartialEq, Eq)]
+pub struct Nfpa {
+    pub health: u8,
+    pub fire: u8,
+    pub instability: u8,
+    #[serde(default)]
+    pub special: Option<String>,
+}
+
+impl Nfpa {
+    /// What each rating means, as NFPA 704 defines its levels.
+    pub fn health_meaning(&self) -> &'static str {
+        [
+            "no hazard beyond that of ordinary materials",
+            "can cause irritation",
+            "can cause temporary incapacity or lasting injury",
+            "can cause serious or permanent injury",
+            "can be lethal on brief exposure",
+        ][self.health.min(4) as usize]
+    }
+    pub fn fire_meaning(&self) -> &'static str {
+        [
+            "will not burn",
+            "must be heated before it will catch fire",
+            "catches fire when moderately heated",
+            "catches fire at ordinary temperatures",
+            "vaporizes and burns readily at ordinary temperatures",
+        ][self.fire.min(4) as usize]
+    }
+    /// What the white square's mark means, in words.
+    pub fn special_meaning(&self) -> Option<&'static str> {
+        Some(match self.special.as_deref()? {
+            "W" => "reacts dangerously with water",
+            "OX" => "an oxidizer: feeds fire",
+            "SA" => "a gas that can take the place of the air you breathe",
+            "W OX" => "reacts with water, and feeds fire",
+            _ => return None,
+        })
+    }
+    pub fn instability_meaning(&self) -> &'static str {
+        [
+            "normally stable",
+            "can become unstable when heated",
+            "can change violently at high temperature or pressure",
+            "can detonate given a strong shock or heat",
+            "can detonate at ordinary temperatures and pressures",
+        ][self.instability.min(4) as usize]
+    }
 }
 
 /// A chemistry word, defined.

@@ -421,6 +421,149 @@ to the second vessel), put the other ingredients in that second vessel, and reac
 straight across. Left where it was made, it breaks down.";
 
 /// Shown under a class of compounds: why its formula is one member's.
+/// The NFPA 704 colours: health blue, fire red, instability yellow, special white.
+const NFPA_BLUE: Color = Color::srgb(0.16, 0.42, 0.86);
+const NFPA_RED: Color = Color::srgb(0.86, 0.20, 0.20);
+const NFPA_YELLOW: Color = Color::srgb(0.96, 0.80, 0.18);
+const NFPA_WHITE: Color = Color::srgb(0.96, 0.96, 0.96);
+/// The diamond's square side (its points sit this times √2 apart).
+const NFPA_SIDE: f32 = 52.0;
+
+/// The page's Safety section.
+#[derive(Component)]
+pub struct CodexSafety;
+
+/// The NFPA 704 diamond (a square of four squares, turned 45°: fire at the top, health on the
+/// left, instability on the right, special at the bottom), and beside it what each rating means.
+fn spawn_nfpa(p: &mut ChildSpawnerCommands, fonts: &UiFonts, n: &crate::data::pages::Nfpa) {
+    let box_side = NFPA_SIDE * std::f32::consts::SQRT_2 + 4.0;
+    p.spawn((
+        CodexSafety,
+        Node {
+            align_items: AlignItems::Center,
+            column_gap: Val::Px(18.0),
+            flex_wrap: FlexWrap::Wrap,
+            row_gap: Val::Px(10.0),
+            ..default()
+        },
+    ))
+    .with_children(|row| {
+        row.spawn(Node {
+            width: Val::Px(box_side),
+            height: Val::Px(box_side),
+            flex_shrink: 0.0,
+            align_items: AlignItems::Center,
+            justify_content: JustifyContent::Center,
+            ..default()
+        })
+        .with_children(|holder| {
+            // turned a quarter-turn's half clockwise: its top-left square becomes the top
+            holder
+                .spawn((
+                    Node {
+                        width: Val::Px(NFPA_SIDE),
+                        height: Val::Px(NFPA_SIDE),
+                        flex_wrap: FlexWrap::Wrap,
+                        border: UiRect::all(Val::Px(1.5)),
+                        ..default()
+                    },
+                    BackgroundColor(theme::BG),
+                    BorderColor::all(theme::BG),
+                    UiTransform::from_rotation(Rot2::degrees(45.0)),
+                ))
+                .with_children(|d| {
+                    let half = (NFPA_SIDE - 3.0) / 2.0;
+                    let special = n.special.as_deref().unwrap_or("");
+                    for (fill, ink, text) in [
+                        (NFPA_RED, Color::WHITE, n.fire.to_string()),
+                        (NFPA_YELLOW, Color::BLACK, n.instability.to_string()),
+                        (NFPA_BLUE, Color::WHITE, n.health.to_string()),
+                        (NFPA_WHITE, Color::BLACK, special.to_string()),
+                    ] {
+                        d.spawn((
+                            Node {
+                                width: Val::Px(half),
+                                height: Val::Px(half),
+                                align_items: AlignItems::Center,
+                                justify_content: JustifyContent::Center,
+                                border: UiRect::all(Val::Px(0.75)),
+                                ..default()
+                            },
+                            BackgroundColor(fill),
+                            BorderColor::all(theme::BG),
+                        ))
+                        .with_children(|q| {
+                            // the number stands upright again
+                            q.spawn((
+                                theme::label(
+                                    fonts,
+                                    text,
+                                    if special.len() > 2 { 9.0 } else { 15.0 },
+                                    Weight::Bold,
+                                    ink,
+                                ),
+                                UiTransform::from_rotation(Rot2::degrees(-45.0)),
+                                Pickable::IGNORE,
+                            ));
+                        });
+                    }
+                });
+        });
+        row.spawn(Node { flex_direction: FlexDirection::Column, row_gap: Val::Px(5.0), flex_shrink: 1.0, ..default() })
+            .with_children(|lines| {
+                let mut line = |color: Color, what: &str, rating: String, meaning: &str| {
+                    lines
+                        .spawn(Node { align_items: AlignItems::Center, column_gap: Val::Px(8.0), ..default() })
+                        .with_children(|l| {
+                            l.spawn((
+                                Node {
+                                    width: Val::Px(10.0),
+                                    height: Val::Px(10.0),
+                                    flex_shrink: 0.0,
+                                    border_radius: BorderRadius::all(Val::Px(2.0)),
+                                    ..default()
+                                },
+                                BackgroundColor(color),
+                            ));
+                            l.spawn(theme::label(
+                                fonts,
+                                format!("{what} {rating}"),
+                                theme::SM,
+                                Weight::Semibold,
+                                theme::TEXT,
+                            ));
+                            l.spawn(theme::label(
+                                fonts,
+                                meaning.to_string(),
+                                theme::SM,
+                                Weight::Regular,
+                                theme::TEXT_2,
+                            ));
+                        });
+                };
+                line(NFPA_BLUE, "Health", n.health.to_string(), n.health_meaning());
+                line(NFPA_RED, "Fire", n.fire.to_string(), n.fire_meaning());
+                line(NFPA_YELLOW, "Instability", n.instability.to_string(), n.instability_meaning());
+                if let (Some(mark), Some(meaning)) = (n.special.as_deref(), n.special_meaning()) {
+                    line(NFPA_WHITE, "Special", mark.to_string(), meaning);
+                }
+                lines.spawn(theme::label(
+                    fonts,
+                    "NFPA 704 ratings, from the article's Chembox: 0 is no hazard, 4 the most severe.",
+                    theme::XS,
+                    Weight::Regular,
+                    theme::TEXT_3,
+                ));
+            });
+    });
+}
+
+/// Under "What it is used for" when no reaction in the game takes it in.
+pub const NOT_USED: &str = "Nothing in the game uses it yet.";
+/// That line on a page.
+#[derive(Component)]
+pub struct CodexUnused;
+
 const CLASS_NOTE: &str = "A family of closely related compounds, made and used as one. \
 The formula and structure shown are a typical member's.";
 
@@ -904,7 +1047,11 @@ pub fn codex_category_tab_system(
 pub fn typed(text: &str, keys: &ButtonInput<KeyCode>, keyboard: Option<String>) -> (String, bool) {
     let enter = keys.any_just_pressed([KeyCode::Enter, KeyCode::NumpadEnter]);
     if let Some(t) = keyboard {
-        return (t, enter);
+        let once = one_delete_per_press(text, t, keys.just_pressed(KeyCode::Backspace));
+        if let Some(fixed) = &once.1 {
+            crate::platform::keyboard_show(fixed);
+        }
+        return (once.0, enter);
     }
     let mut out = text.to_string();
     for k in keys.get_just_pressed() {
@@ -920,6 +1067,22 @@ pub fn typed(text: &str, keys: &ButtonInput<KeyCode>, keyboard: Option<String>) 
         }
     }
     (out, enter)
+}
+
+/// A phone keyboard's delete key can reach its own copy of the text twice (once as the
+/// keyboard's edit, once as the key event passed back to the text field), taking two letters
+/// for one press. When one Backspace press arrived and the keyboard's text is the old text
+/// with exactly its last two letters gone, that was one delete: the text loses one letter,
+/// and the second value is what to put the keyboard back to. Two separate presses each
+/// arrive as a key event and a frame of their own, so they are never merged.
+pub fn one_delete_per_press(was: &str, now: String, backspace: bool) -> (String, Option<String>) {
+    let old: Vec<char> = was.chars().collect();
+    let kept = now.chars().count();
+    if backspace && kept + 2 == old.len() && old[..kept].iter().copied().eq(now.chars()) {
+        let fixed: String = old[..old.len() - 1].iter().collect();
+        return (fixed.clone(), Some(fixed));
+    }
+    (now, None)
 }
 
 pub fn keycode_to_char(k: KeyCode) -> Option<char> {
@@ -1248,6 +1411,13 @@ pub fn update_codex_detail_system(
             ));
         }
 
+        // --- what its name says, right under the name ---
+        if let Some(pg) = pages {
+            if let Some(named) = pg.name_terms.get(&sub.id) {
+                crate::ui::glossary::spawn_name_row(p, fonts, pg, named);
+            }
+        }
+
         // --- the story: the game's own words, then the article's ---
         let mut story: Vec<String> = Vec::new();
         if let Some(d) = &sub.description {
@@ -1319,9 +1489,11 @@ pub fn update_codex_detail_system(
             p.spawn((CodexTextCredit, theme::para(fonts, credit.join("  "), theme::XS, theme::TEXT_3, full)));
         }
 
-        // --- the chemistry words it uses, defined ---
+        // --- the chemistry words it uses (those of its name are above), defined ---
         if let Some(pg) = pages {
-            crate::ui::glossary::spawn_term_row(p, fonts, pg, terms);
+            let named: &[String] = pg.name_terms.get(&sub.id).map(|v| v.as_slice()).unwrap_or(&[]);
+            let rest: Vec<String> = terms.iter().filter(|k| !named.contains(k)).cloned().collect();
+            crate::ui::glossary::spawn_term_row(p, fonts, pg, &rest);
         }
 
         // --- facts ---
@@ -1329,6 +1501,12 @@ pub fn update_codex_detail_system(
         if !facts.is_empty() {
             theme::spawn_section_title(p, fonts, "Properties");
             spawn_fact_grid(p, fonts, facts, false);
+        }
+
+        // --- its NFPA 704 diamond, where its article gives one ---
+        if let Some(n) = pages.and_then(|pg| pg.safety.get(&sub.id)) {
+            theme::spawn_section_title(p, fonts, "Safety");
+            spawn_nfpa(p, fonts, n);
         }
 
         // --- the ideas behind the reactions that make it, in Learn ---
@@ -1365,13 +1543,27 @@ pub fn update_codex_detail_system(
         if let Some(db) = db.as_ref() {
             let makes: Vec<&Reaction> =
                 db.authored.iter().filter(|r| r.products.iter().any(|s| s.substance_id == sub.id)).collect();
-            let uses: Vec<&Reaction> =
-                db.authored.iter().filter(|r| r.reactants.iter().any(|s| s.substance_id == sub.id)).collect();
+            // (a catalyst is used too, though it comes out again)
+            let uses: Vec<&Reaction> = db
+                .authored
+                .iter()
+                .filter(|r| {
+                    r.reactants.iter().any(|s| s.substance_id == sub.id) || r.required_catalyst() == Some(sub.id)
+                })
+                .collect();
             for (title, list) in [("How it is made", makes), ("What it is used for", uses)] {
-                if list.is_empty() {
+                let using = title == "What it is used for";
+                if list.is_empty() && !using {
                     continue;
                 }
                 theme::spawn_section_title(p, fonts, title);
+                if list.is_empty() {
+                    p.spawn((
+                        CodexUnused,
+                        theme::label(fonts, NOT_USED.to_string(), theme::SM, Weight::Regular, theme::TEXT_3),
+                    ));
+                    continue;
+                }
                 let known: Vec<&&Reaction> = list.iter().filter(|r| known_reaction(r, &progress)).collect();
                 for r in &known {
                     reaction_row(p, fonts, assets, r, subs);
@@ -1513,6 +1705,19 @@ mod tests {
         assert_eq!(typed("abc", &keys, None), ("ab".into(), false));
         keys.press(KeyCode::Enter);
         assert!(typed("ab", &keys, None).1);
+    }
+
+    /// One press of a phone keyboard's delete that took two letters from its own copy of the
+    /// text takes one; with no key press (the keyboard's own edits, however many) or a change
+    /// that isn't two letters off the end, the keyboard's text stands.
+    #[test]
+    fn a_doubled_phone_delete_takes_one_letter() {
+        assert_eq!(one_delete_per_press("abcd", "ab".into(), true), ("abc".into(), Some("abc".into())));
+        assert_eq!(one_delete_per_press("naé", "n".into(), true), ("na".into(), Some("na".into())));
+        assert_eq!(one_delete_per_press("abcd", "abc".into(), true), ("abc".into(), None));
+        assert_eq!(one_delete_per_press("abcd", "ab".into(), false), ("ab".into(), None));
+        assert_eq!(one_delete_per_press("abcd", "".into(), true), ("".into(), None));
+        assert_eq!(one_delete_per_press("abcd", "xy".into(), true), ("xy".into(), None));
     }
 
     #[test]

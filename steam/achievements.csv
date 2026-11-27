@@ -19,6 +19,7 @@ MILESTONE_VOLTAIC_PILE,"Voltaic Pile","Volta's pile: electricity tears compounds
 MILESTONE_IODINE,"Iodine","Courtois's iodine came out of seaweed: plants hide elements, and medicines too. The apothecaries send their herbs.",MILESTONE_IODINE_ACHIEVED.png,substance:1053:I2
 MILESTONE_PLATINUM,"Platinum","Platinum makes reactions go without being used up. Catalysis unlocked.",MILESTONE_PLATINUM_ACHIEVED.png,vessel:catalyst_bed
 MILESTONE_DRY_ICE,"Dry Ice","Thilorier's dry ice at -78 C. The race to liquefy every gas has begun: the Air Liquefier is unlocked.",MILESTONE_DRY_ICE_ACHIEVED.png,vessel:air_liquefier
+MILESTONE_HELIUM,"Helium","Ramsay's helium is the last gas nobody has liquefied. Dewar in London and Kamerlingh Onnes in Leiden race to reach it, with nested vacuum flasks cooled stage by stage: the Cryostat is unlocked.",MILESTONE_HELIUM_ACHIEVED.png,vessel:cryostat
 MILESTONE_BENZENE,"Benzene","Charles Mansfield fractionates coal tar into pure benzene (1849): the Fractionating Column is unlocked.",MILESTONE_BENZENE_ACHIEVED.png,vessel:column
 MILESTONE_UREA,"Urea","Wohler's urea: organic chemistry is just chemistry. The apothecary's shelf opens.",MILESTONE_UREA_ACHIEVED.png,substance:6588:CH4N2O
 MILESTONE_QUININE,"Quinine","Quinine from cinchona bark: chemists race to extract every plant's secret.",MILESTONE_QUININE_ACHIEVED.png,substance:3250:C20H24N2O2
@@ -84,11 +85,12 @@ MILESTONE_CHLOROTHIAZIDE,"Chlorothiazide","Merck's chlorothiazide (1958), the fi
 MILESTONE_PIGMENT_VIOLET_23,"Pigment Violet 23","Carbazole dioxazine violet: so strong that a pinch tints a can of paint, and the base of nearly every purple you see.",MILESTONE_PIGMENT_VIOLET_23_ACHIEVED.png,substance:4457:C34H22Cl2N4O2
 MILESTONE_TARTRAZINE,"Tartrazine","Tartrazine (1884): a coal-tar yellow that became the most familiar food colour in the world.",MILESTONE_TARTRAZINE_ACHIEVED.png,substance:4305:C16H9N4Na3O9S2
 MILESTONE_AMBROXIDE,"Ambroxide","Ambrox (Firmenich, 1950): the scent of ambergris, which sperm whales make, rebuilt from a herb.",MILESTONE_AMBROXIDE_ACHIEVED.png,substance:1498:C16H28O
+MILESTONE_ISONIAZID,"Isoniazid","Isoniazid (1952): with streptomycin, tuberculosis, the great killer of the 1800s, becomes curable.",MILESTONE_ISONIAZID_ACHIEVED.png,substance:6367:C6H7N3O
 ERA_ANTIQUITY,"A new era: Antiquity","Glass, soap, steel and spirits: the crafts of the ancient world.",ERA_ANTIQUITY_ACHIEVED.png,era:II
 ERA_ALCHEMY,"A new era: Alchemy","The alchemists' acids dissolve almost anything, gold included.",ERA_ALCHEMY_ACHIEVED.png,era:III
 ERA_STEAM_REVOLUTION,"A new era: Steam & Revolution","Coal, steam and the new elements: chemistry becomes a science.",ERA_STEAM_REVOLUTION_ACHIEVED.png,era:IV
 ERA_INDUSTRY,"A new era: Industry","Dynamos, furnaces and fertiliser: chemistry becomes an industry.",ERA_INDUSTRY_ACHIEVED.png,era:V
 ERA_MODERN,"A new era: Modern","Plastics, antibiotics, the atom and the transistor.",ERA_MODERN_ACHIEVED.png,era:VI
 ERA_FRONTIER,"A new era: Frontier","Chips, genes and materials built one atomic layer at a time.",ERA_FRONTIER_ACHIEVED.png,era:VII
-EVERY_VESSEL,"Fully equipped","Unlock all 27 vessels.",EVERY_VESSEL_ACHIEVED.png,count:27
-EVERY_SUBSTANCE,"The whole of chemistry","Discover all 2920 substances in the game.",EVERY_SUBSTANCE_ACHIEVED.png,count:2920
+EVERY_VESSEL,"Fully equipped","Unlock all 28 vessels.",EVERY_VESSEL_ACHIEVED.png,count:28
+EVERY_SUBSTANCE,"The whole of chemistry","Discover all 2999 substances in the game.",EVERY_SUBSTANCE_ACHIEVED.png,count:2999

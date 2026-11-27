@@ -2,7 +2,7 @@
 """
 Curieosity vessel and UI art
 ============================
-Draws the twenty-seven vessels and the interface icons as SVG line art, programmatically: every
+Draws the twenty-eight vessels and the interface icons as SVG line art, programmatically: every
 shape below is plain geometry, so the set stays consistent (one stroke weight, one corner
 style, one light direction) and anything can be tweaked by editing numbers.
 
@@ -607,6 +607,28 @@ def ultracentrifuge():
     return dict(outline=outline, fill=fill, accent=accent)
 
 
+def cryostat():
+    outline = [
+        # Onnes's nested Dewars: an outer one for the precooling bath, an inner one for the helium
+        path("M28 34 L28 106 C28 113 33 118 40 118 L88 118 C95 118 100 113 100 106 L100 34"),
+        path("M32 36 L32 104 C32 110 36 114 42 114 L86 114 C92 114 96 110 96 104 L96 36", THIN, 'opacity="0.6"'),
+        path("M46 38 L46 98 C46 102 49 105 53 105 L75 105 C79 105 82 102 82 98 L82 38"),
+        path("M50 40 L50 96 C50 99 52 101 55 101 L73 101 C76 101 78 99 78 96 L78 40", THIN, 'opacity="0.6"'),
+        # the lid, the filling neck, and the pump line with its gauge
+        rect(22, 26, 84, 8, 2),
+        path("M56 26 L56 14 L72 14 L72 26"),
+        path("M72 19 L102 19"), circle(109, 19, 7), line(109, 19, 112.5, 14.5, THIN),
+        line(16, 122, 112, 122),
+        sheen("M37 44 L37 72"),
+    ]
+    fill = [path("M50.5 76 L77.5 76 L77.5 95.5 C77.5 98.5 75.5 100.5 72.5 100.5 L55.5 100.5 "
+                 "C52.5 100.5 50.5 98.5 50.5 95.5 Z", SOLID)]
+    # boil-off rising from the helium, and frost on the outside
+    accent = [path("M58 70 C55 64 61 60 58 54", THIN), path("M70 70 C73 64 67 60 70 54", THIN, 'opacity="0.6"'),
+              path("M14 46 L14 58 M8 52 L20 52 M9.5 47.5 L18.5 56.5 M18.5 47.5 L9.5 56.5", THIN)]
+    return dict(outline=outline, fill=fill, accent=accent)
+
+
 VESSELS = {
     "mortar": mortar, "fire": fire, "ice_bath": ice_bath, "bloomery": bloomery,
     "still": still, "voltaic_cell": voltaic, "irradiator": irradiator,
@@ -616,7 +638,7 @@ VESSELS = {
     "nuclear_reactor": nuclear_reactor, "cyclotron": cyclotron, "cracker": cracker,
     "high_pressure": high_pressure, "diamond_press": diamond_press, "fermenter": fermenter,
     "bioreactor": bioreactor, "crystal_puller": crystal_puller, "cvd_chamber": cvd_chamber,
-    "centrifuge": centrifuge, "ultracentrifuge": ultracentrifuge,
+    "centrifuge": centrifuge, "ultracentrifuge": ultracentrifuge, "cryostat": cryostat,
 }
 
 
@@ -677,6 +699,12 @@ ICONS = {
     "plus": [ip("M16 7 L16 25 M7 16 L25 16")],
     "minus": [ip("M7 16 L25 16")],
     "info": [circle(16, 16, 12, I_STYLE), ip("M16 14 L16 23"), circle(16, 9.5, 1.5, SOLID)],
+    "flag": [ip("M9 4 L9 28"), ip("M10 5 L24 5 L20 10.5 L24 16 L10 16 Z").replace('fill="none"', 'fill="#fff"')],
+    # a push pin: outlined to pin, filled once pinned
+    "pin": [ip("M11 4 L21 4"), ip("M13 4 L13 12 L8.5 17.5 L23.5 17.5 L19 12 L19 4"), ip("M16 17.5 L16 28")],
+    "pinned": [ip("M11 4 L21 4"),
+               ip("M13 4 L13 12 L8.5 17.5 L23.5 17.5 L19 12 L19 4").replace('fill="none"', 'fill="#fff"'),
+               ip("M16 17.5 L16 28")],
 }
 
 
@@ -790,6 +818,7 @@ PROCESS = {  # vessel -> (title, family colour, accent colour, sample contents c
     "cvd_chamber": ("CVD Chamber", FAMILY["Fabrication"], (1.00, 0.60, 1.00), (0.25, 0.25, 0.28)),
     "centrifuge": ("Centrifuge", FAMILY["Separation"], (1.00, 0.92, 0.65), (0.98, 0.95, 0.85)),
     "ultracentrifuge": ("Ultracentrifuge", FAMILY["Separation"], (1.00, 0.85, 0.60), (0.85, 0.30, 0.30)),
+    "cryostat": ("Cryostat", FAMILY["Cool"], (0.80, 0.97, 1.00), (0.75, 0.88, 1.00)),
 }
 
 

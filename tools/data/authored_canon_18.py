@@ -138,7 +138,7 @@ E4.reactions += [
       wiki="3-Hydroxy-2-naphthoic_acid", T=250),
     R("Domagk's Prontosil", "Sulfanilamide + NaNO2 + HCl + MPD -> Prontosil + NaCl + 2 H2O", COOL,
       "Sulfanilamide diazotised and coupled onto m-phenylenediamine (Bayer, 1932).", wiki=2153700, T=5),
-    R("Cyclohexene", "Cyclohexanol -> Cyclohexene + H2O", DISTIL,
+    R("Cyclohexene", "Cyclohexanol + H3PO4 -> Cyclohexene + H2O + H3PO4", DISTIL,
       "Cyclohexanol heated with phosphoric acid; cyclohexene distils off as it forms.", wiki=908356,
       T=90),
     R("Carbamide Peroxide", "Urea + H2O2 -> CarbamidePeroxide", MIX,

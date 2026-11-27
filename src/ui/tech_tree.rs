@@ -1,8 +1,12 @@
 // src/ui/tech_tree.rs
 //
 // The tech tree: "what can I make next". The authored progression shown either as a node
-// GRAPH (eras as columns, reactions as nodes, producer -> consumer lines between them,
-// coloured done / available / locked) or a guided LIST (Available now / Completed / Locked).
+// GRAPH (eras as columns, reactions as nodes, producer -> consumer lines between them) or a
+// guided LIST. A step's recipe shows once it has been made: until then the tree gives its
+// name, era and vessel, and whether its vessel is unlocked, so working out the recipe stays
+// the player's. The "Show what's ready" setting (free play only) marks the steps that can be
+// made now and shows every recipe. Any step not yet made can be aimed for: a goal, which Hint
+// then leads toward.
 //
 // Design choices that keep this robust and testable:
 //   * The graph is laid out ANALYTICALLY. Every node sits at a computed (x, y) inside a
@@ -17,7 +21,8 @@
 //     step's "+N" badge. Selecting a step draws all its links on top in the selection colour
 //     (from the earliest step that makes each one), and the detail bar lists each need with
 //     the step it comes from, one tap away.
-//   * The graph pans with the wheel (Shift for sideways) or by dragging the background.
+//   * The graph pans with the wheel (Shift for sideways) or by dragging the background, and
+//     zooms out with its zoom bar, Ctrl and the wheel, or a pinch.
 use crate::ui::{Button, Clicked, Look};
 use bevy::picking::hover::Hovered;
 use bevy::prelude::*;
@@ -64,6 +69,41 @@ pub struct TechRoot;
 pub struct TechModeButton(pub TechMode);
 #[derive(Component)]
 pub struct TechGraphView;
+/// Between the graph's scroll view and its canvas: the canvas's size at the zoom, so the view
+/// scrolls over the graph as drawn.
+#[derive(Component)]
+pub struct TechGraphSizer;
+/// The graph's zoom bar (shown with the graph): out, the level, in.
+#[derive(Component)]
+pub struct TechZoomBar;
+#[derive(Component)]
+pub struct TechZoomOut;
+#[derive(Component)]
+pub struct TechZoomIn;
+#[derive(Component)]
+pub struct TechZoomLabel;
+
+/// How far the graph is zoomed (1 is full size; it only zooms out from there).
+#[derive(Resource, Clone, Copy, Debug, PartialEq)]
+pub struct TechZoom(pub f32);
+
+impl Default for TechZoom {
+    fn default() -> Self {
+        Self(1.0)
+    }
+}
+
+/// The graph's zoom steps, full size first.
+pub const TECH_ZOOMS: [f32; 6] = [1.0, 0.8, 0.65, 0.5, 0.4, 0.3];
+
+impl TechZoom {
+    /// The next step out (or in), staying within TECH_ZOOMS.
+    pub fn stepped(self, out: bool) -> f32 {
+        let i = TECH_ZOOMS.iter().position(|z| (z - self.0).abs() < 0.01).unwrap_or(0) as i32;
+        let j = (i + if out { 1 } else { -1 }).clamp(0, TECH_ZOOMS.len() as i32 - 1);
+        TECH_ZOOMS[j as usize]
+    }
+}
 #[derive(Component)]
 pub struct TechListView;
 #[derive(Component)]
@@ -84,9 +124,24 @@ pub struct TechToolbarTitle;
 pub struct TechToolbarTools;
 #[derive(Component)]
 pub struct TechOpenInLibrary(pub u32);
+/// One of the legend's states (which show depends on TreeReveal).
+#[derive(Component)]
+pub struct TechLegendItem(pub NodeState);
+/// Aim for a step: its goal substance joins the goals, first.
+#[derive(Component)]
+pub struct TechAim(pub u32);
+/// Stop aiming for a goal substance.
+#[derive(Component)]
+pub struct TechStopAim(pub u32);
+/// Make a goal the first priority.
+#[derive(Component)]
+pub struct TechAimFirst(pub u32);
+/// The flag on a step the player is aiming for.
+#[derive(Component)]
+pub struct TechGoalFlag;
 /// A graph node; remembers its state so the selection/hover look can be recomputed.
 #[derive(Component)]
-pub struct TechNodeButton(pub u32, NodeState);
+pub struct TechNodeButton(pub u32, pub NodeState);
 #[derive(Component)]
 pub struct TechListEntry(pub u32);
 /// Scroll viewport marker. `graph == true` for the (x+y) graph viewport, false for the
@@ -113,21 +168,51 @@ const DETAIL_H: f32 = 132.0;
 // ---------------------------------------------------------------------------------------
 // Domain helpers
 // ---------------------------------------------------------------------------------------
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
 pub enum NodeState {
     Completed,
+    /// can be made now (shown only with "Show what's ready")
     Available,
+    /// not made yet, its vessel unlocked: whether it can be made now isn't shown
+    Open,
+    #[default]
     Locked,
 }
 
+/// Whether the tree shows what is ready and every recipe: the setting, in free play only.
+#[derive(Resource, Default, Clone, Copy, PartialEq, Eq)]
+pub struct TreeReveal(pub bool);
+
+pub fn tree_reveal_system(
+    settings: Res<crate::ui::settings::Settings>,
+    challenge: Res<crate::ui::challenges::ChallengeMode>,
+    mut reveal: ResMut<TreeReveal>,
+) {
+    let want = TreeReveal(settings.tree_ready && !challenge.playing());
+    if *reveal != want {
+        *reveal = want;
+    }
+}
+
+/// The substance aiming at a step sets as a goal: its first product not yet found.
+pub fn goal_of(r: &Reaction, progress: &PlayerProgress) -> Option<u32> {
+    r.products.iter().map(|p| p.substance_id).find(|id| !progress.discovered.contains(id))
+}
+
+/// How many goals the player can hold at once; a new one past this lets the last go.
+pub const MAX_GOALS: usize = 3;
+
 /// Done (every product found), ready (vessel unlocked and every reactant found) or locked.
-pub fn node_state(r: &Reaction, progress: &PlayerProgress, unlocks: &ProcessUnlocks) -> NodeState {
+/// Unrevealed, ready and not-ready steps whose vessel is unlocked look the same (Open).
+pub fn node_state(r: &Reaction, progress: &PlayerProgress, unlocks: &ProcessUnlocks, reveal: bool) -> NodeState {
     if r.products.iter().all(|p| progress.discovered.contains(&p.substance_id)) {
         return NodeState::Completed;
     }
-    let ready =
-        unlocks.0.contains(&r.process) && r.reactants.iter().all(|s| progress.discovered.contains(&s.substance_id));
-    if ready {
+    let vessel = unlocks.0.contains(&r.process);
+    if !reveal {
+        return if vessel { NodeState::Open } else { NodeState::Locked };
+    }
+    if vessel && r.reactants.iter().all(|s| progress.discovered.contains(&s.substance_id)) {
         NodeState::Available
     } else {
         NodeState::Locked
@@ -138,6 +223,7 @@ fn state_accent(s: NodeState) -> Color {
     match s {
         NodeState::Completed => theme::GREEN,
         NodeState::Available => theme::GOLD,
+        NodeState::Open => theme::CYAN,
         NodeState::Locked => theme::LINE_STRONG,
     }
 }
@@ -147,6 +233,7 @@ fn node_look(s: NodeState, selected: bool, hovered: bool) -> (Color, Color) {
     let (bg, border) = match s {
         NodeState::Completed => (theme::mix(theme::RAISED, theme::GREEN, 0.13), theme::GREEN.with_alpha(0.55)),
         NodeState::Available => (theme::mix(theme::RAISED, theme::GOLD, 0.17), theme::GOLD),
+        NodeState::Open => (theme::RAISED, theme::LINE_STRONG),
         NodeState::Locked => (theme::SURFACE, theme::LINE),
     };
     let bg = if hovered { theme::mix(bg, theme::TEXT, 0.06) } else { bg };
@@ -157,6 +244,7 @@ fn state_icon(s: NodeState) -> &'static str {
     match s {
         NodeState::Completed => "check",
         NodeState::Available => "dot",
+        NodeState::Open => "dot",
         NodeState::Locked => "lock",
     }
 }
@@ -165,6 +253,7 @@ fn state_label(s: NodeState) -> &'static str {
     match s {
         NodeState::Completed => "Completed",
         NodeState::Available => "Ready to make",
+        NodeState::Open => "Not made yet",
         NodeState::Locked => "Locked",
     }
 }
@@ -269,12 +358,17 @@ pub fn spawn_tech_tree(mut commands: Commands, fonts: Res<UiFonts>, assets: Res<
                     // legend
                     r.spawn(Node { align_items: AlignItems::Center, column_gap: Val::Px(14.0), ..default() })
                         .with_children(|lg| {
-                            for s in [NodeState::Completed, NodeState::Available, NodeState::Locked] {
-                                lg.spawn(Node {
-                                    align_items: AlignItems::Center,
-                                    column_gap: Val::Px(6.0),
-                                    ..default()
-                                })
+                            for s in [NodeState::Completed, NodeState::Available, NodeState::Open, NodeState::Locked] {
+                                lg.spawn((
+                                    TechLegendItem(s),
+                                    Node {
+                                        align_items: AlignItems::Center,
+                                        column_gap: Val::Px(6.0),
+                                        // tech_legend_system shows Ready or Not made yet
+                                        display: if s == NodeState::Available { Display::None } else { Display::Flex },
+                                        ..default()
+                                    },
+                                ))
                                 .with_children(|i| {
                                     i.spawn(theme::icon(assets, state_icon(s), 14.0, state_accent(s)));
                                     i.spawn(theme::label(
@@ -348,9 +442,7 @@ pub fn spawn_tech_tree(mut commands: Commands, fonts: Res<UiFonts>, assets: Res<
                 ))
                 .with_children(|vp| {
                     vp.spawn((
-                        TechGraphContent,
-                        // only what is in sight is built (tech_graph_window_system)
-                        VirtualCanvas::default(),
+                        TechGraphSizer,
                         Node {
                             position_type: PositionType::Relative,
                             width: Val::Px(PAD * 2.0),
@@ -358,7 +450,24 @@ pub fn spawn_tech_tree(mut commands: Commands, fonts: Res<UiFonts>, assets: Res<
                             flex_shrink: 0.0,
                             ..default()
                         },
-                    ));
+                    ))
+                    .with_children(|sz| {
+                        sz.spawn((
+                            TechGraphContent,
+                            // only what is in sight is built (tech_graph_window_system)
+                            VirtualCanvas::default(),
+                            // scaled to the zoom about its top-left corner (tech_zoom_apply_system)
+                            UiTransform::default(),
+                            Node {
+                                position_type: PositionType::Absolute,
+                                left: Val::Px(0.0),
+                                top: Val::Px(0.0),
+                                width: Val::Px(PAD * 2.0),
+                                height: Val::Px(PAD * 2.0),
+                                ..default()
+                            },
+                        ));
+                    });
                 });
                 body.spawn((
                     TechListView,
@@ -390,6 +499,48 @@ pub fn spawn_tech_tree(mut commands: Commands, fonts: Res<UiFonts>, assets: Res<
                             ..default()
                         },
                     ));
+                });
+                // the graph's zoom: out, the level, in (Ctrl and the wheel, or a pinch, do the same)
+                body.spawn((
+                    TechZoomBar,
+                    Node {
+                        position_type: PositionType::Absolute,
+                        right: Val::Px(12.0),
+                        top: Val::Px(12.0),
+                        align_items: AlignItems::Center,
+                        column_gap: Val::Px(2.0),
+                        padding: UiRect::all(Val::Px(3.0)),
+                        border: UiRect::all(Val::Px(1.0)),
+                        border_radius: BorderRadius::all(Val::Px(99.0)),
+                        ..default()
+                    },
+                    BackgroundColor(theme::SURFACE.with_alpha(0.92)),
+                    BorderColor::all(theme::LINE),
+                ))
+                .with_children(|z| {
+                    theme::spawn_icon_button(
+                        z,
+                        assets,
+                        "minus",
+                        34.0,
+                        theme::TEXT,
+                        (TechZoomOut, crate::ui::onboarding::Tip::Text("Zoom out", "See more of the tree.")),
+                    );
+                    z.spawn((
+                        TechZoomLabel,
+                        theme::label(fonts, "100%", theme::XS, Weight::Semibold, theme::TEXT_2),
+                        TextLayout::justify(Justify::Center),
+                        Node { min_width: Val::Px(40.0), ..default() },
+                        Pickable::IGNORE,
+                    ));
+                    theme::spawn_icon_button(
+                        z,
+                        assets,
+                        "plus",
+                        34.0,
+                        theme::TEXT,
+                        (TechZoomIn, crate::ui::onboarding::Tip::Text("Zoom in", "Back toward full size.")),
+                    );
                 });
             });
 
@@ -463,6 +614,52 @@ pub fn tech_mode_system(
         let a = b.0 == state.mode;
         if skin.active != a {
             skin.active = a;
+        }
+    }
+}
+
+/// The legend shows "Ready to make" or "Not made yet", as the tree does.
+pub fn tech_legend_system(reveal: Res<TreeReveal>, mut items: Query<(&TechLegendItem, &mut Node)>) {
+    if !reveal.is_changed() {
+        return;
+    }
+    for (item, mut node) in &mut items {
+        let shown = match item.0 {
+            NodeState::Available => reveal.0,
+            NodeState::Open => !reveal.0,
+            _ => true,
+        };
+        let d = if shown { Display::Flex } else { Display::None };
+        if node.display != d {
+            node.display = d;
+        }
+    }
+}
+
+/// Aiming: a step's goal joins the goals first (the last lets go past MAX_GOALS), stops, or
+/// moves to the front.
+#[allow(clippy::type_complexity)]
+pub fn tech_goal_system(
+    aims: Query<&TechAim, With<Clicked>>,
+    stops: Query<&TechStopAim, With<Clicked>>,
+    firsts: Query<&TechAimFirst, With<Clicked>>,
+    mut progress: ResMut<PlayerProgress>,
+) {
+    for a in &aims {
+        if !progress.goals.contains(&a.0) && !progress.discovered.contains(&a.0) {
+            progress.goals.insert(0, a.0);
+            progress.goals.truncate(MAX_GOALS);
+        }
+    }
+    for s in &stops {
+        if progress.goals.contains(&s.0) {
+            progress.goals.retain(|g| *g != s.0);
+        }
+    }
+    for f in &firsts {
+        if let Some(i) = progress.goals.iter().position(|g| *g == f.0).filter(|i| *i > 0) {
+            let g = progress.goals.remove(i);
+            progress.goals.insert(0, g);
         }
     }
 }
@@ -628,6 +825,8 @@ struct NodeInfo {
     state: NodeState,
     /// needs with no overview line: the number on the step's badge
     undrawn: usize,
+    /// the step makes one of the player's goals: its priority (0 = first)
+    goal: Option<usize>,
 }
 
 /// An era's band behind its columns, with its heading and progress.
@@ -654,9 +853,14 @@ enum GraphItem {
     Node(usize),
 }
 
-/// The list's groups, in order: (title, state).
-const GROUPS: [(&str, NodeState); 3] =
-    [("Ready to make", NodeState::Available), ("Completed", NodeState::Completed), ("Locked", NodeState::Locked)];
+/// The list's groups, in order: (title, state), what is ready first when that is shown.
+fn groups(reveal: bool) -> [(&'static str, NodeState); 3] {
+    if reveal {
+        [("Ready to make", NodeState::Available), ("Completed", NodeState::Completed), ("Locked", NodeState::Locked)]
+    } else {
+        [("Not made yet", NodeState::Open), ("Completed", NodeState::Completed), ("Vessel locked", NodeState::Locked)]
+    }
+}
 /// A list id at or above this is a group heading (HEADING_BASE + its index in GROUPS).
 const HEADING_BASE: u32 = u32::MAX - 15;
 const LIST_ROW_H: f32 = 52.0;
@@ -681,6 +885,8 @@ pub struct TechLayout {
     list: Vec<u32>,
     /// how many steps each list group holds
     group_len: [usize; 3],
+    /// the list's groups (titles and states), as revealed or not
+    groups: [(&'static str, NodeState); 3],
 }
 
 /// Left x of a global column, accounting for the extra gap at each era boundary.
@@ -695,7 +901,13 @@ fn node_y(row: usize) -> f32 {
 impl TechLayout {
     /// Lay out every authored step: eras as columns (split by depth within the era), steps
     /// down each column, the overview's lines between them, and the list's groups.
-    fn work_out(db: &RecipeDatabase, plan: &LinkPlan, progress: &PlayerProgress, unlocks: &ProcessUnlocks) -> Self {
+    fn work_out(
+        db: &RecipeDatabase,
+        plan: &LinkPlan,
+        progress: &PlayerProgress,
+        unlocks: &ProcessUnlocks,
+        reveal: bool,
+    ) -> Self {
         // Authored reactions, already sorted by (epoch, id).
         let rxns: &[Reaction] = &db.authored;
         let n_epochs = db.epochs.len().max(1);
@@ -738,7 +950,7 @@ impl TechLayout {
         }
         let total_cols: usize = epoch_cols.iter().sum();
 
-        let mut out = TechLayout::default();
+        let mut out = TechLayout { groups: groups(reveal), ..default() };
         let mut rows_in_col: HashMap<usize, usize> = HashMap::new();
         for (i, r) in rxns.iter().enumerate() {
             let e = epoch_of(r);
@@ -752,15 +964,18 @@ impl TechLayout {
                 epoch: e,
                 col,
                 row,
-                state: node_state(r, progress, unlocks),
+                state: node_state(r, progress, unlocks, reveal),
                 undrawn: plan.undrawn(r.id),
+                goal: progress.goals.iter().position(|g| r.products.iter().any(|p| p.substance_id == *g)),
             });
         }
         let max_rows = rows_in_col.values().copied().max().unwrap_or(1);
         out.height = BAND_H + PAD * 2.0 + max_rows as f32 * ROW_H;
         out.width = col_x(total_cols, n_epochs) + PAD;
 
-        // era bands: a faint column per era, with its header and a progress bar
+        // era bands: a faint column per era, with its header and a progress bar; the current
+        // era holds something ready (shown), or else the first step not made yet
+        let frontier = out.nodes.iter().find(|n| n.state == NodeState::Open).map(|n| n.epoch);
         for e in 0..n_epochs {
             let in_epoch = out.nodes.iter().filter(|n| n.epoch == e);
             let (mut done, mut total, mut current) = (0, 0, false);
@@ -769,6 +984,7 @@ impl TechLayout {
                 done += usize::from(n.state == NodeState::Completed);
                 current |= n.state == NodeState::Available;
             }
+            current |= !reveal && frontier == Some(e);
             out.bands.push(Band {
                 epoch: e,
                 x: col_x(epoch_first_col[e], e) - EPOCH_GAP * 0.4,
@@ -810,7 +1026,7 @@ impl TechLayout {
         }
 
         // the list: each group under its heading
-        for (g, (_, want)) in GROUPS.iter().enumerate() {
+        for (g, (_, want)) in out.groups.iter().enumerate() {
             let ids: Vec<u32> = out.nodes.iter().filter(|n| n.state == *want).map(|n| n.id).collect();
             out.group_len[g] = ids.len();
             if !ids.is_empty() {
@@ -876,9 +1092,11 @@ pub fn populate_tech_views_system(
     mut prev_open: Local<bool>,
     mut links: ResMut<TechLinks>,
     mut layout: ResMut<TechLayout>,
+    reveal: Res<TreeReveal>,
+    zoom: Res<TechZoom>,
 ) {
     let just_opened = state.open && !*prev_open;
-    let should = state.open && (just_opened || progress.is_changed() || unlocks.is_changed());
+    let should = state.open && (just_opened || progress.is_changed() || unlocks.is_changed() || reveal.is_changed());
     *prev_open = state.open;
     if !should {
         return;
@@ -889,11 +1107,15 @@ pub fn populate_tech_views_system(
 
     // Links: the overview's lines, and everything each step needs (plan_links).
     let plan = plan_links(db);
-    *layout = TechLayout::work_out(db, &plan, &progress, &unlocks);
+    *layout = TechLayout::work_out(db, &plan, &progress, &unlocks, reveal.0);
     let done = layout.nodes.iter().filter(|n| n.state == NodeState::Completed).count();
     let ready = layout.nodes.iter().filter(|n| n.state == NodeState::Available).count();
     if let Ok(mut t) = summary_q.single_mut() {
-        t.0 = format!("{} of {} steps done  ·  {} ready to make", done, layout.nodes.len(), ready);
+        t.0 = if reveal.0 {
+            format!("{} of {} steps done  ·  {} ready to make", done, layout.nodes.len(), ready)
+        } else {
+            format!("{} of {} steps done", done, layout.nodes.len())
+        };
     }
     links.all = plan.links();
     links.needs = plan.needs;
@@ -921,17 +1143,20 @@ pub fn populate_tech_views_system(
     // first step that is ready to make) into view.
     if just_opened {
         let selected = state.selected.and_then(|id| layout.index.get(&id)).map(|&i| &layout.nodes[i]);
-        if let Some(n) = selected.or_else(|| layout.nodes.iter().find(|n| n.state == NodeState::Available)) {
+        let frontier = |n: &&NodeInfo| matches!(n.state, NodeState::Available | NodeState::Open);
+        if let Some(n) = selected.or_else(|| layout.nodes.iter().find(frontier)) {
             let centred = selected.is_some();
             for (marker, mut sp, cn) in &mut scroll_q {
                 if marker.graph {
+                    // (graph px times the zoom: where it sits as drawn)
+                    let z = zoom.0;
                     if centred {
                         let view = cn.size * cn.inverse_scale_factor();
                         let centre = Vec2::new(col_x(n.col, n.epoch) + NODE_W / 2.0, node_y(n.row) + NODE_H / 2.0);
-                        sp.0 = (centre - view / 2.0).max(Vec2::ZERO);
+                        sp.0 = (centre * z - view / 2.0).max(Vec2::ZERO);
                     } else {
-                        sp.0.x = (col_x(n.col, n.epoch) - 260.0).max(0.0);
-                        sp.0.y = (node_y(n.row) + NODE_H - 380.0).max(0.0);
+                        sp.0.x = (col_x(n.col, n.epoch) * z - 260.0).max(0.0);
+                        sp.0.y = ((node_y(n.row) + NODE_H) * z - 380.0).max(0.0);
                     }
                 }
             }
@@ -953,15 +1178,17 @@ pub fn tech_graph_window_system(
     pressed: Query<(), (With<TechNodeButton>, Or<(With<Pressed>, With<Clicked>)>)>,
     fonts: Res<UiFonts>,
     assets: Res<AssetServer>,
+    zoom: Res<TechZoom>,
 ) {
     let Ok((graph, mut canvas)) = graph_q.single_mut() else {
         return;
     };
+    let z = zoom.0.max(0.01);
     let view = if state.open && state.mode == TechMode::Graph {
         view_q
             .iter()
             .find(|(m, _, _)| m.graph)
-            .map(|(_, cn, sp)| Rect::from_corners(sp.0, sp.0 + cn.size * cn.inverse_scale_factor()))
+            .map(|(_, cn, sp)| Rect::from_corners(sp.0 / z, (sp.0 + cn.size * cn.inverse_scale_factor()) / z))
             .unwrap_or_default()
     } else {
         Rect::default()
@@ -1172,6 +1399,33 @@ fn spawn_node(
             ));
         });
         b.spawn(theme::icon(assets, state_icon(n.state), 12.0, state_accent(n.state)));
+        // a goal wears its flag, with its priority
+        if let Some(rank) = n.goal {
+            b.spawn((
+                TechGoalFlag,
+                Node {
+                    position_type: PositionType::Absolute,
+                    right: Val::Px(-8.0),
+                    top: Val::Px(-9.0),
+                    align_items: AlignItems::Center,
+                    column_gap: Val::Px(2.0),
+                    padding: UiRect::axes(Val::Px(5.0), Val::Px(1.0)),
+                    border_radius: BorderRadius::all(Val::Px(9.0)),
+                    border: UiRect::all(Val::Px(1.0)),
+                    ..default()
+                },
+                BackgroundColor(theme::mix(theme::BG, theme::GOLD, 0.3)),
+                BorderColor::all(theme::GOLD),
+                Pickable::IGNORE,
+            ))
+            .with_children(|f| {
+                f.spawn(theme::icon(assets, "flag", 11.0, theme::GOLD));
+                f.spawn((
+                    theme::label(fonts, (rank + 1).to_string(), 10.0, Weight::Bold, theme::TEXT),
+                    Pickable::IGNORE,
+                ));
+            });
+        }
         // needs with no line here: select the step to see them all
         if n.undrawn > 0 {
             b.spawn((
@@ -1225,6 +1479,7 @@ pub fn tech_list_window_system(
     pressed: Query<(), (With<TechListEntry>, Or<(With<Pressed>, With<Clicked>)>)>,
     fonts: Res<UiFonts>,
     assets: Res<AssetServer>,
+    reveal: Res<TreeReveal>,
 ) {
     let Ok((content, mut list, mut node, cn)) = content_q.single_mut() else {
         return;
@@ -1258,13 +1513,14 @@ pub fn tech_list_window_system(
     };
     for (id, at, _) in &pass.build {
         let e = if *id >= HEADING_BASE {
-            let g = (*id - HEADING_BASE) as usize;
-            spawn_list_heading(&mut commands, &fonts, &assets, g, layout.group_len.get(g).copied().unwrap_or(0), at.y)
+            let g = ((*id - HEADING_BASE) as usize).min(layout.groups.len() - 1);
+            spawn_list_heading(&mut commands, &fonts, &assets, layout.groups[g], layout.group_len[g], at.y)
         } else {
             let Some(&i) = layout.index.get(id) else { continue };
             let n = &layout.nodes[i];
             let Some(r) = db.authored.get(i).filter(|r| r.id == n.id) else { continue };
-            spawn_list_row(&mut commands, &fonts, &assets, db, subs, n, r, state.selected == Some(n.id), at.y)
+            let look = (state.selected == Some(n.id), reveal.0);
+            spawn_list_row(&mut commands, &fonts, &assets, db, subs, n, r, look, at.y)
         };
         list.record(*id, e, *at);
     }
@@ -1278,11 +1534,10 @@ fn spawn_list_heading(
     commands: &mut Commands,
     fonts: &UiFonts,
     assets: &AssetServer,
-    g: usize,
+    (title, want): (&str, NodeState),
     count: usize,
     top: f32,
 ) -> Entity {
-    let (title, want) = GROUPS[g.min(GROUPS.len() - 1)];
     commands
         .spawn((
             TechListHeading,
@@ -1318,11 +1573,18 @@ fn spawn_list_row(
     subs: &Substances,
     n: &NodeInfo,
     r: &Reaction,
-    selected: bool,
+    (selected, revealed): (bool, bool),
     top: f32,
 ) -> Entity {
     let accent = theme::process_color(&r.process);
-    let sub = if n.state == NodeState::Available { hint_string(r, subs) } else { equation_string(r, subs) };
+    let sub = match n.state {
+        NodeState::Available => hint_string(r, subs),
+        NodeState::Completed => equation_string(r, subs),
+        NodeState::Locked if revealed => equation_string(r, subs),
+        // a recipe not yet made stays the player's to work out
+        NodeState::Locked => format!("Needs the {}", vessel_name(&r.process)),
+        NodeState::Open => format!("In the {}", vessel_name(&r.process)),
+    };
     let mut row = commands.spawn((
         theme::button(
             Kind::Row,
@@ -1409,11 +1671,12 @@ fn spawn_list_row(
 pub fn tech_reveal_system(
     mut links: ResMut<TechLinks>,
     mut scroll_q: Query<(&TechScrollable, &mut ScrollPosition, &ComputedNode)>,
+    zoom: Res<TechZoom>,
 ) {
     let Some(id) = links.reveal else { return };
     links.reveal = None;
     let Some(&(e, c, r)) = links.at.get(&id) else { return };
-    let centre = Vec2::new(col_x(c, e) + NODE_W / 2.0, node_y(r) + NODE_H / 2.0);
+    let centre = Vec2::new(col_x(c, e) + NODE_W / 2.0, node_y(r) + NODE_H / 2.0) * zoom.0;
     for (m, mut sp, cn) in &mut scroll_q {
         if m.graph {
             let view = cn.size * cn.inverse_scale_factor();
@@ -1515,8 +1778,9 @@ pub fn update_tech_detail_system(
     bar_q: Query<Entity, With<TechDetailBar>>,
     fonts: Res<UiFonts>,
     assets: Res<AssetServer>,
-    mut built_for: Local<Option<(Option<u32>, bool)>>,
+    mut built_for: Local<Option<(Option<u32>, bool, bool)>>,
     links: Res<TechLinks>,
+    reveal: Res<TreeReveal>,
 ) {
     let Ok(bar) = bar_q.single() else {
         return;
@@ -1524,7 +1788,7 @@ pub fn update_tech_detail_system(
     let (Some(db), Some(subs)) = (recipe_db.as_ref(), substances_assets.get(&game_data.substances)) else {
         return;
     };
-    let key = (state.selected, state.open);
+    let key = (state.selected, state.open, reveal.0);
     if *built_for == Some(key) && !progress.is_changed() && !unlocks.is_changed() && !links.is_changed() {
         return;
     }
@@ -1547,7 +1811,11 @@ pub fn update_tech_detail_system(
                     ));
                     c.spawn(theme::label(
                         fonts,
-                        "Gold steps are ready now. Drag the map or use the wheel (Shift for sideways) to look around.",
+                        if reveal.0 {
+                            "Gold steps are ready now. Drag the map or use the wheel (Shift for sideways) to look around; pinch or Ctrl and the wheel to zoom."
+                        } else {
+                            "Aim for a step and Hint leads the way. Drag the map or use the wheel (Shift for sideways) to look around; pinch or Ctrl and the wheel to zoom."
+                        },
                         theme::SM,
                         Weight::Regular,
                         theme::TEXT_3,
@@ -1558,7 +1826,9 @@ pub fn update_tech_detail_system(
         return;
     };
 
-    let st = node_state(r, &progress, &unlocks);
+    let st = node_state(r, &progress, &unlocks, reveal.0);
+    // a recipe shows once made, or with "Show what's ready"
+    let recipe = st == NodeState::Completed || reveal.0;
     let accent = theme::process_color(&r.process);
     let e = r.epoch;
     let needs = links.needs.get(&r.id).cloned().unwrap_or_default();
@@ -1586,32 +1856,84 @@ pub fn update_tech_detail_system(
                 Node { width: Val::Percent(100.0), height: Val::Percent(100.0), ..default() },
             ));
         });
+        // what doesn't fit the bar (a step with many needs, held upright) scrolls in it
         p.spawn(Node {
             flex_direction: FlexDirection::Column,
             row_gap: Val::Px(5.0),
             flex_grow: 1.0,
             flex_shrink: 1.0,
+            max_height: Val::Percent(100.0),
+            overflow: Overflow::scroll_y(),
             ..default()
         })
         .with_children(|c| {
-            c.spawn(Node { align_items: AlignItems::Center, column_gap: Val::Px(8.0), ..default() }).with_children(
-                |t| {
-                    theme::spawn_chip(t, fonts, state_label(st), state_accent(st));
-                    t.spawn(theme::label(
-                        fonts,
-                        format!("{}  ·  {}", db.epoch_name(e).to_uppercase(), vessel_name(&r.process)),
-                        theme::XS,
-                        Weight::Bold,
-                        theme::TEXT_3,
-                    ));
-                },
-            );
+            c.spawn(Node {
+                align_items: AlignItems::Center,
+                column_gap: Val::Px(8.0),
+                row_gap: Val::Px(4.0),
+                flex_wrap: FlexWrap::Wrap,
+                ..default()
+            })
+            .with_children(|t| {
+                theme::spawn_chip(t, fonts, state_label(st), state_accent(st));
+                t.spawn(theme::label(
+                    fonts,
+                    format!("{}  ·  {}", db.epoch_name(e).to_uppercase(), vessel_name(&r.process)),
+                    theme::XS,
+                    Weight::Bold,
+                    theme::TEXT_3,
+                ));
+                // aiming: a step not made yet can be a goal (in this row, so the needs below
+                // keep the bar's width)
+                if let (false, Some(g)) = (st == NodeState::Completed, goal_of(r, &progress)) {
+                    match progress.goals.iter().position(|x| *x == g) {
+                        Some(rank) => {
+                            let words = format!("Goal {} of {}", rank + 1, progress.goals.len());
+                            theme::spawn_chip(t, fonts, &words, theme::GOLD);
+                            if rank > 0 {
+                                theme::spawn_button(
+                                    t,
+                                    fonts,
+                                    assets,
+                                    Kind::Ghost,
+                                    None,
+                                    "Make it first",
+                                    TechAimFirst(g),
+                                );
+                            }
+                            theme::spawn_button(t, fonts, assets, Kind::Ghost, None, "Stop aiming", TechStopAim(g));
+                        }
+                        None => {
+                            let aim = TechAim(g);
+                            theme::spawn_button(
+                                t,
+                                fonts,
+                                assets,
+                                Kind::Accent(theme::GOLD),
+                                Some("flag"),
+                                "Aim here",
+                                aim,
+                            );
+                        }
+                    }
+                }
+            });
             c.spawn(theme::label(fonts, r.name.clone(), theme::LG, Weight::Bold, theme::TEXT));
-            c.spawn((
-                Text::new(equation_string(r, subs)),
-                TextFont { font: fonts.symbols.clone().into(), font_size: FontSize::Px(14.0), ..default() },
-                TextColor(theme::mix(accent, theme::TEXT, 0.55)),
-            ));
+            if recipe {
+                c.spawn((
+                    Text::new(equation_string(r, subs)),
+                    TextFont { font: fonts.symbols.clone().into(), font_size: FontSize::Px(14.0), ..default() },
+                    TextColor(theme::mix(accent, theme::TEXT, 0.55)),
+                ));
+            } else {
+                c.spawn(theme::para(
+                    fonts,
+                    "Its recipe shows once you've made it. Aim for it and Hint leads the way.",
+                    theme::SM,
+                    theme::TEXT_2,
+                    Val::Px(900.0),
+                ));
+            }
             let warm = Color::srgb(1.0, 0.72, 0.55);
             if process_locked && st == NodeState::Locked {
                 c.spawn(theme::para(
@@ -1622,7 +1944,9 @@ pub fn update_tech_detail_system(
                     Val::Px(900.0),
                 ));
             }
-            if needs.is_empty() {
+            if !recipe {
+                // what it takes stays the player's to work out
+            } else if needs.is_empty() {
                 // everything it takes is on the shelf from the start
                 let color = if st == NodeState::Available { theme::GOLD } else { theme::TEXT_2 };
                 c.spawn(theme::para(fonts, hint_string(r, subs), theme::SM, color, Val::Px(900.0)));
@@ -1676,7 +2000,7 @@ pub fn update_tech_detail_system(
                             t.spawn((
                                 theme::label(
                                     fonts,
-                                    format!("{what}  ←  {from}"),
+                                    format!("{what}  ·  from {from}"),
                                     theme::XS,
                                     Weight::Regular,
                                     theme::TEXT,
@@ -1742,6 +2066,110 @@ pub fn tech_toolbar_fit_system(
         }
         if *n != want {
             *n = want;
+        }
+    }
+}
+
+/// The graph's zoom bar (shown with the graph), Ctrl and the wheel over the tree, and a
+/// two-finger pinch: apart zooms in, together zooms out, a step at a time.
+#[allow(clippy::too_many_arguments)]
+pub fn tech_zoom_controls_system(
+    state: Res<TechTreeState>,
+    mut zoom: ResMut<TechZoom>,
+    clicks: (Query<(), (With<Clicked>, With<TechZoomOut>)>, Query<(), (With<Clicked>, With<TechZoomIn>)>),
+    mut wheel: MessageReader<bevy::input::mouse::MouseWheel>,
+    keys: Res<ButtonInput<KeyCode>>,
+    touches: Res<Touches>,
+    mut pinch: Local<Option<f32>>,
+    mut bar: Query<&mut Node, With<TechZoomBar>>,
+    mut label: Query<&mut Text, With<TechZoomLabel>>,
+) {
+    let on = state.open && state.mode == TechMode::Graph;
+    for mut n in &mut bar {
+        let d = if on { Display::Flex } else { Display::None };
+        if n.display != d {
+            n.display = d;
+        }
+    }
+    let mut to = zoom.0;
+    if on {
+        let (outs, ins) = clicks;
+        if !outs.is_empty() {
+            to = zoom.stepped(true);
+        }
+        if !ins.is_empty() {
+            to = zoom.stepped(false);
+        }
+        let ctrl = keys.pressed(KeyCode::ControlLeft) || keys.pressed(KeyCode::ControlRight);
+        let turned: f32 = wheel.read().map(|e| e.y + e.x).sum();
+        if ctrl && turned != 0.0 {
+            to = TechZoom(to).stepped(turned < 0.0);
+        }
+        let fingers: Vec<Vec2> = touches.iter().map(|t| t.position()).collect();
+        if let [a, b] = fingers[..] {
+            let d = a.distance(b);
+            match *pinch {
+                None => *pinch = Some(d),
+                Some(start) if d > start * 1.3 => {
+                    to = TechZoom(to).stepped(false);
+                    *pinch = Some(d);
+                }
+                Some(start) if d < start / 1.3 => {
+                    to = TechZoom(to).stepped(true);
+                    *pinch = Some(d);
+                }
+                _ => {}
+            }
+        } else {
+            *pinch = None;
+        }
+    } else {
+        wheel.clear();
+        *pinch = None;
+    }
+    if zoom.0 != to {
+        zoom.0 = to;
+    }
+    if zoom.is_changed() {
+        for mut t in &mut label {
+            t.0 = format!("{:.0}%", zoom.0 * 100.0);
+        }
+    }
+}
+
+/// Scales the graph's canvas to the zoom about its top-left corner (bevy_ui scales a node
+/// about its middle, so it is moved back by what that shifts), sizes the scroll range to the
+/// graph as drawn, and keeps the middle of the view on the same spot of the graph.
+#[allow(clippy::type_complexity)]
+pub fn tech_zoom_apply_system(
+    zoom: Res<TechZoom>,
+    mut last: Local<Option<f32>>,
+    mut content: Query<(Ref<Node>, &mut UiTransform), (With<TechGraphContent>, Without<TechGraphSizer>)>,
+    mut sizer: Query<&mut Node, (With<TechGraphSizer>, Without<TechGraphContent>)>,
+    mut scroll_q: Query<(&TechScrollable, &mut ScrollPosition, &ComputedNode)>,
+) {
+    let Ok((node, mut tf)) = content.single_mut() else { return };
+    let z = zoom.0;
+    let old = last.unwrap_or(1.0);
+    if *last == Some(z) && !node.is_changed() {
+        return;
+    }
+    *last = Some(z);
+    let px = |v: Val| if let Val::Px(p) = v { p } else { 0.0 };
+    let size = Vec2::new(px(node.width), px(node.height));
+    tf.scale = Vec2::splat(z);
+    tf.translation = Val2::px(-(1.0 - z) * size.x / 2.0, -(1.0 - z) * size.y / 2.0);
+    if let Ok(mut n) = sizer.single_mut() {
+        n.width = Val::Px(size.x * z);
+        n.height = Val::Px(size.y * z);
+    }
+    if (old - z).abs() > 0.001 {
+        for (m, mut sp, cn) in &mut scroll_q {
+            if m.graph {
+                let view = cn.size * cn.inverse_scale_factor();
+                let spot = (sp.0 + view / 2.0) / old.max(0.01);
+                sp.0 = (spot * z - view / 2.0).max(Vec2::ZERO);
+            }
         }
     }
 }

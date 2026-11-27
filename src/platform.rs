@@ -245,6 +245,8 @@ pub struct Drawing {
     pub quiet_frames: u32,
     /// what changed this frame (for the review, when the screen won't settle)
     pub changed: Vec<&'static str>,
+    /// the last frame that changed anything, and what changed
+    pub last_change: Vec<&'static str>,
 }
 
 /// While anything on screen moves, or a pointer goes down, lifts or a finger moves, ask for
@@ -300,6 +302,7 @@ pub fn keep_drawing_system(
         drawing.quiet_frames = drawing.quiet_frames.saturating_add(1);
     } else {
         drawing.quiet_frames = 0;
+        drawing.last_change = changed.clone();
         redraw.write(bevy::window::RequestRedraw);
     }
     drawing.changed = changed;

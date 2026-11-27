@@ -6,7 +6,8 @@
 // always. A double-tap on a tile puts it straight into the selected vessel, and while a
 // phone's keyboard is up for the shelf search a single tap does, so several results can go
 // in without leaving the search. A tap on a substance in a vessel selects it too; a
-// double-tap takes it out.
+// double-tap takes it out. Pin keeps the selection at the front of the shelf (saved with the
+// game) until it is unpinned.
 use crate::ui::Clicked;
 use bevy::ecs::system::entity_command::observe;
 use bevy::picking::hover::Hovered;
@@ -33,6 +34,13 @@ pub struct SelectionOpenButton;
 /// Its icon and word (dimmed with nothing selected).
 #[derive(Component)]
 pub struct SelectionOpenInk;
+/// The shelf header's Pin button: pins the selected substance to the front of the shelf, or
+/// unpins it.
+#[derive(Component)]
+pub struct SelectionPinButton;
+/// Its icon and word ("Pin", or "Unpin" for a pinned selection; dimmed with nothing selected).
+#[derive(Component)]
+pub struct SelectionPinInk;
 
 /// Each shelf tile and vessel chip, as it spawns, gets the click that selects it. A chip can
 /// be gone again before this lands (used up by a reaction in the same frame): it needs no
@@ -135,22 +143,52 @@ pub fn spawn_selection_bar(bar: &mut ChildSpawnerCommands, fonts: &UiFonts, asse
             Pickable::IGNORE,
         ));
     });
+    bar.spawn((
+        theme::button(
+            theme::Kind::Disabled,
+            Node {
+                height: Val::Px(34.0),
+                padding: UiRect::horizontal(Val::Px(12.0)),
+                column_gap: Val::Px(7.0),
+                align_items: AlignItems::Center,
+                margin: UiRect::left(Val::Px(8.0)),
+                flex_shrink: 0.0,
+                ..default()
+            },
+            theme::R_MD,
+        ),
+        SelectionPinButton,
+        crate::ui::onboarding::Tip::Text("Pin", "Keep the selected substance at the front of the shelf."),
+    ))
+    .with_children(|b| {
+        b.spawn((SelectionPinInk, theme::icon(assets, "pin", 16.0, theme::TEXT_3)));
+        b.spawn((
+            SelectionPinInk,
+            theme::label(fonts, "Pin", theme::SM, Weight::Semibold, theme::TEXT_3),
+            Pickable::IGNORE,
+        ));
+    });
 }
 
-/// Keep the tile highlight and the Library button in step with the selection.
-#[allow(clippy::type_complexity)]
+/// Keep the tile highlight and the Library and Pin buttons in step with the selection.
+#[allow(clippy::type_complexity, clippy::too_many_arguments)]
 pub fn selection_view_system(
     mut selected: ResMut<SelectedSubstance>,
     progress: Res<PlayerProgress>,
     mut tiles: Query<
         (&Ingredient, &ShelfTile, &Hovered, &mut BorderColor, &mut BackgroundColor),
-        Without<SelectionOpenButton>,
+        (Without<SelectionOpenButton>, Without<SelectionPinButton>),
     >,
     mut open: Query<
         (&mut theme::Skin, &Hovered, Has<bevy::ui::Pressed>, &mut BackgroundColor, &mut BorderColor),
-        With<SelectionOpenButton>,
+        Or<(With<SelectionOpenButton>, With<SelectionPinButton>)>,
     >,
-    mut ink: (Query<&mut TextColor, With<SelectionOpenInk>>, Query<&mut ImageNode, With<SelectionOpenInk>>),
+    mut ink: (
+        Query<&mut TextColor, Or<(With<SelectionOpenInk>, With<SelectionPinInk>)>>,
+        Query<(&mut ImageNode, Has<SelectionPinInk>), Or<(With<SelectionOpenInk>, With<SelectionPinInk>)>>,
+        Query<&mut Text, With<SelectionPinInk>>,
+    ),
+    assets: Res<AssetServer>,
     new_tiles: Query<(), Added<ShelfTile>>,
 ) {
     // a new game can take the selected substance away
@@ -161,10 +199,18 @@ pub fn selection_view_system(
             }
         }
     }
-    if !selected.is_changed() && new_tiles.is_empty() {
+    if !selected.is_changed() && new_tiles.is_empty() && !progress.is_changed() {
         return;
     }
     let sel = selected.0;
+    let pinned = sel.is_some_and(|id| progress.pinned.contains(&id));
+    for mut t in &mut ink.2 {
+        let word = if pinned { "Unpin" } else { "Pin" };
+        if t.0 != word {
+            t.0 = word.to_string();
+        }
+    }
+    let pin_icon: Handle<Image> = assets.load(if pinned { "images/ui/pinned.png" } else { "images/ui/pin.png" });
     for (ing, tile, h, mut border, mut bg) in &mut tiles {
         let (b, c) = tile.look(h.get(), Some(ing.id) == sel);
         bg.0 = b;
@@ -175,8 +221,11 @@ pub fn selection_view_system(
     for mut t in &mut ink.0 {
         t.0 = c;
     }
-    for mut i in &mut ink.1 {
+    for (mut i, is_pin) in &mut ink.1 {
         i.color = c;
+        if is_pin && i.image.id() != pin_icon.id() {
+            i.image = pin_icon.clone();
+        }
     }
     for (mut skin, h, pressed, mut bg, mut border) in &mut open {
         if skin.kind != kind {
@@ -184,6 +233,24 @@ pub fn selection_view_system(
             let (b, l) = skin.colors(crate::ui::Look::of(h, pressed));
             bg.0 = b;
             *border = BorderColor::all(l);
+        }
+    }
+}
+
+/// The Pin button pins the selection to the front of the shelf, or unpins it.
+pub fn selection_pin_system(
+    pin: Query<(), (With<Clicked>, With<SelectionPinButton>)>,
+    selected: Res<SelectedSubstance>,
+    mut progress: ResMut<PlayerProgress>,
+) {
+    if pin.is_empty() {
+        return;
+    }
+    if let Some(id) = selected.0 {
+        if let Some(i) = progress.pinned.iter().position(|&p| p == id) {
+            progress.pinned.remove(i);
+        } else {
+            progress.pinned.push(id);
         }
     }
 }

@@ -105,6 +105,22 @@ pub fn spawn_glossed_para(
 
 /// "Words on this page": a button for each term, and the card a tap opens under them.
 pub fn spawn_term_row(parent: &mut ChildSpawnerCommands, fonts: &UiFonts, pages: &Pages, keys: &[String]) {
+    spawn_titled_term_row(parent, fonts, pages, keys, "Words on this page");
+}
+
+/// "What the name says": the terms a substance's name is built from (hypo- + chlor + -ite,
+/// di- + methyl), each a button that opens its definition like the words below.
+pub fn spawn_name_row(parent: &mut ChildSpawnerCommands, fonts: &UiFonts, pages: &Pages, keys: &[String]) {
+    spawn_titled_term_row(parent, fonts, pages, keys, "What the name says");
+}
+
+fn spawn_titled_term_row(
+    parent: &mut ChildSpawnerCommands,
+    fonts: &UiFonts,
+    pages: &Pages,
+    keys: &[String],
+    title: &str,
+) {
     let terms: Vec<(&String, &crate::data::pages::Term)> =
         keys.iter().filter_map(|k| pages.glossary.get(k).map(|t| (k, t))).collect();
     if terms.is_empty() {
@@ -121,7 +137,7 @@ pub fn spawn_term_row(parent: &mut ChildSpawnerCommands, fonts: &UiFonts, pages:
             },
         ))
         .with_children(|row| {
-            theme::spawn_section_title(row, fonts, "Words on this page");
+            theme::spawn_section_title(row, fonts, title);
             row.spawn(Node { flex_wrap: FlexWrap::Wrap, column_gap: Val::Px(7.0), row_gap: Val::Px(7.0), ..default() })
                 .with_children(|chips| {
                     for (k, t) in terms {

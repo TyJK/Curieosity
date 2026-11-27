@@ -210,7 +210,7 @@ E5.reactions += [
       wiki=P["PEG"], exact=False),
     R("PEG Diacrylate", "PEG + AcrylicAcid -> PEGDA", FLASK, "PEG esterified with acrylic acid at both ends.", wiki=P["PEGDA"],
       exact=False, T=100),
-    R("Cellulose Acetate Butyrate", "Cellulose + AceticAnhydride + ButyricAnhydride -> CAB", FLASK,
+    R("Cellulose Acetate Butyrate", "Cellulose + AceticAnhydride + ButyricAnhydride + H2SO4 -> CAB + H2SO4", FLASK,
       "Cotton linters esterified with acetic and butyric anhydrides in sulfuric acid.", wiki=P["CAB"], exact=False, T=40),
     R("Sulphur Black", "DNP24 + Na2S4 -> SulphurBlack", HEAT,
       "2,4-Dinitrophenol boiled for days with sodium polysulfide.", wiki=P["SulphurBlack"], exact=False, T=110),

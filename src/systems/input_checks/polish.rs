@@ -22,7 +22,7 @@ use crate::ui::hint::{
     base_materials, choose, decoy_count, plan_kit, targets, HintButton, HintChange, HintKitToggle, HintLine, HintMore,
     HintPick, HintShowTree, HintState, Target as Goal,
 };
-use crate::ui::inventory::{ShelfSearch, ShelfSearchBox, ShelfSearchClear, ShelfSearchDone, ShelfTitle};
+use crate::ui::inventory::{ShelfSearch, ShelfSearchBox, ShelfSearchClear, ShelfTitle};
 use crate::ui::settings::SettingsRoot;
 use crate::ui::shell::JournalButton;
 use crate::ui::theme::Skin;
@@ -513,7 +513,7 @@ pub(super) fn polish_checks() -> Vec<Check> {
             Op::Until(
                 verify(|w| {
                     let e = focused(w).ok_or("nothing focused")?;
-                    if w.get::<NavTab>(e).is_none() {
+                    if w.get::<NavTab>(e).is_none() && w.get::<crate::ui::shell::HomeButton>(e).is_none() {
                         return Err("the first Tab stop is not in the header".into());
                     }
                     if ring_shows(w) {
@@ -2307,8 +2307,8 @@ fn empty_and_remove_shown() -> Verify {
     })
 }
 
-/// The shelf sits on a phone's keyboard (KeyboardInset), its search box at the foot and
-/// Done showing, with the bench still in sight above it; or it is back to normal.
+/// The shelf sits on a phone's keyboard (KeyboardInset), its search box at the foot and the
+/// Library button put away, with the bench still in sight above it; or it is back to normal.
 fn shelf_on_keys(want: bool) -> Verify {
     verify(move |w| {
         let typing = w.resource::<ShelfSearch>().typing;
@@ -2318,21 +2318,24 @@ fn shelf_on_keys(want: bool) -> Verify {
             .iter(w)
             .next()
             .is_some_and(|v| v.get());
-        let done = first::<ShelfSearchDone>(w, |_| true)
-            .and_then(|e| w.get::<ComputedNode>(e))
-            .is_some_and(|n| n.size.x > 0.0);
+        let library_away = first::<crate::ui::detail_panel::SelectionOpenButton>(w, |_| true)
+            .and_then(|e| w.get::<Node>(e))
+            .is_some_and(|n| n.display == Display::None);
         let (bottom, foot) = first::<crate::ui::inventory::ShelfDock>(w, |_| true)
             .and_then(|e| w.get::<Node>(e))
             .map(|n| (n.bottom, n.flex_direction == FlexDirection::ColumnReverse))
             .unwrap_or((Val::Auto, false));
         let on = bottom == Val::Px(inset) && foot;
-        let got = (typing, done, on);
+        let ok = if want { typing && library_away && on } else { !typing && !library_away && !foot };
         if !bench {
             Err("the bench is hidden".into())
-        } else if got == (want, want, want || inset == 0.0 && !foot) {
+        } else if ok {
             Ok(())
         } else {
-            Err(format!("typing, Done showing, on the keyboard with the box at the foot: {got:?}"))
+            Err(format!(
+                "typing, Library put away, on the keyboard, box at the foot: {:?}",
+                (typing, library_away, on, foot)
+            ))
         }
     })
 }
@@ -2394,7 +2397,7 @@ fn tap_and_link_checks() -> Vec<Check> {
     ));
     v.push(check(
         "Touch",
-        "With a phone's keyboard up the shelf sits on it, search box at the foot; each result tapped goes in, and the keyboard stays until Done",
+        "With a phone's keyboard up the shelf sits on it, search box at the foot; each result tapped goes in, Clear keeps typing, and putting the keyboard away ends it",
         vec![
             setup(new_game),
             setup(|w| {
@@ -2425,7 +2428,13 @@ fn tap_and_link_checks() -> Vec<Check> {
             Op::Until(has_chip(Mix, "Water"), 30),
             Op::Expect(chip_count(Mix, 2)),
             Op::Expect(state("still typing", |w| w.resource::<ShelfSearch>().typing)),
-            Op::Click(marked::<ShelfSearchDone>("Done")),
+            Op::Click(marked::<ShelfSearchClear>("Clear")),
+            Op::Until(state("Clear emptied the box and typing goes on", |w| {
+                let s = w.resource::<ShelfSearch>();
+                s.text.is_empty() && s.typing
+            }), 30),
+            // the keyboard put away with its own key: the typing ends
+            setup(|w| w.resource_mut::<crate::platform::KeyboardInset>().0 = 0.0),
             Op::Until(shelf_on_keys(false), 30),
         ],
     ));
@@ -2595,17 +2604,26 @@ fn tap_and_link_checks() -> Vec<Check> {
 }
 
 /// With nothing moving and no finger down, the lab stops changing: the game can then sleep
-/// between ticks instead of drawing a still screen 60 times a second.
+/// between ticks instead of drawing a still screen 60 times a second. Settling means 30 still
+/// frames in a row within 180: a one-off change (the Hint button offering its next
+/// suggestion every SUGGEST_FOR seconds) only puts it off; a screen that keeps changing never
+/// gets there.
 pub fn battery_checks() -> Vec<Check> {
     let settles = || {
-        Op::Expect(verify(|w| {
-            let d = w.resource::<crate::platform::Drawing>();
-            if d.quiet_frames >= 30 {
-                Ok(())
-            } else {
-                Err(format!("still changing after 90 frames: {}", d.changed.join(", ")))
-            }
-        }))
+        Op::Until(
+            verify(|w| {
+                let d = w.resource::<crate::platform::Drawing>();
+                if d.quiet_frames >= 30 {
+                    Ok(())
+                } else {
+                    Err(format!(
+                        "never 30 still frames in a row in 180 (the last change: {})",
+                        d.last_change.join(", ")
+                    ))
+                }
+            }),
+            120,
+        )
     };
     // (notifications left over from the checks before still fade out: they go first)
     let no_toasts = || {
@@ -2620,7 +2638,7 @@ pub fn battery_checks() -> Vec<Check> {
     let mut v = vec![check(
         "Battery",
         "A still lab settles: nothing on screen changes, so the game stops drawing every frame",
-        vec![no_toasts(), setup(|w| place(w, ProcessType::Mix, 0)), Op::Wait(90), settles()],
+        vec![no_toasts(), setup(|w| place(w, ProcessType::Mix, 0)), Op::Wait(60), settles()],
     )];
     type Open = fn(&mut World);
     let views: [(&str, Open); 12] = [
@@ -2654,7 +2672,7 @@ pub fn battery_checks() -> Vec<Check> {
     ];
     for (name, open) in views {
         let name: &'static str = Box::leak(format!("{name}, left alone, settles too").into_boxed_str());
-        v.push(check("Battery", name, vec![no_toasts(), setup(open), Op::Wait(90), settles()]));
+        v.push(check("Battery", name, vec![no_toasts(), setup(open), Op::Wait(60), settles()]));
     }
     v
 }

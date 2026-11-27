@@ -60,6 +60,9 @@ pub struct Settings {
     pub balanced_amounts: bool,
     /// the shelf's height as set with its grip (interface pixels); 0 sizes it to the screen
     pub shelf_h: f32,
+    /// free play: the tech tree marks the steps that can be made now and shows every
+    /// step's recipe (off, a step's recipe shows once it has been made)
+    pub tree_ready: bool,
 }
 
 impl Settings {
@@ -92,6 +95,7 @@ impl Default for Settings {
             cards_close_themselves: false,
             balanced_amounts: false,
             shelf_h: 0.0,
+            tree_ready: false,
         }
     }
 }
@@ -167,6 +171,7 @@ pub enum Field {
     DiscoveryCards,
     CardsCloseThemselves,
     BalancedAmounts,
+    TreeReady,
 }
 
 #[derive(Component)]
@@ -236,6 +241,7 @@ impl Settings {
             Field::DiscoveryCards => self.discovery_cards = !self.discovery_cards,
             Field::CardsCloseThemselves => self.cards_close_themselves = !self.cards_close_themselves,
             Field::BalancedAmounts => self.balanced_amounts = !self.balanced_amounts,
+            Field::TreeReady => self.tree_ready = !self.tree_ready,
             _ => {}
         }
     }
@@ -254,6 +260,7 @@ impl Settings {
             Field::DiscoveryCards => self.discovery_cards,
             Field::CardsCloseThemselves => self.cards_close_themselves,
             Field::BalancedAmounts => self.balanced_amounts,
+            Field::TreeReady => self.tree_ready,
             _ => false,
         }
     }
@@ -581,6 +588,13 @@ pub fn spawn_settings(mut commands: Commands, fonts: Res<UiFonts>, assets: Res<A
                                         Field::Kit,
                                         "Target kits",
                                         "While you chase a target, the shelf shows only its kit.",
+                                    );
+                                    toggle(
+                                        c,
+                                        fonts,
+                                        Field::TreeReady,
+                                        "Show what's ready",
+                                        "Free play: the tech tree marks what you can make now and shows every recipe.",
                                     );
                                     stepper(
                                         c,
