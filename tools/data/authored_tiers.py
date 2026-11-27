@@ -15,7 +15,7 @@ import authored_content as C
 from authored_content import X, L, R, RAW, SUBSTANCES, E0, E1, E2, E3, E4, E5, E6, E7
 from gen_authored import (Milestone, MIX, HEAT, COOL, SMELT, DISTIL, ELEC, LIGHT, CAT, PRESS,
                           POLY, FLASK, BLAST, ARC, AIRLIQ, COLUMN, ECELL, REACTOR, CYCLO,
-                          CRACKER, HIGHP, DPRESS, FERM, BIOR, PULLER, CVD, CENT, ULTRA)
+                          CRACKER, HIGHP, DPRESS, FERM, BIOR, PULLER, CVD, CENT, ULTRA, CRYO)
 
 
 def N(key, name, formula, state, desc, wiki, color=None, smiles=None, props=(), balance=None):
@@ -52,7 +52,7 @@ for ep, names, proc in [
     (E4, ["Hall-Heroult Cell", "Chlor-Alkali Cell", "Moissan's Fluorine", "Electrolytic Refining",
           "Lanthanum Metal", "Cerium Metal", "Praseodymium Metal"], ECELL),
     (E4, ["Fractionating Liquid Air", "Refining Crude Oil"], COLUMN),
-    (E4, ["Dewar's Liquid Hydrogen", "Onnes' Liquid Helium"], AIRLIQ),
+    (E4, ["Dewar's Liquid Hydrogen", "Onnes' Liquid Helium"], CRYO),
     (E4, ["Bayer Digestion"], PRESS),
     (E4, ["Glucose Fermentation, Weizmann", "Gluconic Acid"], FERM),
     (E4, ["Perkin's Mauve", "Hofmann Rearrangement", "Hoffmann's Aspirin", "Fahlberg's Saccharin",
@@ -237,14 +237,14 @@ E3.reactions += [
       "Ammoniacal silver nitrate warmed with sugar plates a perfect mirror onto glass (Liebig, 1835); Tollens made it a test for aldehydes in 1882.",
       wiki="Tollens%27_reagent", dh=-100),
     R("Zeise's Salt", "K2PtCl4 + Ethylene -> ZeiseSalt + KCl", FLASK,
-      "Zeise boiled platinum chloride in ethanol and found ethylene bound to the metal: the birth of organometallic chemistry.",
+      "Zeise (1827) boiled platinum chloride in ethanol, which gave up ethylene to the metal: the birth of organometallic chemistry. Today the salt is made from ethylene itself.",
       wiki="Zeise%27s_salt", dh=-50),
 ]
 
 N("K2MnO4", "Potassium Manganate", "K2MnO4", "Solid", "Glauber's 'mineral chameleon' (1659): its green solution turns violet, then brown, as it changes to permanganate and manganese dioxide.", "Potassium_manganate", color="#2a7a3a")
 E2.reactions += [
     R("Glauber's Mineral Chameleon", "2 MnO2 + 4 KOH + O2 -> 2 K2MnO4 + 2 H2O", HEAT,
-      "Pyrolusite fused with potash in air gives a green melt; dissolved in water its colour drifts through the rainbow, hence 'chameleon'.",
+      "Pyrolusite fused with caustic potash in air gives a green melt; dissolved in water its colour drifts through the rainbow, hence 'chameleon'.",
       wiki="Potassium_manganate#History", T=400, dh=-200),
 ]
 
@@ -396,7 +396,7 @@ E4.reactions += [
       "Iodide replaces the diazonium group with no catalyst at all.", wiki="Iodobenzene", dh=-150),
     R("Boiling the Diazonium", "PhN2Cl + H2O -> Phenol + N2 + HCl", HEAT,
       "Warmed in water the diazonium salt gives up its nitrogen and becomes phenol.", wiki="Diazonium_compound#Reactions", T=50, dh=-150),
-    R("Skraup's Quinoline", "Aniline + Glycerol -> Quinoline + 3 H2O + H2", FLASK,
+    R("Skraup's Quinoline", "2 Aniline + 3 Glycerol + Nitrobenzene + H2SO4 -> 3 Quinoline + 11 H2O + H2SO4", FLASK,
       "Zdenko Skraup (1880) heated aniline, glycerol and sulfuric acid with nitrobenzene: violently, it gives quinoline, the parent of the antimalarials.",
       wiki="Skraup_reaction", T=150, dh=-100),
     R("Claisen-Schmidt Condensation", "2 Benzaldehyde + Acetone -> Dibenzalacetone + 2 H2O", FLASK,
@@ -404,7 +404,7 @@ E4.reactions += [
       wiki="Claisen%E2%80%93Schmidt_condensation", dh=-80),
     R("Making Chalcone", "Benzaldehyde + Acetophenone -> Chalcone + H2O", FLASK,
       "An aldol condensation in alkali: two aromatic rings bridged by an unsaturated ketone.", wiki="Chalcone", dh=-50),
-    R("Baeyer's Phenolphthalein", "PhthalicAnhydride + 2 Phenol -> Phenolphthalein + H2O", FLASK,
+    R("Baeyer's Phenolphthalein", "PhthalicAnhydride + 2 Phenol + H2SO4 -> Phenolphthalein + H2O + H2SO4", FLASK,
       "Phthalic anhydride and phenol heated with sulfuric acid (1871).", wiki="Phenolphthalein#Synthesis", T=120, dh=-50),
     R("Disulfonating Benzene", "BSA + H2SO4 -> mBDSA + H2O", HEAT,
       "Benzenesulfonic acid takes a second sulfonic acid group in hot fuming acid, at the meta position.", wiki="Aromatic_sulfonation", T=200, dh=-50),
@@ -603,7 +603,7 @@ E5.reactions += [
     R("Liquefied Natural Gas", "NaturalGas -> LNG", AIRLIQ,
       "Natural gas cooled by cascades of propane, ethylene and methane refrigeration until it condenses.", wiki="Liquefied_natural_gas#Production",
       exact=False, T=-162),
-    R("Kapitza's Superfluid", "LiquidHe -> SuperfluidHe", AIRLIQ,
+    R("Kapitza's Superfluid", "LiquidHe -> SuperfluidHe", CRYO,
       "Liquid helium pumped down below 2.17 K stops boiling, goes still, and leaks through cracks nothing else can pass.",
       wiki="Superfluidity#History", T=-271.0, dh=-0.01),
     R("Gaseous Diffusion", "UF6 -> EnrichedUF6", COLUMN,
@@ -973,7 +973,7 @@ LAB("Bismuth in Nitric Acid", "Bi + 4 HNO3 -> BiNO33 + NO + 2 H2O", MIX,
     "Bismuth dissolves in nitric acid as the nitrate.", "Bismuth(III)_nitrate", dh=-200)
 LAB("Mercury in Nitric Acid", "Hg + 4 HNO3 -> HgNO32 + 2 NO2 + 2 H2O", MIX,
     "Mercury dissolves in hot nitric acid: the 'carrotting' liquor of the hatters.", "Mercury(II)_nitrate", dh=-150)
-LAB("Copper(I) Chloride", "CuCl2 + Cu -> 2 CuCl", MIX,
+LAB("Copper(I) Chloride", "CuCl2 + Cu + HCl -> 2 CuCl + HCl", MIX,
     "Copper metal reduces copper(II) chloride in hot hydrochloric acid to the white copper(I) salt.", "Copper(I)_chloride#Preparation", dh=-30)
 
 # precipitating hydroxides, and baking them to oxides
@@ -1312,7 +1312,7 @@ E4.reactions += [
       "A column strips the light ends out of raw gasoline so it does not boil off in the tank.", wiki="Natural-gas_condensate#Stabilization", exact=False),
     R("Moissan and Dewar's Liquid Fluorine", "F2 -> LiquidF2", AIRLIQ,
       "Fluorine cooled with boiling liquid air condenses to a yellow liquid (1897).", wiki="Fluorine#History", T=-188, dh=-6.5),
-    R("Liquid Neon", "Ne -> LiquidNe", AIRLIQ,
+    R("Liquid Neon", "Ne -> LiquidNe", CRYO,
       "Neon condensed in a bath of liquid hydrogen.", wiki="Neon#Production", T=-246, dh=-1.7),
 ]
 E5.reactions += [
@@ -1327,7 +1327,7 @@ E5.reactions += [
     R("Niobium-Titanium", "Nb + Ti -> NbTi", ARC,
       "Niobium and titanium melted together in a vacuum arc furnace, then drawn into fine filaments in copper.", wiki="Niobium%E2%80%93titanium",
       T=2000, dh=-10),
-    R("Superconducting Magnet", "NbTi + LiquidHe -> SCMagnet", AIRLIQ,
+    R("Superconducting Magnet", "NbTi + LiquidHe -> SCMagnet", CRYO,
       "Niobium-titanium wire wound into a coil and cooled to 4 K: the magnet of an MRI scanner.", wiki="Superconducting_magnet", exact=False),
     R("Bridgman's Ice VII", "H2O -> IceVII", DPRESS,
       "Water squeezed past 20,000 atmospheres freezes into a dense ice even when hot.", wiki="Percy_Williams_Bridgman", T=100, P=25000, dh=-1),
@@ -1453,6 +1453,8 @@ C.MILESTONES = [
               message="Platinum makes reactions go without being used up. Catalysis unlocked."),
     Milestone("DryIce", unlock=(AIRLIQ,),
               message="Thilorier's dry ice at -78 C. The race to liquefy every gas has begun: the Air Liquefier is unlocked."),
+    Milestone("He", unlock=(CRYO,),
+              message="Ramsay's helium is the last gas nobody has liquefied. Dewar in London and Kamerlingh Onnes in Leiden race to reach it, with nested vacuum flasks cooled stage by stage: the Cryostat is unlocked."),
     Milestone("Benzene", unlock=(COLUMN,),
               message="Charles Mansfield fractionates coal tar into pure benzene (1849): the Fractionating Column is unlocked."),
     Milestone("Urea", grant=("Camphor", "Clove", "Asparagus", "Lupin", "Manna", "Carrots", "Eucalyptus", "Cumin"),

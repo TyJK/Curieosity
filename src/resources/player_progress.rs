@@ -52,6 +52,11 @@ pub struct PlayerProgress {
     /// the discoveries in the order they were made, oldest first (discovery_order_system
     /// keeps it; the shelf's "Newest first" reads it)
     pub order: Vec<u32>,
+    /// what the player aims for, set in the tech tree, first priority first: substances to
+    /// discover. Hint leads toward them before anything else; one is struck off once found.
+    pub goals: Vec<u32>,
+    /// substances pinned to the front of the shelf, in the order they were pinned
+    pub pinned: Vec<u32>,
 }
 
 impl PlayerProgress {
@@ -126,6 +131,10 @@ pub struct SaveData {
     pub journal: Vec<(String, String)>,
     /// the discoveries in the order they were made, oldest first (empty in older saves)
     pub order: Vec<u32>,
+    /// the player's goals, first priority first (empty in older saves)
+    pub goals: Vec<u32>,
+    /// substances pinned to the front of the shelf (empty in older saves)
+    pub pinned: Vec<u32>,
 }
 
 /// A vessel as written in a save: a bare name such as `Fire`. Read by name, so a vessel
@@ -178,6 +187,8 @@ struct SaveFile {
     dormant_vessels: Vec<String>,
     journal: Vec<(String, String)>,
     order: Vec<u32>,
+    goals: Vec<u32>,
+    pinned: Vec<u32>,
     // (a save from the build that kept a free-play score has a `score` too: it is passed
     // over, since only challenges are scored now)
 }
@@ -193,6 +204,8 @@ struct SaveOut<'a> {
     dormant_vessels: &'a [String],
     journal: &'a [(String, String)],
     order: &'a [u32],
+    goals: &'a [u32],
+    pinned: &'a [u32],
 }
 
 impl SaveData {
@@ -209,6 +222,8 @@ impl SaveData {
             dormant_vessels: file.dormant_vessels,
             journal: file.journal,
             order: file.order,
+            goals: file.goals,
+            pinned: file.pinned,
         };
         for VesselName(name) in file.unlocked {
             match ron::from_str::<ProcessType>(&name) {
@@ -265,6 +280,8 @@ impl SaveData {
             dormant_vessels: &self.dormant_vessels,
             journal: &self.journal,
             order: &self.order,
+            goals: &self.goals,
+            pinned: &self.pinned,
         };
         ron::ser::to_string_pretty(&out, ron::ser::PrettyConfig::default().compact_arrays(true)).unwrap_or_default()
     }
@@ -347,7 +364,7 @@ pub enum ReadOutcome {
     Missing,
     /// read (from the backup when the save itself couldn't be); `set_aside` is where an
     /// unreadable save was moved
-    Loaded { save: SaveData, from_backup: bool, set_aside: Option<PathBuf> },
+    Loaded { save: Box<SaveData>, from_backup: bool, set_aside: Option<PathBuf> },
     /// neither the save nor its backup could be read; the save was moved to `set_aside`
     Lost { set_aside: PathBuf },
 }
@@ -360,7 +377,7 @@ pub fn read_progress(path: &Path) -> ReadOutcome {
         return ReadOutcome::Missing;
     };
     if let Ok(save) = SaveData::parse(&text) {
-        return ReadOutcome::Loaded { save, from_backup: false, set_aside: None };
+        return ReadOutcome::Loaded { save: Box::new(save), from_backup: false, set_aside: None };
     }
     let stamp = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
     let aside = path.with_file_name(format!("progress.unreadable-{stamp}.ron"));
@@ -368,7 +385,7 @@ pub fn read_progress(path: &Path) -> ReadOutcome {
         let _ = std::fs::copy(path, &aside);
     }
     match std::fs::read_to_string(backup_path(path)).ok().and_then(|t| SaveData::parse(&t).ok()) {
-        Some(save) => ReadOutcome::Loaded { save, from_backup: true, set_aside: Some(aside) },
+        Some(save) => ReadOutcome::Loaded { save: Box::new(save), from_backup: true, set_aside: Some(aside) },
         None => ReadOutcome::Lost { set_aside: aside },
     }
 }
@@ -401,7 +418,7 @@ pub fn load_or_seed_progress_system(
     match outcome {
         ReadOutcome::Loaded { save, from_backup, set_aside } => {
             let from = save.version;
-            let save = save.settle(|id| subs.0.contains_key(&id));
+            let save = (*save).settle(|id| subs.0.contains_key(&id));
             if save.discovered.is_empty() {
                 seed(&mut progress);
             } else {
@@ -415,6 +432,17 @@ pub fn load_or_seed_progress_system(
             }
             progress.dormant = save.dormant.clone();
             progress.dormant_vessels = save.dormant_vessels.clone();
+            // a goal this build's content doesn't have, or one already reached, is dropped
+            progress.goals = save
+                .goals
+                .iter()
+                .copied()
+                .filter(|id| subs.0.contains_key(id) && !progress.discovered.contains(id))
+                .collect();
+            // a pin on something this build doesn't have, or hasn't found, is dropped
+            let mut seen = HashSet::new();
+            progress.pinned =
+                save.pinned.iter().copied().filter(|id| progress.discovered.contains(id) && seen.insert(*id)).collect();
             *journal = Journal::from_pairs(&save.journal);
             for p in save.unlocked {
                 unlocks.0.insert(p);
@@ -550,6 +578,8 @@ pub fn current_save(progress: &PlayerProgress, unlocks: &ProcessUnlocks, journal
         dormant_vessels: progress.dormant_vessels.clone(),
         journal: journal.to_pairs(),
         order: progress.order.clone(),
+        goals: progress.goals.clone(),
+        pinned: progress.pinned.clone(),
     }
 }
 
@@ -572,6 +602,8 @@ pub fn reset_progress(
     progress.order.clear();
     progress.dormant.clear();
     progress.dormant_vessels.clear();
+    progress.goals.clear();
+    progress.pinned.clear();
     *unlocks = ProcessUnlocks::default();
     fired.fired.clear();
     fired.primed = true;
@@ -631,6 +663,14 @@ mod tests {
         }
         assert_eq!(long.0.len(), crate::ui::toasts::JOURNAL_MAX);
         assert_eq!(long.0[0].text, "#25");
+    }
+
+    #[test]
+    fn pins_are_saved_in_order_and_old_saves_have_none() {
+        let save =
+            SaveData { version: SAVE_VERSION, discovered: vec![1, 5, 8], pinned: vec![8, 1], ..Default::default() };
+        assert_eq!(SaveData::parse(&save.to_text()).unwrap().pinned, vec![8, 1]);
+        assert!(SaveData::parse("(discovered:[1],unlocked:[Mix])").unwrap().pinned.is_empty());
     }
 
     #[test]

@@ -41,6 +41,13 @@ pub struct EraText;
 pub struct CountText;
 #[derive(Component)]
 pub struct CountBar;
+/// The logo and name: back to the main menu.
+#[derive(Component)]
+pub struct HomeButton;
+/// The era and discovery bar: tapped, it says the count in words (upright, the count
+/// itself is left off the header to make room).
+#[derive(Component, Default)]
+pub struct HeaderProgress(pub String);
 #[derive(Component)]
 pub struct BenchGrid;
 #[derive(Component)]
@@ -270,19 +277,33 @@ pub fn spawn_header(mut commands: Commands, fonts: Res<UiFonts>, assets: Res<Ass
             Name::new("Header"),
         ))
         .with_children(|h| {
-            // brand
-            h.spawn(Node {
-                align_items: AlignItems::Center,
-                column_gap: Val::Px(8.0),
-                margin: UiRect::right(Val::Px(10.0)),
-                ..default()
-            })
+            // brand: back to the main menu
+            h.spawn((
+                theme::button(
+                    Kind::Ghost,
+                    Node {
+                        align_items: AlignItems::Center,
+                        column_gap: Val::Px(8.0),
+                        padding: UiRect::axes(Val::Px(6.0), Val::Px(3.0)),
+                        margin: UiRect::right(Val::Px(4.0)),
+                        ..default()
+                    },
+                    theme::R_SM,
+                ),
+                HomeButton,
+                crate::ui::onboarding::Tip::Text("Main menu", "Back to the main menu. Your lab stays as you left it."),
+            ))
             .with_children(|b| {
                 b.spawn((
                     ImageNode::new(assets.load("images/ui/logo.png")),
                     Node { width: Val::Px(30.0), height: Val::Px(30.0), ..default() },
+                    Pickable::IGNORE,
                 ));
-                b.spawn((HeaderWords, theme::label(fonts, "Curieosity", theme::LG, Weight::Bold, theme::TEXT)));
+                b.spawn((
+                    HeaderWords,
+                    theme::label(fonts, "Curieosity", theme::LG, Weight::Bold, theme::TEXT),
+                    Pickable::IGNORE,
+                ));
             });
             // views
             h.spawn(Node { column_gap: Val::Px(6.0), align_items: AlignItems::Center, ..default() }).with_children(
@@ -324,14 +345,23 @@ pub fn spawn_header(mut commands: Commands, fonts: Res<UiFonts>, assets: Res<Ass
             // the challenges
             crate::ui::challenges::spawn_board_button(h, assets);
             // era + discovery progress
-            h.spawn(Node {
-                flex_direction: FlexDirection::Column,
-                align_items: AlignItems::FlexEnd,
-                row_gap: Val::Px(3.0),
-                ..default()
-            })
+            h.spawn((
+                theme::button(
+                    Kind::Ghost,
+                    Node {
+                        flex_direction: FlexDirection::Column,
+                        align_items: AlignItems::FlexEnd,
+                        row_gap: Val::Px(3.0),
+                        padding: UiRect::axes(Val::Px(6.0), Val::Px(3.0)),
+                        margin: UiRect::left(Val::Px(4.0)),
+                        ..default()
+                    },
+                    theme::R_SM,
+                ),
+                HeaderProgress::default(),
+            ))
             .with_children(|c| {
-                c.spawn((EraText, theme::label(fonts, "", theme::SM, Weight::Semibold, theme::GOLD)));
+                c.spawn((EraText, theme::label(fonts, "", theme::SM, Weight::Semibold, theme::GOLD), Pickable::IGNORE));
                 c.spawn(Node { align_items: AlignItems::Center, column_gap: Val::Px(8.0), ..default() }).with_children(
                     |r| {
                         r.spawn((
@@ -359,13 +389,34 @@ pub fn spawn_header(mut commands: Commands, fonts: Res<UiFonts>, assets: Res<Ass
                                 ])),
                             ));
                         });
-                        r.spawn((CountText, theme::label(fonts, "", theme::XS, Weight::Regular, theme::TEXT_2)));
+                        r.spawn((
+                            CountText,
+                            theme::label(fonts, "", theme::XS, Weight::Regular, theme::TEXT_2),
+                            Pickable::IGNORE,
+                        ));
                     },
                 );
             });
             theme::spawn_icon_button(h, assets, "bell", 36.0, theme::TEXT, JournalButton);
             theme::spawn_icon_button(h, assets, "gear", 36.0, theme::TEXT, SettingsButton);
         });
+}
+
+/// The logo goes to the main menu; the era and bar say the count.
+pub fn header_buttons_system(
+    homes: Query<(), (With<Clicked>, With<HomeButton>)>,
+    stats: Query<&HeaderProgress, With<Clicked>>,
+    mut menu: ResMut<crate::ui::main_menu::MainMenu>,
+    mut toasts: ResMut<crate::ui::toasts::Toasts>,
+) {
+    if !homes.is_empty() {
+        menu.show_menu();
+    }
+    for s in &stats {
+        if !s.0.is_empty() {
+            toasts.push(crate::ui::toasts::ToastKind::Milestone, s.0.clone());
+        }
+    }
 }
 
 /// Header tabs, the bell and the gear button.
@@ -518,6 +569,7 @@ pub fn header_stats_system(
     mut era: Query<&mut Text, (With<EraText>, Without<CountText>)>,
     mut count: Query<&mut Text, (With<CountText>, Without<EraText>)>,
     mut bar: Query<&mut Node, With<CountBar>>,
+    mut words: Query<&mut HeaderProgress>,
     portrait: Res<Portrait>,
     challenge: Option<Res<crate::ui::challenges::ChallengeMode>>,
 ) {
@@ -560,7 +612,11 @@ pub fn header_stats_system(
     let found = db.canon.iter().filter(|id| known(id)).count();
     let total = db.canon.len().max(1);
     if let Ok(mut t) = count.single_mut() {
-        t.0 = format!("{} / {} discovered", found, total);
+        // upright the header is narrow: the bar alone, and the count when it is tapped
+        t.0 = if portrait.0 { String::new() } else { format!("{} / {} discovered", found, total) };
+    }
+    if let Ok(mut w) = words.single_mut() {
+        w.0 = format!("Discovered: {found} of {total} substances.");
     }
     if let Ok(mut n) = bar.single_mut() {
         n.width = Val::Percent(100.0 * found as f32 / total as f32);
@@ -707,8 +763,10 @@ pub fn decorate_bench_system(
     }
 }
 
-/// The zoom bar's buttons and its level, and a two-finger pinch: apart zooms in,
-/// together zooms out, a step at a time.
+/// The zoom bar's buttons and its level, and a two-finger pinch on the lab: apart zooms in,
+/// together zooms out, a step at a time. A pinch on anything over the lab (a library, the
+/// tech tree, lessons, settings, the menu) is that screen's, not the bench's.
+#[allow(clippy::too_many_arguments)]
 pub fn bench_zoom_controls_system(
     mut zoom: ResMut<crate::systems::drag_drop::BenchZoom>,
     outs: Query<(), (With<Clicked>, With<BenchZoomOut>)>,
@@ -716,6 +774,13 @@ pub fn bench_zoom_controls_system(
     mut label: Query<&mut Text, With<BenchZoomLabel>>,
     touches: Res<Touches>,
     mut pinch: Local<Option<f32>>,
+    views: (
+        Res<crate::ui::codex::CodexState>,
+        Res<crate::ui::reaction_library::ReactionLibState>,
+        Res<crate::ui::tech_tree::TechTreeState>,
+        Res<crate::ui::curriculum::CurriculumState>,
+    ),
+    over: (Res<crate::ui::settings::SettingsUi>, Res<crate::ui::main_menu::MainMenu>),
 ) {
     let mut to = zoom.0;
     if !outs.is_empty() {
@@ -724,7 +789,15 @@ pub fn bench_zoom_controls_system(
     if !ins.is_empty() {
         to = zoom.stepped(false);
     }
-    let fingers: Vec<Vec2> = touches.iter().map(|t| t.position()).collect();
+    let (codex, rlib, tree, learn) = views;
+    let (settings, menu) = over;
+    let covered = codex.open
+        || rlib.open
+        || tree.open
+        || learn.open
+        || settings.open
+        || menu.stage != crate::ui::main_menu::MenuStage::Hidden;
+    let fingers: Vec<Vec2> = if covered { Vec::new() } else { touches.iter().map(|t| t.position()).collect() };
     if let [a, b] = fingers[..] {
         let d = a.distance(b);
         match *pinch {

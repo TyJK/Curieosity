@@ -184,6 +184,7 @@ def game_substances():
             "stage": patch.get("stage"),
             "link": next((u for _, u in patch.get("references") or []), None),
             "description": patch.get("description") or base.get("description") or "",
+            "text_source": patch.get("text_source") or base.get("text_source"),
             "element": bool(base.get("element_info")),
             "lib_mp": base.get("melting_point_c"), "lib_bp": base.get("boiling_point_c"),
             "lib_density": base.get("density_g_cm3"),
@@ -261,9 +262,12 @@ def clip(text, limit):
     return "\n\n".join(out)
 
 
-def pick_sections(sections):
+def pick_sections(sections, seen=None):
     """Up to MAX_SECTIONS of the article's top-level sections, by what they are about, in the
-    order SECTIONS gives; a section's subsections are read as part of it."""
+    order SECTIONS gives; a section's subsections are read as part of it. A sentence that says
+    again what the page already said (in `seen`: the game's own text and the lead, then each
+    section taken) is left out first, so the room goes to something new."""
+    seen = [] if seen is None else seen
     tops = []
     for level, head, body in sections:
         if level == 2:
@@ -275,14 +279,70 @@ def pick_sections(sections):
         for i, (head, body) in enumerate(tops):
             if i in used or re.search(SKIP_HEADINGS, head, re.I) or not re.search(pat, head, re.I):
                 continue
-            text = clip(body, SECTION_MAX)
+            mark = len(seen)
+            text = clip(drop_repeats(clean(body), seen), SECTION_MAX)
             if len(text) >= 80:
                 chosen.append((label, text))
                 used.add(i)
+                # only what is shown counts as said
+                del seen[mark:]
+                drop_repeats(text, seen)
                 break
+            del seen[mark:]
         if len(chosen) >= MAX_SECTIONS:
             break
     return chosen
+
+
+# Words that don't make a sentence say anything new.
+REPEAT_STOP = set("""a an the of in on at to for from by with and or as is are was were be been being it its
+this that these those which who whom whose than then also into onto over under about after before during
+while such has have had can may most more many much some all other""".split())
+
+
+def _sentences(paragraph):
+    return [s for s in re.split(r"(?<=[.!?])\s+(?=[A-Z0-9\"'(])", paragraph.strip()) if s]
+
+
+def _said(sentence):
+    w = re.findall(r"[a-z0-9]+(?:\.[0-9]+)?", sentence.lower())
+    return w, set(w), {tuple(w[i:i + 3]) for i in range(len(w) - 2)}
+
+
+def repeats(sentence, seen):
+    """Whether a sentence says again what one in `seen` said: most three-word runs of the
+    shorter of the two are in the other, and this one adds no number and at most three words
+    of its own. ("Silica is the major constituent of sand", twice; but not Malaysia's palm
+    oil after Indonesia's.)"""
+    words, _, runs = _said(sentence)
+    if len(words) < 5 or not runs:
+        return False
+    for ew, eset, eruns in seen:
+        if not eruns or len(runs & eruns) / min(len(runs), len(eruns)) < 0.6:
+            continue
+        new = {x for x in words if x not in eset and x not in REPEAT_STOP}
+        if len(new) <= 3 and not any(x[0].isdigit() for x in new):
+            return True
+    return False
+
+
+def drop_repeats(text, seen):
+    """`text` without the sentences that repeat one in `seen` or earlier in `text`, its
+    paragraphs kept apart (one left empty goes). What it keeps is added to `seen`."""
+    out = []
+    for para in (text or "").split("\n"):
+        if not para.strip():
+            out.append(para)
+            continue
+        kept = []
+        for s in _sentences(para):
+            if repeats(s, seen):
+                continue
+            kept.append(s)
+            seen.append(_said(s))
+        if kept:
+            out.append(" ".join(kept))
+    return re.sub(r"\n{3,}", "\n\n", "\n".join(out)).strip("\n")
 
 
 # --------------------------------------------------------------------------------------
@@ -710,6 +770,68 @@ def choose(rec, pages, entities):
     return None, "no article confirmed", None
 
 
+def chembox_smiles(scrape=None):
+    """id -> the SMILES in the Chembox of each game substance's own article (the one choose()
+    confirms as the substance's, never a related subject's), for the structure pictures
+    gen_authored draws. The first SMILES the box gives is taken; gen_authored checks that its
+    formula is the substance's before drawing it. Empty when the scrape is missing."""
+    scrape = scrape if scrape is not None else load_scrape(SCRAPE)
+    if not scrape:
+        return {}
+    pages, entities = scrape["pages"], scrape["entities"]
+    out = {}
+    for sid, sub in game_substances().items():
+        rec = scrape["subs"].get(sid) or scrape["subs"].get(str(sid))
+        if not rec:
+            continue
+        page, _, about = choose(current(rec, sub), pages, entities)
+        if not page or about is not None:
+            continue
+        p = {}
+        for box in page.get("infobox") or []:
+            for k, v in params(box).items():
+                p.setdefault(k, v)
+        for key in ("smiles", "smiles1", "smiles2"):
+            # a value may carry a template or markup around the string itself
+            v = re.sub(r"\{\{[^{}]*\}\}|<[^>]+>|'''?", "", p.get(key) or "").strip()
+            if v and " " not in v:
+                out[int(sid)] = v
+                break
+    return out
+
+
+NFPA_SPECIAL = {"W": "W", "OX": "OX", "SA": "SA", "W+OX": "W OX", "OX+W": "W OX"}
+
+
+def chembox_nfpa(scrape=None):
+    """id -> (health, fire, instability, special) from the NFPA 704 ratings in the Chembox of
+    each game substance's own article. All three numbers must be there and 0 to 4; special is
+    one of NFPA 704's own (W reacts with water, OX oxidizer, SA simple asphyxiant) or None."""
+    scrape = scrape if scrape is not None else load_scrape(SCRAPE)
+    if not scrape:
+        return {}
+    pages, entities = scrape["pages"], scrape["entities"]
+    rx = re.compile(r"\|\s*NFPA-([HFRS])\s*=\s*([^|\n]*)")
+    out = {}
+    for sid, sub in game_substances().items():
+        rec = scrape["subs"].get(sid) or scrape["subs"].get(str(sid))
+        if not rec:
+            continue
+        page, _, about = choose(current(rec, sub), pages, entities)
+        if not page or about is not None:
+            continue
+        box = "\n".join(b if isinstance(b, str) else str(b) for b in page.get("infobox") or [])
+        v = {}
+        for k, x in rx.findall(box):
+            v.setdefault(k, re.sub(r"<[^>]+>|\{\{[^{}]*\}\}|\}\}", "", x).strip())
+        hfr = [v.get(k, "") for k in "HFR"]
+        if not all(re.fullmatch(r"[0-4]", x) for x in hfr):
+            continue
+        special = NFPA_SPECIAL.get(v.get("S", "").upper().replace(" ", ""))
+        out[int(sid)] = (int(hfr[0]), int(hfr[1]), int(hfr[2]), special)
+    return out
+
+
 def current(rec, sub):
     """The scrape's record with its own-link candidates dropped when the content has changed
     that link since the scrape (a wrong link fixed): the fixed one is fetched next time."""
@@ -935,8 +1057,20 @@ def build(args):
             continue
         report[f"article found by {how}"] += 1
         lead, sections = split_sections(page.get("text", ""))
-        lead = clip(lead, LEAD_MAX)
-        chosen = pick_sections(sections)
+        # the game's own words come first on the page when they aren't the article's
+        seen = []
+        if subs[sid].get("text_source") != "Wikipedia":
+            drop_repeats(subs[sid].get("description") or "", seen)
+        whole = clean(lead)
+        lead = clip(drop_repeats(whole, seen), LEAD_MAX)
+        if not lead.strip():
+            # the article's lead only says what the game's own words do: it keeps its say
+            lead = clip(whole, LEAD_MAX)
+        seen = seen[:0]
+        if subs[sid].get("text_source") != "Wikipedia":
+            drop_repeats(subs[sid].get("description") or "", seen)
+        drop_repeats(lead, seen)
+        chosen = pick_sections(sections, seen)
         f = facts(page, entities.get(page.get("wikibase")), scrape["templates"])
         if about:
             # the related subject's values aren't this substance's
@@ -998,6 +1132,22 @@ def build(args):
         report["substances with glossary terms"] += bool(ks)
         if ks:
             lines.append(f"        {sid}: [" + ", ".join(q(k) for k in ks) + "],")
+    lines.append("    },")
+    # what each name is built from (the name row on the page), and the NFPA 704 diamond
+    lines.append("    name_terms: {")
+    for sid in sorted(subs):
+        ks = glossary.name_parts(subs[sid]["name"])
+        report["substances whose name is explained"] += bool(ks)
+        used.update(ks)
+        if ks:
+            lines.append(f"        {sid}: [" + ", ".join(q(k) for k in ks) + "],")
+    lines.append("    },")
+    nfpa = chembox_nfpa(scrape)
+    report["substances with an NFPA 704 diamond"] = len(nfpa)
+    lines.append("    safety: {")
+    for sid in sorted(nfpa):
+        h, f, r, sp = nfpa[sid]
+        lines.append(f"        {sid}: (health: {h}, fire: {f}, instability: {r}, special: {opt_str(sp)}),")
     lines.append("    },")
     lines.append("    topic_terms: {")
     for key in curriculum.TOPICS:

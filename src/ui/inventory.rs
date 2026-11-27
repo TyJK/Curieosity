@@ -344,11 +344,9 @@ pub enum TypingBox {
 pub struct ShelfSearchBox;
 #[derive(Component)]
 pub struct ShelfSearchText;
+/// "Clear": beside the box while it holds something.
 #[derive(Component)]
 pub struct ShelfSearchClear;
-/// "Done": puts a phone's keyboard away and brings the bench back.
-#[derive(Component)]
-pub struct ShelfSearchDone;
 /// "SHELF", or "KIT" while a target's kit is showing.
 #[derive(Component)]
 pub struct ShelfTitle;
@@ -653,34 +651,15 @@ pub fn spawn_inventory_panel(mut commands: Commands, fonts: Res<UiFonts>, assets
                             Node { flex_grow: 1.0, overflow: Overflow::clip(), ..default() },
                             Pickable::IGNORE,
                         ));
-                        b.spawn((
-                            theme::button(
-                                theme::Kind::Ghost,
-                                Node {
-                                    width: Val::Px(30.0),
-                                    height: Val::Px(30.0),
-                                    flex_shrink: 0.0,
-                                    align_items: AlignItems::Center,
-                                    justify_content: JustifyContent::Center,
-                                    display: Display::None,
-                                    ..default()
-                                },
-                                99.0,
-                            ),
-                            ShelfSearchClear,
-                            crate::ui::onboarding::Tip::Text("Clear", "Clear the search."),
-                        ))
-                        .with_children(|x| {
-                            x.spawn(theme::icon(&assets, "close", 14.0, theme::TEXT));
-                        });
                     });
-                    // a phone's keyboard: Done puts it away
+                    // Clear: a full-size button beside the box, while there is something to clear
                     bar.spawn((
                         theme::button(
-                            theme::Kind::Primary,
+                            theme::Kind::Secondary,
                             Node {
                                 height: Val::Px(34.0),
-                                padding: UiRect::horizontal(Val::Px(16.0)),
+                                padding: UiRect::new(Val::Px(10.0), Val::Px(12.0), Val::Px(0.0), Val::Px(0.0)),
+                                column_gap: Val::Px(6.0),
                                 align_items: AlignItems::Center,
                                 flex_shrink: 0.0,
                                 display: Display::None,
@@ -688,11 +667,13 @@ pub fn spawn_inventory_panel(mut commands: Commands, fonts: Res<UiFonts>, assets
                             },
                             theme::R_MD,
                         ),
-                        ShelfSearchDone,
+                        ShelfSearchClear,
+                        crate::ui::onboarding::Tip::Text("Clear", "Clear the search."),
                     ))
-                    .with_children(|d| {
-                        d.spawn((
-                            theme::label(&fonts, "Done", theme::SM, Weight::Semibold, theme::BG),
+                    .with_children(|x| {
+                        x.spawn(theme::icon(&assets, "close", 14.0, theme::TEXT));
+                        x.spawn((
+                            theme::label(&fonts, "Clear", theme::SM, Weight::Semibold, theme::TEXT),
                             Pickable::IGNORE,
                         ));
                     });
@@ -784,11 +765,11 @@ pub fn shelf_selection_outline_system(
 }
 
 /// The shelf's search box: a tap starts typing into it (and brings up a phone's keyboard),
-/// another tap, Enter or Esc (see shell::escape_system) stops; the x clears it. Typing
-/// letters and digits adds to it, Backspace takes away. With a phone's keyboard up the shelf
-/// sits on it (fit_dock_system): a tap on the box brings the keyboard back if it was put
-/// away, the x clears and carries on typing, each result tapped goes into the selected
-/// vessel (detail_panel), and Done ends it.
+/// another tap, Enter or Esc (see shell::escape_system) stops, and so does putting a phone's
+/// keyboard away (its own key, or Back); Clear empties it. Typing letters and digits adds to
+/// it, Backspace takes away. With a phone's keyboard up the shelf sits on it
+/// (fit_dock_system), Clear empties the box and carries on typing, and each result tapped
+/// goes into the selected vessel (detail_panel).
 #[allow(clippy::too_many_arguments)]
 pub fn shelf_search_system(
     keys: Res<ButtonInput<KeyCode>>,
@@ -800,34 +781,43 @@ pub fn shelf_search_system(
         Res<crate::ui::tech_tree::TechTreeState>,
         Res<crate::ui::curriculum::CurriculumState>,
     ),
-    pressed: (
-        Query<(), (With<Clicked>, With<ShelfSearchBox>)>,
-        Query<(), (With<Clicked>, With<ShelfSearchClear>)>,
-        Query<(), (With<Clicked>, With<ShelfSearchDone>)>,
-    ),
-    soft: Res<crate::platform::SoftKeyboard>,
+    pressed: (Query<(), (With<Clicked>, With<ShelfSearchBox>)>, Query<(), (With<Clicked>, With<ShelfSearchClear>)>),
+    keyboard: (Res<crate::platform::SoftKeyboard>, Res<crate::platform::KeyboardInset>),
+    mut keyboard_was_up: Local<bool>,
     mut text_q: Query<(&mut Text, &mut TextColor), With<ShelfSearchText>>,
-    mut clear_q: Query<&mut Node, (With<ShelfSearchClear>, Without<ShelfSearchDone>)>,
-    mut done_q: Query<&mut Node, (With<ShelfSearchDone>, Without<crate::ui::detail_panel::SelectionOpenButton>)>,
-    mut library_q: Query<
+    mut clear_q: Query<&mut Node, With<ShelfSearchClear>>,
+    mut bar_q: Query<
         &mut Node,
-        (With<crate::ui::detail_panel::SelectionOpenButton>, Without<ShelfSearchDone>, Without<ShelfSearchClear>),
+        (
+            Or<(With<crate::ui::detail_panel::SelectionOpenButton>, With<crate::ui::detail_panel::SelectionPinButton>)>,
+            Without<ShelfSearchClear>,
+        ),
     >,
 ) {
-    let (boxes, clears, done) = pressed;
-    if !done.is_empty() {
-        search.typing = false;
-    } else if !clears.is_empty() {
+    let (soft, inset) = keyboard;
+    let (boxes, clears) = pressed;
+    if !clears.is_empty() {
         search.text.clear();
         search.typing = soft.0 && search.typing;
         if search.typing {
             crate::platform::keyboard_show("");
         }
     } else if !boxes.is_empty() {
-        search.typing = (soft.0 && search.typing) || !search.typing;
+        search.typing = !search.typing;
         if search.typing {
             crate::platform::keyboard_show(&search.text);
         }
+    }
+    // a phone's keyboard put away (its own key, or Back) ends the typing; the results stay
+    if search.typing && soft.0 {
+        if inset.0 > 1.0 {
+            *keyboard_was_up = true;
+        } else if *keyboard_was_up {
+            search.typing = false;
+        }
+    }
+    if !search.typing {
+        *keyboard_was_up = false;
     }
     let (codex, rlib, tree, learn) = views;
     if search.typing && (codex.open || rlib.open || tree.open || learn.open) {
@@ -859,15 +849,9 @@ pub fn shelf_search_system(
     if !(search.is_changed() || soft.is_changed()) {
         return;
     }
-    // on a phone's keyboard Done takes the Library button's place
+    // on a phone's keyboard the shelf header keeps to the box and Clear
     let on_keys = soft.0 && search.typing;
-    if let Ok(mut n) = done_q.single_mut() {
-        let d = if on_keys { Display::Flex } else { Display::None };
-        if n.display != d {
-            n.display = d;
-        }
-    }
-    if let Ok(mut n) = library_q.single_mut() {
+    for mut n in &mut bar_q {
         let d = if on_keys { Display::None } else { Display::Flex };
         if n.display != d {
             n.display = d;
@@ -964,11 +948,14 @@ pub fn populate_inventory_system(
                 && kit_ids.as_ref().is_none_or(|k| k.contains(&s.id))
         })
         .collect();
+    // pinned first, in the order they were pinned
+    let pin =
+        |s: &crate::data::substances::Substance| progress.pinned.iter().position(|&p| p == s.id).unwrap_or(usize::MAX);
     if *filter == InvCategory::New {
         let rank = progress.recency();
-        items.sort_by_key(|s| (std::cmp::Reverse(rank.get(&s.id).copied().unwrap_or(0)), shelf_key(s)));
+        items.sort_by_key(|s| (pin(s), std::cmp::Reverse(rank.get(&s.id).copied().unwrap_or(0)), shelf_key(s)));
     } else {
-        items.sort_by_key(|s| shelf_key(s));
+        items.sort_by_key(|s| (pin(s), shelf_key(s)));
     }
     if let Ok((mut t, mut c)) = title_q.single_mut() {
         let (text, color) = if kit.is_some() { ("KIT", theme::GOLD) } else { ("SHELF", theme::TEXT_2) };
@@ -1243,8 +1230,55 @@ pub fn spawn_shelf_tile(
                     item.spawn((theme::label(fonts, name, theme::XS, Weight::Regular, theme::TEXT), Pickable::IGNORE));
                 }
             }
+            // pinned (shelf_pin_badge_system shows it): a gold pin in the top corner
+            item.spawn((
+                ShelfPinBadge,
+                Node {
+                    position_type: PositionType::Absolute,
+                    top: Val::Px(3.0),
+                    right: Val::Px(3.0),
+                    width: Val::Px(17.0),
+                    height: Val::Px(17.0),
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::Center,
+                    border_radius: BorderRadius::all(Val::Px(99.0)),
+                    display: Display::None,
+                    ..default()
+                },
+                BackgroundColor(theme::BG),
+                Pickable::IGNORE,
+            ))
+            .with_children(|b| {
+                b.spawn(theme::icon(asset_server, "pinned", 12.0, theme::GOLD));
+            });
         })
         .id()
+}
+
+/// The pin in a shelf tile's corner, showing while its substance is pinned.
+#[derive(Component)]
+pub struct ShelfPinBadge;
+
+/// Shows the pin on pinned substances' tiles (as tiles are built, and as pins change).
+pub fn shelf_pin_badge_system(
+    progress: Res<PlayerProgress>,
+    tiles: Query<(&Ingredient, &Children), With<ShelfTile>>,
+    new_tiles: Query<(), Added<ShelfTile>>,
+    mut badges: Query<&mut Node, With<ShelfPinBadge>>,
+) {
+    if !progress.is_changed() && new_tiles.is_empty() {
+        return;
+    }
+    for (ing, children) in &tiles {
+        let want = if progress.pinned.contains(&ing.id) { Display::Flex } else { Display::None };
+        for c in children.iter() {
+            if let Ok(mut n) = badges.get_mut(c) {
+                if n.display != want {
+                    n.display = want;
+                }
+            }
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------------------

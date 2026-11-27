@@ -16,10 +16,10 @@ use chem_alchemy::data::pages::Pages;
 use chem_alchemy::data::reactions::Reactions;
 use chem_alchemy::data::substances::{SubstancePatches, Substances};
 use chem_alchemy::resources::player_progress::{SaveData, SAVE_VERSION};
-use chem_alchemy::resources::recipe_database::{RecipeDatabase, RecipeKey, MAX_GRANT, MAX_MILESTONE_GAP};
+use chem_alchemy::resources::recipe_database::{Lookup, RecipeDatabase, RecipeKey, MAX_GRANT, MAX_MILESTONE_GAP};
 use chem_alchemy::systems::achievements::{achievement_list, achievements_csv};
 use chem_alchemy::ui::credits::{text_credit, GIVING, HOW_MADE, MADE_BY, PRIVACY, SECTIONS, TEXT_SOURCES};
-use chem_alchemy::ui::hint::{base_materials, decoy_count, makes_target, plan_kit, targets, MAX_STEPS};
+use chem_alchemy::ui::hint::{base_materials, decoy_count, makes_target, offer, plan_kit, targets, toward, MAX_STEPS};
 use chem_alchemy::ui::process_toolbar::{vessel_art_path, VESSELS};
 use chem_alchemy::ui::settings::Settings;
 use chem_alchemy::ui::tech_tree::plan_links;
@@ -503,8 +503,8 @@ fn art_and_icons_are_on_disk() {
         }
     }
     for icon in [
-        "bench", "book", "check", "chevron", "clear", "close", "dot", "external", "flask", "gear", "info", "lock",
-        "logo", "minus", "plus", "reaction", "search", "spark", "tree", "grid_dot",
+        "bench", "book", "check", "chevron", "clear", "close", "dot", "external", "flag", "flask", "gear", "info",
+        "lock", "logo", "minus", "plus", "reaction", "search", "spark", "target", "tree", "grid_dot",
     ] {
         check(format!("images/ui/{icon}.png"));
     }
@@ -615,6 +615,10 @@ fn a_save_round_trips() {
         ],
         // the order things were found in, newest last (the shelf's "Newest first")
         order: vec![1, 5, 8, 12, 15000, 900],
+        // goals set in the tech tree, first priority first
+        goals: vec![313, 110],
+        // pinned to the front of the shelf, in the order they were pinned
+        pinned: vec![12, 5],
     };
     let back = SaveData::parse(&data.to_text()).unwrap();
     assert_eq!(back, data);
@@ -715,6 +719,7 @@ fn settings_round_trip_and_tolerate_old_files() {
     assert_eq!(old.reaction_speed, Settings::default().reaction_speed);
     assert!(old.tooltips && old.next_step && !old.tour_done, "help defaults on for an old settings file");
     assert!(old.kit, "target kits default on for an old settings file");
+    assert!(!old.tree_ready, "the tech tree keeps recipes hidden for an old settings file");
 }
 
 /// Every description the game ships says where it came from, and that source is one whose
@@ -909,4 +914,144 @@ fn pages_are_well_formed() {
         }
         assert!(!pg.lead.contains("displaystyle"), "{name}'s lead has maths markup in it");
     }
+}
+
+/// What a name says is told in glossary terms that exist, for names where the rules know the
+/// parts (bleach's hypochlorite, Glauber's salt) and never where they don't
+/// (diamond is no di-, benzene no alkene); every NFPA 704 rating is 0 to 4 with one of the
+/// standard's own special marks.
+#[test]
+fn names_and_safety_diamonds_are_sound() {
+    let c = content();
+    let pg = &c.pages;
+    for (id, keys) in &pg.name_terms {
+        assert!(c.subs.0.contains_key(id), "name terms for {id}, which isn't in the game");
+        assert!(!keys.is_empty());
+        for k in keys {
+            assert!(pg.glossary.contains_key(k), "{}'s name uses {k}, not in the glossary", name(c, *id));
+        }
+    }
+    let parts = |n: &str| {
+        let id = c.subs.0.values().find(|s| s.name.eq_ignore_ascii_case(n)).unwrap_or_else(|| panic!("{n}")).id;
+        pg.name_terms.get(&id).cloned().unwrap_or_default()
+    };
+    assert!(parts("Sodium Hypochlorite").contains(&"Hypochlorite".to_string()));
+    assert!(parts("Glauber's Salt").contains(&"Salt".to_string()));
+    assert!(parts("Sodium chloride").contains(&"Chloride".to_string()));
+    assert!(!parts("Benzene").contains(&"Alkene".to_string()));
+    assert!(parts("Diamond").is_empty());
+    assert!(pg.safety.len() > 500, "only {} diamonds", pg.safety.len());
+    for (id, n) in &pg.safety {
+        assert!(c.subs.0.contains_key(id));
+        assert!(n.health <= 4 && n.fire <= 4 && n.instability <= 4, "{}'s diamond: {n:?}", name(c, *id));
+        assert!(
+            n.special.is_none() || n.special_meaning().is_some(),
+            "{}'s special mark {:?}",
+            name(c, *id),
+            n.special
+        );
+    }
+    let ethanol = c.subs.0.values().find(|s| s.name == "Ethanol").expect("Ethanol").id;
+    let e = pg.safety.get(&ethanol).expect("ethanol's diamond");
+    assert_eq!((e.health, e.fire, e.instability), (2, 3, 0));
+}
+
+/// Aiming for a step leads there: from a new game, always making the first thing Hint offers
+/// toward the goal reaches it, for goals spread across every era.
+#[test]
+fn aiming_for_a_step_leads_there() {
+    let c = content();
+    let db = &c.db;
+    let goals: Vec<u32> = db
+        .authored
+        .iter()
+        .step_by(53)
+        .filter_map(|r| r.products.first().map(|p| p.substance_id))
+        .filter(|id| !db.start.contains(id))
+        .collect();
+    assert!(goals.len() > 40);
+    for goal in goals {
+        let mut known: HashSet<u32> = db.start.iter().copied().collect();
+        let mut open: HashSet<ProcessType> = [ProcessType::Mix, ProcessType::Heat].into_iter().collect();
+        let mut steps = 0;
+        loop {
+            for m in &db.milestones {
+                if known.contains(&m.on) {
+                    open.extend(m.unlock.iter().cloned());
+                    known.extend(m.grant.iter().copied());
+                }
+            }
+            if known.contains(&goal) {
+                break;
+            }
+            let next = toward(db, goal, &|id| known.contains(&id), &|p| open.contains(p));
+            let first =
+                next.first().unwrap_or_else(|| panic!("aiming for {} stalls after {steps} steps", name(c, goal)));
+            let r = db.authored.iter().find(|r| r.id == first.reaction).expect("a step");
+            assert!(!known.contains(&first.product), "{} offered again", name(c, first.product));
+            known.extend(r.products.iter().map(|p| p.substance_id));
+            steps += 1;
+            assert!(steps < 2000, "aiming for {} never arrives", name(c, goal));
+        }
+    }
+    // goals come first in the list, then whatever else is new
+    let start: HashSet<u32> = db.start.iter().copied().collect();
+    let open: HashSet<ProcessType> = [ProcessType::Mix, ProcessType::Heat].into_iter().collect();
+    let bronze = c.subs.0.values().find(|s| s.name == "Bronze").expect("Bronze").id;
+    let list = offer(db, &|id| start.contains(&id), &|p| open.contains(p), &[bronze]);
+    assert_eq!(list.first().and_then(|o| o.1), Some(bronze), "the goal's step leads the list");
+    // and the way there is the tech tree's own: charcoal for the copper and the tin, not
+    // whatever a later era's way to copper happens to need
+    let charcoal = c.subs.0.values().find(|s| s.name == "Charcoal").expect("Charcoal").id;
+    let way: Vec<u32> = list.iter().filter(|o| o.1 == Some(bronze)).map(|o| o.0.product).collect();
+    let named: Vec<String> = way.iter().map(|id| name(c, *id)).collect();
+    assert_eq!(way, vec![charcoal], "toward bronze from a new game: {named:?}");
+    assert!(list.iter().any(|o| o.1.is_none()), "the list still offers other new things");
+}
+
+/// Tin and lead make pewter in every furnace; solder is pewter with more lead in it (one mix
+/// can't make both, or a hotter furnace would hide one of them).
+#[test]
+fn pewter_and_solder_are_different_mixes() {
+    let c = content();
+    let id = |n: &str| c.subs.0.values().find(|s| s.name == n).unwrap_or_else(|| panic!("{n}")).id;
+    let (tin, lead, pewter, solder) = (id("Tin"), id("Lead"), id("Pewter"), id("Tin-Lead Solder"));
+    for vessel in [ProcessType::Heat, ProcessType::Smelting, ProcessType::BlastFurnace, ProcessType::ArcFurnace] {
+        match c.db.lookup(&vessel, vec![tin, lead]) {
+            Lookup::Runs(r) => assert!(
+                r.products.iter().any(|p| p.substance_id == pewter),
+                "tin and lead in the {vessel:?} make {}",
+                r.name
+            ),
+            _ => panic!("tin and lead don't react in the {vessel:?}"),
+        }
+    }
+    match c.db.lookup(&ProcessType::Heat, vec![pewter, lead]) {
+        Lookup::Runs(r) => assert!(r.products.iter().any(|p| p.substance_id == solder)),
+        _ => panic!("pewter and lead don't make solder"),
+    }
+}
+
+/// No page says the same sentence twice: the lead sums its article up, so a section that
+/// repeats one of its sentences word for word is trimmed when the pages are made.
+#[test]
+fn pages_say_each_sentence_once() {
+    let c = content();
+    let mut repeats = Vec::new();
+    for (id, pg) in &c.pages.substances {
+        let mut seen: HashSet<String> = HashSet::new();
+        for text in std::iter::once(&pg.lead).chain(pg.sections.iter().map(|(_, t)| t)) {
+            for s in text.split(". ").map(|s| s.trim().trim_end_matches('.').to_lowercase()) {
+                if s.split_whitespace().count() >= 8 && !seen.insert(s.clone()) {
+                    repeats.push(format!("{id}: {s}"));
+                }
+            }
+        }
+    }
+    assert!(
+        repeats.is_empty(),
+        "{} sentences repeat on their page: {:?}",
+        repeats.len(),
+        &repeats[..repeats.len().min(5)]
+    );
 }

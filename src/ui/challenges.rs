@@ -60,6 +60,9 @@ struct SetAside {
     save: SaveData,
     pane: Vec2,
     zoom: f32,
+    /// the lab's Hint target, its hint level and whether its card was folded: it is the
+    /// player's until made or let go, so it comes back with the lab
+    hint: Option<(Target, u8, bool)>,
 }
 
 impl ChallengeMode {
@@ -272,6 +275,7 @@ fn challenge_flow_system(
     db: Option<Res<RecipeDatabase>>,
     lab: LabState,
     views: Views,
+    settings: Res<Settings>,
     mut cards: Query<(Entity, &mut Node, Has<Stashed>), With<VesselCard>>,
     links: Query<(Entity, &ReactionLink)>,
     mut pane: Query<&mut Node, (With<CanvasScrollingPane>, Without<VesselCard>)>,
@@ -300,7 +304,7 @@ fn challenge_flow_system(
                     commands.entity(e).despawn();
                 }
             }
-            if let Some(saved) = mode.saved.take() {
+            if let Some(saved) = mode.saved.as_ref() {
                 restore(&saved.save, &mut progress, &mut unlocks, &mut journal);
                 zoom.0 = saved.zoom;
                 if let Ok(mut p) = pane.single_mut() {
@@ -317,6 +321,13 @@ fn challenge_flow_system(
             mode.run = None;
             hint.stop();
             hint.challenge_step = None;
+            // the lab's own target, as it was left
+            if let (Some((t, level, folded)), Some(db)) = (mode.saved.as_ref().and_then(|s| s.hint), db.as_ref()) {
+                choose(&mut hint, t, db, &progress, &unlocks, settings.decoy_range());
+                hint.level = level;
+                hint.collapsed = folded;
+            }
+            mode.saved = None;
             selected.0 = None;
             active.0 = None;
         }
@@ -324,7 +335,13 @@ fn challenge_flow_system(
         let Some(c) = mode.get(id).cloned() else { continue };
         // the lab, set aside
         let pane_at = pane.single().map(pane_offset).unwrap_or(Vec2::ZERO);
-        mode.saved = Some(SetAside { save: current_save(&progress, &unlocks, &journal), pane: pane_at, zoom: zoom.0 });
+        let lab_target = hint.target.filter(|_| hint.challenge_step.is_none()).map(|t| (t, hint.level, hint.collapsed));
+        mode.saved = Some(SetAside {
+            save: current_save(&progress, &unlocks, &journal),
+            pane: pane_at,
+            zoom: zoom.0,
+            hint: lab_target,
+        });
         for (e, mut n, _) in &mut cards {
             n.display = Display::None;
             commands.entity(e).insert(Stashed);
@@ -332,6 +349,7 @@ fn challenge_flow_system(
         // the challenge's shelf and vessels: the route's, and a couple more to choose from
         progress.discovered = c.kit.iter().chain(c.decoys.iter()).copied().collect();
         progress.order.clear();
+        progress.goals.clear();
         let mut vessels: Vec<ProcessType> = c.vessels.clone();
         for extra in [ProcessType::Mix, ProcessType::Heat] {
             if !vessels.contains(&extra) {
@@ -363,6 +381,7 @@ fn challenge_flow_system(
 pub fn restore(save: &SaveData, progress: &mut PlayerProgress, unlocks: &mut ProcessUnlocks, journal: &mut Journal) {
     progress.discovered = save.discovered.iter().copied().collect();
     progress.order = save.order.clone();
+    progress.goals = save.goals.clone();
     progress.dormant = save.dormant.clone();
     progress.dormant_vessels = save.dormant_vessels.clone();
     unlocks.0 = save.unlocked.iter().cloned().collect();
@@ -415,7 +434,11 @@ fn challenge_score_system(
             Some(Target { product: run.challenge.step_products[i], reaction: run.challenge.steps[i] });
         // the card, if open, moves on to the next step
         match (hint.target.is_some() && !finished, hint.challenge_step, db.as_ref()) {
-            (true, Some(t), Some(db)) => choose(&mut hint, t, db, &progress, &unlocks, settings.decoy_range()),
+            (true, Some(t), Some(db)) => {
+                let folded = hint.collapsed;
+                choose(&mut hint, t, db, &progress, &unlocks, settings.decoy_range());
+                hint.collapsed = folded;
+            }
             _ => hint.stop(),
         }
     }

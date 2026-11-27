@@ -210,7 +210,7 @@ E5.reactions += [
       "Benzaldehyde and heptanal joined by an aldol condensation.", wiki=P["AmylCinnamal"], T=40),
     R("Rose Oxide", "2 Citronellol + O2 -> 2 RoseOxide + 2 H2O", LIGHT,
       "Citronellol photo-oxygenated with singlet oxygen; the hydroperoxide is reduced and closed into the ring.", wiki=P["RoseOxide"]),
-    R("Peach Lactone", "UndecylenicAcid -> Undecalactone", HEAT,
+    R("Peach Lactone", "UndecylenicAcid + H2SO4 -> Undecalactone + H2SO4", HEAT,
       "Undecylenic acid in hot sulfuric acid: the double bond walks down the chain until the acid can close onto it.",
       wiki=P["Undecalactone"], T=80),
     R("2-Heptylcyclopentanone", "Cyclopentanone + Heptanal + H2 -> HeptylCyclopentanone + H2O", CAT,

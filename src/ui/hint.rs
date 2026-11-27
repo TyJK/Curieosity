@@ -7,6 +7,10 @@
 // before it tells: first the name of the step that makes it, then one ingredient, then all
 // of them, then the vessel and the whole route.
 //
+// A target stays until it is made or another is picked: closing the card folds it to the
+// button ("Target · Bronze"), and only Stop lets it go. Goals the player sets in the tech
+// tree come first in the list: the steps that can be made now on the way to each.
+//
 // While a target is chosen the shelf shows its kit instead of everything discovered: the
 // precursors, worked back from the target through up to four steps. The intermediates are
 // left out, even when already discovered, so the player makes them again on the way (by
@@ -81,6 +85,162 @@ pub fn targets(db: &RecipeDatabase, known: &dyn Fn(u32) -> bool, open: &dyn Fn(&
             }
         }
     }
+    out
+}
+
+/// One way to come by a substance not discovered yet: a step that makes it (its index in
+/// the authored list), or the milestone that hands it out.
+#[derive(Clone, Copy)]
+enum Way {
+    Step(usize),
+    Grant(usize),
+}
+
+/// Works out a route to goals: for each thing still to find, the way it comes, chosen from
+/// what makes it now first and then the earliest era, never looping back through itself.
+struct Route<'a> {
+    db: &'a RecipeDatabase,
+    known: &'a dyn Fn(u32) -> bool,
+    open: &'a dyn Fn(&ProcessType) -> bool,
+    makers: std::collections::HashMap<u32, Vec<usize>>,
+    chosen: std::collections::HashMap<u32, Way>,
+    budget: usize,
+}
+
+impl<'a> Route<'a> {
+    fn new(db: &'a RecipeDatabase, known: &'a dyn Fn(u32) -> bool, open: &'a dyn Fn(&ProcessType) -> bool) -> Self {
+        let mut makers: std::collections::HashMap<u32, Vec<usize>> = std::collections::HashMap::new();
+        for (i, r) in db.authored.iter().enumerate() {
+            for p in &r.products {
+                makers.entry(p.substance_id).or_default().push(i);
+            }
+        }
+        Self { db, known, open, makers, chosen: Default::default(), budget: ROUTE_BUDGET }
+    }
+
+    /// What a way still asks for: a step's ingredients and catalyst, and the discovery that
+    /// unlocks its vessel; a grant, its milestone's discovery.
+    fn needs(&self, way: Way) -> Vec<u32> {
+        match way {
+            Way::Step(i) => {
+                let r = &self.db.authored[i];
+                let mut out: Vec<u32> = r.reactants.iter().map(|x| x.substance_id).collect();
+                out.extend(r.required_catalyst());
+                if !(self.open)(&r.process) {
+                    out.extend(self.db.milestones.iter().find(|m| m.unlock.contains(&r.process)).map(|m| m.on));
+                }
+                out
+            }
+            Way::Grant(m) => vec![self.db.milestones[m].on],
+        }
+    }
+
+    fn era(&self, way: Way) -> u8 {
+        match way {
+            Way::Step(i) => self.db.authored[i].epoch,
+            Way::Grant(m) => {
+                let on = self.db.milestones[m].on;
+                self.makers.get(&on).and_then(|v| v.first()).map(|&i| self.db.authored[i].epoch).unwrap_or(u8::MAX)
+            }
+        }
+    }
+
+    /// Whether `s` can be come by, choosing its way (and its needs' ways) on the way.
+    fn plan(&mut self, s: u32, stack: &mut Vec<u32>) -> bool {
+        if (self.known)(s) || self.chosen.contains_key(&s) {
+            return true;
+        }
+        if stack.contains(&s) || self.budget == 0 {
+            return false;
+        }
+        self.budget -= 1;
+        let mut ways: Vec<Way> = self
+            .db
+            .milestones
+            .iter()
+            .enumerate()
+            .filter(|(_, m)| m.grant.contains(&s))
+            .map(|(i, _)| Way::Grant(i))
+            .collect();
+        ways.extend(self.makers.get(&s).into_iter().flatten().map(|&i| Way::Step(i)));
+        // a way that works now first, then the earliest era (the tech tree's own order)
+        ways.sort_by_key(|w| (!self.needs(*w).iter().all(|n| (self.known)(*n)), self.era(*w)));
+        stack.push(s);
+        for way in ways {
+            if self.needs(way).into_iter().all(|n| self.plan(n, stack)) {
+                self.chosen.insert(s, way);
+                stack.pop();
+                return true;
+            }
+        }
+        stack.pop();
+        false
+    }
+
+    /// The steps that can be made now, in the order the route takes them (what the first
+    /// ingredient needs first), the goal's own last.
+    fn frontier(&self, s: u32, seen: &mut HashSet<u32>, out: &mut Vec<Target>) {
+        if (self.known)(s) || !seen.insert(s) {
+            return;
+        }
+        let Some(&way) = self.chosen.get(&s) else { return };
+        for n in self.needs(way) {
+            self.frontier(n, seen, out);
+        }
+        if let Way::Step(i) = way {
+            let r = &self.db.authored[i];
+            if can_run(r, self.known, self.open) {
+                out.push(Target { product: s, reaction: r.id });
+            }
+        }
+    }
+}
+
+/// How many substances a goal's route looks at before it gives up (the whole tree is a
+/// few thousand: room to spare).
+const ROUTE_BUDGET: usize = 20_000;
+
+/// The next things to make on the way to a goal (a substance to discover): the steps that
+/// can be made now on its route, in the order the route takes them.
+pub fn toward(
+    db: &RecipeDatabase,
+    goal: u32,
+    known: &dyn Fn(u32) -> bool,
+    open: &dyn Fn(&ProcessType) -> bool,
+) -> Vec<Target> {
+    let mut route = Route::new(db, known, open);
+    if !route.plan(goal, &mut Vec::new()) {
+        return Vec::new();
+    }
+    let mut out = Vec::new();
+    route.frontier(goal, &mut HashSet::new(), &mut out);
+    out.truncate(MAX_TARGETS);
+    out
+}
+
+/// What the list offers: the steps toward each goal, first priority first (each with its
+/// goal), then the things that could be made next (targets), up to MAX_TARGETS.
+pub fn offer(
+    db: &RecipeDatabase,
+    known: &dyn Fn(u32) -> bool,
+    open: &dyn Fn(&ProcessType) -> bool,
+    goals: &[u32],
+) -> Vec<(Target, Option<u32>)> {
+    let mut out: Vec<(Target, Option<u32>)> = Vec::new();
+    let fresh = |out: &Vec<(Target, Option<u32>)>, t: &Target| !out.iter().any(|(o, _)| o.product == t.product);
+    for &g in goals {
+        for t in toward(db, g, known, open) {
+            if fresh(&out, &t) {
+                out.push((t, Some(g)));
+            }
+        }
+    }
+    for t in targets(db, known, open) {
+        if fresh(&out, &t) {
+            out.push((t, None));
+        }
+    }
+    out.truncate(MAX_TARGETS);
     out
 }
 
@@ -234,6 +394,10 @@ pub struct HintState {
     pub list_open: bool,
     /// the targets the list offers (refreshed when it opens)
     pub offered: Vec<Target>,
+    /// for each offered target, the goal it leads toward (None: just something new)
+    pub offered_goal: Vec<Option<u32>>,
+    /// the target's card is folded away to the button; the target and its kit stay
+    pub collapsed: bool,
     /// what is being chased, and how
     pub target: Option<Target>,
     pub kit: Option<Kit>,
@@ -262,6 +426,12 @@ impl HintState {
         self.kit = None;
         self.level = 0;
         self.list_open = false;
+        self.collapsed = false;
+    }
+
+    /// Whether the list or the target's card is showing (else the button is).
+    pub fn card_open(&self) -> bool {
+        self.list_open || (self.target.is_some() && !self.collapsed)
     }
 }
 
@@ -284,6 +454,7 @@ pub fn choose(
     state.target = Some(t);
     state.level = 0;
     state.list_open = false;
+    state.collapsed = false;
 }
 
 // ---------------------------------------------------------------------------------------
@@ -300,6 +471,9 @@ pub struct HintButtonText;
 /// The tag on the list's first row when it is the suggestion the button named.
 #[derive(Component)]
 pub struct HintSuggestedTag;
+/// On a list row that leads toward one of the player's goals.
+#[derive(Component)]
+pub struct HintGoalTag;
 /// The open state: the list or the target card (rebuilt when it changes).
 #[derive(Component)]
 pub struct HintPanel;
@@ -312,6 +486,9 @@ pub struct HintMore;
 pub struct HintChange;
 #[derive(Component)]
 pub struct HintClose;
+/// Lets the target go.
+#[derive(Component)]
+pub struct HintStop;
 #[derive(Component)]
 pub struct HintKitToggle;
 /// Opens the target's step in the tech tree (the last hint).
@@ -500,7 +677,7 @@ pub fn hint_input_system(
     unlocks: Res<ProcessUnlocks>,
     mut settings: ResMut<Settings>,
     mut tree: ResMut<TechTreeState>,
-    buttons: Query<AnyOf<(&HintButton, &HintMore, &HintChange, &HintClose, &HintKitToggle)>, With<Clicked>>,
+    buttons: Query<AnyOf<(&HintButton, &HintMore, &HintChange, &HintClose, &HintKitToggle, &HintStop)>, With<Clicked>>,
     picks: Query<&HintPick, With<Clicked>>,
     show: Query<&HintShowTree, With<Clicked>>,
     mut taken: MessageWriter<crate::resources::challenge::HintTaken>,
@@ -512,22 +689,34 @@ pub fn hint_input_system(
         choose(&mut state, t, &db, &progress, &unlocks, settings.decoy_range());
         state.level = level;
     }
-    for (open, more, change, close, kit) in &buttons {
+    for (open, more, change, close, kit, stop) in &buttons {
+        // a folded card opens again as it was
+        if open.is_some() && state.target.is_some() && state.collapsed {
+            state.collapsed = false;
+            continue;
+        }
         // in a challenge, Hint is about the step in hand
         if let (Some(t), true) = (state.challenge_step, open.is_some() || change.is_some()) {
-            choose(&mut state, t, &db, &progress, &unlocks, settings.decoy_range());
+            if state.target != Some(t) {
+                choose(&mut state, t, &db, &progress, &unlocks, settings.decoy_range());
+            }
+            state.collapsed = false;
             continue;
         }
         if open.is_some() || change.is_some() {
             let known = |id: u32| progress.discovered.contains(&id);
             let vessels = |p: &ProcessType| unlocks.0.contains(p);
-            state.offered = targets(&db, &known, &vessels);
+            let mut offered = offer(&db, &known, &vessels, &progress.goals);
             // the button's suggestion leads the list
-            if let Some(i) = state.suggested.and_then(|t| state.offered.iter().position(|o| *o == t)) {
-                let t = state.offered.remove(i);
-                state.offered.insert(0, t);
+            if let Some(i) = state.suggested.and_then(|t| offered.iter().position(|o| o.0 == t)) {
+                let t = offered.remove(i);
+                offered.insert(0, t);
             }
+            state.offered = offered.iter().map(|o| o.0).collect();
+            state.offered_goal = offered.iter().map(|o| o.1).collect();
             state.list_open = true;
+        } else if stop.is_some() {
+            state.stop();
         } else if more.is_some() {
             if state.level < LAST_LEVEL {
                 taken.write(crate::resources::challenge::HintTaken);
@@ -536,6 +725,8 @@ pub fn hint_input_system(
         } else if close.is_some() {
             if state.list_open && state.target.is_some() {
                 state.list_open = false; // back to the card
+            } else if state.target.is_some() {
+                state.collapsed = true; // the target stays; the button wears its name
             } else {
                 state.stop();
             }
@@ -556,7 +747,7 @@ pub fn hint_input_system(
 /// A target that has been made ends the chase; a new game ends it too.
 pub fn hint_progress_system(
     mut state: ResMut<HintState>,
-    progress: Res<PlayerProgress>,
+    mut progress: ResMut<PlayerProgress>,
     game_data: Option<Res<GameData>>,
     substances: Res<Assets<Substances>>,
     mut toasts: ResMut<Toasts>,
@@ -564,6 +755,16 @@ pub fn hint_progress_system(
     // (a challenge moves its card on itself: ui::challenges)
     if !progress.is_changed() || state.challenge_step.is_some() {
         return;
+    }
+    // a goal reached is struck off
+    if progress.goals.iter().any(|g| progress.discovered.contains(g)) {
+        let subs = game_data.as_ref().and_then(|g| substances.get(&g.substances));
+        let reached: Vec<u32> = progress.goals.iter().copied().filter(|g| progress.discovered.contains(g)).collect();
+        for g in reached {
+            toasts.push(ToastKind::Milestone, format!("Goal reached: {}.", names(subs)(g)));
+        }
+        let p = &mut *progress;
+        p.goals.retain(|g| !p.discovered.contains(g));
     }
     let Some(t) = state.target else { return };
     if progress.discovered.contains(&t.product) {
@@ -607,6 +808,17 @@ pub fn hint_suggest_system(
         return;
     }
     let subs = game_data.as_ref().and_then(|g| substances.get(&g.substances));
+    // a target in hand: the button wears its name until it is made or let go
+    if let Some(t) = state.target {
+        let label = if subs.is_some() { format!("Target · {}", names(subs)(t.product)) } else { "Target".to_string() };
+        for mut x in &mut text {
+            if x.0 != label {
+                x.0 = label.clone();
+            }
+        }
+        *done_for = None;
+        return;
+    }
     let key = (progress.discovered.len(), unlocks.0.len(), subs.is_some(), text.iter().count());
     let now = time.elapsed_secs_f64();
     let due = now - turn.1 >= SUGGEST_FOR;
@@ -619,8 +831,12 @@ pub fn hint_suggest_system(
     *done_for = Some(key);
     let known = |id: u32| progress.discovered.contains(&id);
     let open = |p: &ProcessType| unlocks.0.contains(p);
-    let list = targets(&db, &known, &open);
-    let next = (!list.is_empty()).then(|| list[turn.0 % list.len()]);
+    let list = offer(&db, &known, &open, &progress.goals);
+    // a goal's next step is always the suggestion; otherwise they take turns
+    let next = match list.first() {
+        Some((t, Some(_))) => Some(*t),
+        _ => (!list.is_empty()).then(|| list[turn.0 % list.len()].0),
+    };
     if state.suggested != next {
         state.suggested = next;
     }
@@ -657,7 +873,7 @@ pub fn hint_view_system(
     mut button: Query<&mut Node, (With<HintButton>, Without<HintRoot>, Without<HintPanel>)>,
     mut panel: Query<(Entity, &mut Node), (With<HintPanel>, Without<HintRoot>, Without<HintButton>)>,
     mut toast_stack: Query<&mut Node, (With<ToastStack>, Without<HintRoot>, Without<HintButton>, Without<HintPanel>)>,
-    mut last: Local<Option<(bool, Option<Target>, u8, bool, usize, Option<u32>)>>,
+    mut last: Local<Option<((bool, bool), Option<Target>, u8, bool, usize, Option<u32>)>>,
 ) {
     let (fonts, assets) = look;
     let (codex, rlib, tree, learn) = views;
@@ -676,7 +892,7 @@ pub fn hint_view_system(
     }
     // the open card never grows past the bench
     let max_h = Val::Px((dock.bench - crate::ui::bench_controls::BAR_LIFT - 12.0).max(120.0));
-    let open = state.list_open || state.target.is_some();
+    let open = state.card_open();
     if let Ok(mut b) = button.single_mut() {
         let d = if open { Display::None } else { Display::Flex };
         if b.display != d {
@@ -716,7 +932,7 @@ pub fn hint_view_system(
     let kit_on = settings.as_ref().is_none_or(|s| s.kit);
     // in a challenge, the next clue says what it costs
     let cost = challenge.run().map(|r| r.hint_cost());
-    let key = (state.list_open, state.target, state.level, kit_on, state.offered.len(), cost);
+    let key = ((state.list_open, state.collapsed), state.target, state.level, kit_on, state.offered.len(), cost);
     if *last == Some(key) && !state.is_changed() {
         return;
     }
@@ -748,6 +964,7 @@ pub fn hint_view_system(
             h.spawn(Node { column_gap: Val::Px(4.0), align_items: AlignItems::Center, ..default() }).with_children(|b| {
                 if state.target.is_some() && !state.list_open && state.challenge_step.is_none() {
                     theme::spawn_button(b, &fonts, &assets, Kind::Ghost, None, "Change", HintChange);
+                    theme::spawn_button(b, &fonts, &assets, Kind::Ghost, None, "Stop", HintStop);
                 }
                 theme::spawn_icon_button(b, &assets, "close", 28.0, theme::TEXT_2, HintClose);
             });
@@ -785,7 +1002,7 @@ pub fn hint_view_system(
                     rows.spawn((
                         theme::para(
                             &fonts,
-                            "Nothing new can be made from what you have yet. The tech tree shows what each locked step needs.",
+                            "Nothing new can be made from what you have yet. Aim for a step in the tech tree and Hint will lead toward it.",
                             theme::XS,
                             theme::TEXT_3,
                             Val::Px(CARD_W - 26.0),
@@ -822,7 +1039,17 @@ pub fn hint_view_system(
                                     ));
                                 }
                             });
-                        r.spawn((theme::label(&fonts, formula(subs, t.product), theme::XS, Weight::Regular, theme::CYAN), Pickable::IGNORE));
+                        r.spawn((Node { column_gap: Val::Px(8.0), align_items: AlignItems::Baseline, ..default() }, Pickable::IGNORE))
+                            .with_children(|low| {
+                                low.spawn((theme::label(&fonts, formula(subs, t.product), theme::XS, Weight::Regular, theme::CYAN), Pickable::IGNORE));
+                                if let Some(g) = state.offered_goal.get(i).copied().flatten() {
+                                    low.spawn((
+                                        HintGoalTag,
+                                        theme::label(&fonts, format!("toward {}", name(g)), theme::XS, Weight::Semibold, theme::GOLD),
+                                        Pickable::IGNORE,
+                                    ));
+                                }
+                            });
                     });
                 }
             });

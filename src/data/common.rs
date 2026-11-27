@@ -39,6 +39,7 @@ pub enum ProcessType {
     CvdChamber,
     Centrifuge,
     Ultracentrifuge,
+    Cryostat,
 }
 
 /// One vessel: its name, family, tier within the family, and art.
@@ -90,6 +91,7 @@ pub const VESSEL_SPECS: &[VesselSpec] = &[
     v("Air Liquefier", ProcessType::AirLiquefier, "Cool", 2, "air_liquefier", false, "Dry ice showed a gas can be frozen solid; compressing and cooling can turn every gas, air included, into a liquid."),
     v("Autoclave", ProcessType::Pressurize, "Pressure", 1, "autoclave", false, "Pig iron cast into thick vessels holds steam under pressure: Papin's digester, the first pressure cooker, becomes the autoclave. Hospitals sterilise in the same sealed vessel: steam under pressure gets hotter than boiling water."),
     v("Arc Furnace", ProcessType::ArcFurnace, "Heat", 4, "arc_furnace", false, "Henri Moissan, who isolated fluorine, built an electric arc furnace that reaches 3,500 C."),
+    v("Cryostat", ProcessType::Cryostat, "Cool", 3, "cryostat", false, "Helium, the last gas still to be liquefied, needs vacuum flasks nested inside each other and cooled stage by stage: Kamerlingh Onnes's Leiden cryostat (1908) reached 4 degrees above absolute zero."),
     v("High-Pressure Reactor", ProcessType::HighPressure, "Pressure", 2, "high_pressure", true, "Alloy steel strong enough to hold 200 atmospheres while hot makes high-pressure chemistry like ammonia synthesis possible."),
     v("Catalytic Cracker", ProcessType::Cracker, "Catalysis", 2, "cracker", true, "Motor cars wanted more gasoline than crude oil holds, so catalysts crack heavy oil into it."),
     v("Bioreactor", ProcessType::Bioreactor, "Biology", 2, "bioreactor", true, "The sulfa drugs proved chemistry could cure infections; penicillin then had to be grown by the vat."),

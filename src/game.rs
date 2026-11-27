@@ -13,7 +13,7 @@ use crate::ui::codex::{
     CodexState,
 };
 use crate::ui::detail_panel::{
-    attach_click_observers, selection_button_system, selection_view_system, SelectedSubstance,
+    attach_click_observers, selection_button_system, selection_pin_system, selection_view_system, SelectedSubstance,
 };
 use crate::ui::inventory::{
     category_tab_system, pop_in_system, populate_inventory_system, shelf_hover_system, spawn_inventory_panel,
@@ -130,6 +130,8 @@ pub fn run() -> AppExit {
         .init_resource::<TechTreeState>()
         .init_resource::<TechLinks>()
         .init_resource::<crate::ui::tech_tree::TechLayout>()
+        .init_resource::<crate::ui::tech_tree::TreeReveal>()
+        .init_resource::<crate::ui::tech_tree::TechZoom>()
         .init_resource::<settings::SettingsUi>()
         .insert_resource(settings::FitInterface(autoplay.as_ref().is_some_and(|c| c.fit_screen)))
         .insert_resource(settings::ScaleOverride(autoplay.as_ref().and_then(|c| c.scale)))
@@ -205,12 +207,12 @@ pub fn run() -> AppExit {
                 (crate::platform::keyboard_inset_system, crate::ui::inventory::fit_dock_system).chain(),
                 (category_tab_system, crate::ui::inventory::shelf_menu_system).chain(),
                 crate::ui::inventory::shelf_search_system,
-                shelf_hover_system,
+                (shelf_hover_system, crate::ui::inventory::shelf_pin_badge_system),
                 crate::ui::inventory::shelf_selection_outline_system,
                 discovery_system,
                 attach_click_observers,
                 selection_view_system,
-                selection_button_system,
+                (selection_button_system, selection_pin_system),
                 ApplyDeferred,
                 place_vessel_system,
                 (
@@ -251,8 +253,11 @@ pub fn run() -> AppExit {
         .add_systems(
             Update,
             (
+                crate::ui::tech_tree::tree_reveal_system,
                 tech_button_system,
                 tech_mode_system,
+                crate::ui::tech_tree::tech_legend_system,
+                crate::ui::tech_tree::tech_goal_system,
                 populate_tech_views_system,
                 crate::ui::tech_tree::tech_graph_window_system,
                 crate::ui::tech_tree::tech_list_window_system,
@@ -262,6 +267,7 @@ pub fn run() -> AppExit {
                 update_tech_detail_system,
                 tech_pan_system,
                 crate::ui::tech_tree::tech_toolbar_fit_system,
+                (crate::ui::tech_tree::tech_zoom_controls_system, crate::ui::tech_tree::tech_zoom_apply_system).chain(),
             )
                 .chain(),
         )
@@ -289,7 +295,7 @@ pub fn run() -> AppExit {
         .add_systems(
             Update,
             (
-                (shell::nav_input_system, shell::pane_back_system),
+                (shell::nav_input_system, shell::header_buttons_system, shell::pane_back_system),
                 shell::escape_system,
                 shell::nav_highlight_system,
                 shell::header_stats_system,

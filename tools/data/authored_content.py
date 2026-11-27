@@ -297,8 +297,8 @@ E0 = Epoch("Fire & Ore", "to 1200 BCE", [
     R("Bronze Alloying", "Cu + Sn -> Bronze", HEAT,
       "Copper and tin melted together make bronze, harder than either. It gave its name to an age.",
       wiki="Bronze", T=1000, dh=-5),
-    R("Brass Alloying", "Cu + Zn -> Brass", HEAT,
-      "Copper and zinc make brass, golden and easily worked. Romans made it by cementation, heating copper with calamine and charcoal.",
+    R("Brass Alloying", "Cu + Calamine + Charcoal -> Brass + CO2 + CO", HEAT,
+      "Copper heated with calamine and charcoal soaks up the zinc the charcoal frees and turns golden: brass by cementation, as the Romans made it, long before zinc metal was known.",
       wiki="Brass", T=950, dh=-10),
     R("Iron Bloomery", "2 Hematite + 3 Charcoal -> 4 Fe + 3 CO2", SMELT,
       "In a clay bloomery the ore never melts: carbon monoxide reduces it to a spongy 'bloom' of iron and slag, hammered out by the smith. The start of the Iron Age.",
@@ -543,7 +543,8 @@ X("Na2Cr2O7", "Sodium Dichromate", "Na2Cr2O7", "Solid", "An orange oxidiser used
 X("PbNO32", "Lead Nitrate", "Pb(NO3)2", "Solid", id=0)
 X("PbCrO4", "Chrome Yellow", "PbCrO4", "Solid", "Lead chromate, the brilliant yellow of Van Gogh's sunflowers (1809). It darkens over time, which is why some of those sunflowers are turning brown.", "Chrome_yellow", id=0, color="#f8c800")
 X("Cr2O3", "Chromium(III) Oxide", "Cr2O3", "Solid", "Chrome green, a tough, stable green pigment; the colour of banknotes and camouflage paint.", "Chromium(III)_oxide", id=0, color="#2a7a30")
-X("Pitchblende", "Pitchblende", "UO2", "Solid", "Uraninite, a black, heavy uranium oxide. Klaproth found uranium in it in 1789; a century later the Curies found polonium and radium.", "Uraninite", id=0, props=["IsRadioactive"])
+X("U3O8", "Triuranium Octoxide", "U3O8", "Solid", "The olive-black oxide uranium burns to: the most stable of its oxides, and the form uranium ore concentrate is stored and shipped in.", "Triuranium_octoxide", id=0, props=["IsRadioactive"], color="#3a4030")
+X("Pitchblende", "Pitchblende", "UO2+U3O8+Pb+Ra", "Solid", "Uraninite in its black, pitchy form: mostly uranium dioxide, partly oxidised, carrying the lead its uranium has decayed into, traces of radium and polonium, and the helium of its alpha particles. Klaproth found uranium in it in 1789; a century later the Curies found polonium and radium.", "Uraninite", id=0, balance="UO2", props=["IsRadioactive"])
 X("Spodumene", "Spodumene", "LiAlSi2O6", "Solid", "A lithium pyroxene in giant crystals; Arfwedson found lithium in its cousin petalite in 1817.", "Spodumene", id=0)
 X("HSpodumene", "Leached Spodumene", "HAlSi2O6", "Solid", "Spodumene with its lithium swapped for hydrogen by hot sulfuric acid.", "Spodumene", id=0)
 X("Li2SO4", "Lithium Sulfate", "Li2SO4", "Solid", "The soluble lithium salt leached from roasted spodumene.", "Lithium_sulfate", id=0)
@@ -872,8 +873,8 @@ E3.reactions += [
 
 # --- the antimony alloys: solder, type and bearings ---
 E1.reactions += [
-    R("Tin-Lead Solder", "3 Sn + Pb -> Solder", SMELT,
-      "Tin and lead melted together run at a lower heat than either: Roman plumbers sealed the seams of lead water pipes with it.",
+    R("Tin-Lead Solder", "3 Pewter + Pb -> 4 Solder", HEAT,
+      "Melt more lead into pewter and the alloy moves towards the mix that melts lowest and most sharply of all: solder, which joins metal without melting it.",
       wiki="Solder", T=250, dh=-2),
 ]
 E2.reactions += [
@@ -966,7 +967,7 @@ E4 = Epoch("Industry", "1850 to 1920", [
       "The Siemens-Martin furnace (1865) burned the carbon out of pig iron with iron ore, slowly enough to sample and correct the melt. It made most of the world's steel for a century.",
       wiki="Open-hearth_furnace", T=1650, exact=False, dh=-100),
     R("Basic Steel", "PigIron + CaO + O2 -> Steel + ThomasSlag", SMELT,
-      "Sidney Gilchrist Thomas (1878) lined the converter with limestone so it could burn phosphorus out of iron. Europe's vast phosphoric ores became usable overnight.",
+      "Sidney Gilchrist Thomas (1878) gave the converter a basic lining and charged it with lime, so the phosphorus burned out of the iron into the slag. Europe's vast phosphoric ores became usable overnight.",
       wiki="Gilchrist-Thomas_process", T=1600, exact=False, dh=-200),
     R("Stainless Steel", "Steel + Cr + Ni -> StainlessSteel", SMELT,
       "Chromium and nickel melted into steel make it rustproof: cutlery, sinks, surgical tools, the Chrysler Building's spire.",
@@ -1076,7 +1077,7 @@ E4 = Epoch("Industry", "1850 to 1920", [
     R("Mond's Pure Nickel", "NiCO4 -> Ni + 4 CO", HEAT,
       "At 230 C the carbonyl falls apart, depositing 99.99% pure nickel and releasing the carbon monoxide to go round again.",
       wiki="Mond_process", T=230, dh=160),
-    R("Moissan's Fluorine", "2 HF -> H2 + F2", ELEC,
+    R("Moissan's Fluorine", "2 HF + KF -> H2 + F2 + KF", ELEC,
       "Henri Moissan (1886) electrolysed liquid hydrogen fluoride with potassium fluoride in a platinum apparatus at -50 C and isolated fluorine, which had injured or killed several earlier chemists. Nobel Prize, 1906.",
       wiki="Fluorine#History", T=-50, dh=546),
     R("Verneuil Ruby", "Alumina + Cr2O3 -> Ruby", HEAT,
@@ -1122,7 +1123,7 @@ E4 = Epoch("Industry", "1850 to 1920", [
       "The Curies' first new element (July 1898), traced by its radioactivity through bismuth fractions of pitchblende and named for Marie's partitioned Poland.",
       wiki="Polonium#History", exact=False, dh=0),
     R("Helium from Cleveite", "Pitchblende + H2SO4 -> He", MIX,
-      "William Ramsay (1895) treated a uranium mineral with acid and found a gas whose yellow spectral line matched one seen in the Sun in 1868: helium, until then thought to exist only there.",
+      "William Ramsay (1895) dissolved cleveite, a kind of this uranium mineral, in acid and collected a gas whose yellow spectral line matched one seen in the Sun in 1868: helium, thought to exist only there. It was the mineral's own alpha particles, helium nuclei, trapped in the crystal over a billion years of uranium decay.",
       wiki="Helium#History", exact=False, dh=0),
     R("Fractionating Liquid Air", "LiquidAir -> N2 + O2 + Ar + Ne + Kr + Xe", DISTIL,
       "Ramsay and Travers (1898) let liquid air boil away fraction by fraction and found krypton ('hidden'), neon ('new') and xenon ('stranger') in a few weeks. Linde's columns now make oxygen by the tonne this way.",
@@ -1153,9 +1154,9 @@ E4 = Epoch("Industry", "1850 to 1920", [
     R("Synthetic Alizarin", "Anthraquinone + O2 -> Alizarin", HEAT,
       "Sulfonated anthraquinone fused with caustic soda gives alizarin (Graebe, Liebermann and Perkin, 1869). Germany and Perkin patented it within a day of each other.",
       wiki="Alizarin#History", T=200, dh=-200),
-    R("Phthalic Anhydride", "2 Naphthalene + 9 O2 -> 2 PhthalicAnhydride + 4 CO2 + 4 H2O", CAT,
+    R("Phthalic Anhydride", "2 Naphthalene + 18 H2SO4 -> 2 PhthalicAnhydride + 4 CO2 + 18 SO2 + 22 H2O", CAT,
       "Naphthalene oxidised in hot sulfuric acid, catalysed by the mercury from a broken thermometer (BASF, 1896).",
-      wiki="Phthalic_anhydride#Production", cat="Hg", T=300, dh=-1800),
+      wiki="Phthalic_anhydride#Production", cat="Hg", T=300, dh=300),
     R("Phthalimide", "PhthalicAnhydride + NH3 -> Phthalimide + H2O", HEAT,
       "Phthalic anhydride and ammonia close into phthalimide.",
       wiki="Phthalimide", T=250, dh=-100),
@@ -1226,7 +1227,7 @@ E4 = Epoch("Industry", "1850 to 1920", [
       "Sodium benzenesulfonate fused with caustic soda gives phenol: how phenol was made for the explosive and plastic industries before 1950.",
       wiki="Phenol#Production", T=330, dh=-100),
     # --- photography ---
-    R("Gelatin Silver Bromide", "AgNO3 + KBr -> AgBr + KNO3", MIX,
+    R("Gelatin Silver Bromide", "AgNO3 + KBr + Gelatin -> AgBr + KNO3 + Gelatin", MIX,
       "Silver nitrate and potassium bromide mixed in warm gelatin precipitate fine silver bromide grains: Maddox's dry plate (1871), and every roll of film since.",
       wiki="Silver_bromide", dh=-80),
     R("Exposing the Plate", "2 AgBr -> 2 Ag + Br2", LIGHT,
@@ -1369,7 +1370,7 @@ E5 = Epoch("Modern", "1920 to 1970", [
     R("Steam Reforming", "Methane + H2O -> CO + 3 H2", CAT,
       "Natural gas and steam over nickel give syngas: the source of most of the world's hydrogen and ammonia since the 1930s.",
       wiki="Steam_reforming", cat="Ni", T=850, dh=206),
-    R("Downs Cell", "2 NaCl -> 2 Na + Cl2", ELEC,
+    R("Downs Cell", "2 NaCl + CaCl2 -> 2 Na + Cl2 + CaCl2", ELEC,
       "James Downs (1924) electrolysed molten salt with calcium chloride to lower its melting point. Cheaper sodium made tetraethyl lead and titanium possible.",
       wiki="Downs_cell", T=600, dh=822),
     # --- plastics ---
@@ -1454,15 +1455,15 @@ E5 = Epoch("Modern", "1920 to 1970", [
     R("Andrussow Process", "2 Methane + 2 NH3 + 3 O2 -> 2 HCN + 6 H2O", CAT,
       "Leonid Andrussow (1927): methane, ammonia and air over platinum gauze give hydrogen cyanide.",
       wiki="Andrussow_process", cat="Pt", T=1100, dh=-940),
-    R("Methyl Methacrylate", "Acetone + HCN + Methanol -> MMA + NH3", MIX,
-      "Acetone and hydrogen cyanide form a cyanohydrin that sulfuric acid and methanol convert to methyl methacrylate (ICI, 1933).",
+    R("Methyl Methacrylate", "ACH + Methanol + H2SO4 -> MMA + NH4HSO4", MIX,
+      "ICI (1933) worked acetone cyanohydrin up with sulfuric acid and methanol: methyl methacrylate, with ammonium bisulfate left over.",
       wiki="Methyl_methacrylate#Production", dh=-100),
     R("Perspex", "MMA -> PMMA", POLY,
       "Cast in sheets, polymethyl methacrylate became Perspex (1933). Shards in pilots' eyes caused no inflammation, which led to the first plastic intraocular lenses.",
       wiki="Poly(methyl_methacrylate)#History", T=80, dh=-55),
     R("Nieuwland Dimerisation", "2 Acetylene -> Vinylacetylene", CAT,
       "Father Julius Nieuwland at Notre Dame dimerised acetylene over copper(I) chloride.",
-      wiki="Vinylacetylene", cat="Cu", T=80, dh=-200),
+      wiki="Vinylacetylene", cat="CuCl", T=80, dh=-200),
     R("Chloroprene", "Vinylacetylene + HCl -> Chloroprene", MIX,
       "Hydrogen chloride adds to vinylacetylene: chloroprene, which polymerises far faster than isoprene.",
       wiki="Chloroprene", dh=-80),
@@ -1493,9 +1494,9 @@ E5 = Epoch("Modern", "1920 to 1970", [
     R("Rochow Direct Process", "Si + 2 CH3Cl -> Me2SiCl2", CAT,
       "Eugene Rochow (1945) passed methyl chloride over silicon with a copper catalyst, opening the way to cheap silicones.",
       wiki="Direct_process", cat="Cu", T=300, dh=-300),
-    R("Methyl Chloride", "Methanol + HCl -> CH3Cl + H2O", HEAT,
+    R("Methyl Chloride", "Methanol + HCl -> CH3Cl + H2O", CAT,
       "Methanol and hydrogen chloride over alumina give methyl chloride.",
-      wiki="Chloromethane#Production", T=350, dh=-30),
+      wiki="Chloromethane#Production", cat="Alumina", T=350, dh=-30),
     R("Silicone", "Me2SiCl2 + H2O -> PDMS + 2 HCl", POLY,
       "Water hydrolyses the chlorosilane and the silanols condense into long silicon-oxygen chains.",
       wiki="Polydimethylsiloxane#Synthesis", dh=-50),
@@ -1572,7 +1573,7 @@ E5 = Epoch("Modern", "1920 to 1970", [
     R("Chlorobenzene", "Benzene + Cl2 -> Chlorobenzene + HCl", CAT,
       "Chlorine substitutes onto benzene over iron(III) chloride.",
       wiki="Chlorobenzene#Production", cat="FeCl3", T=40, dh=-130),
-    R("Muller's DDT", "Chloral + 2 Chlorobenzene -> DDT + H2O", MIX,
+    R("Muller's DDT", "Chloral + 2 Chlorobenzene + H2SO4 -> DDT + H2O + H2SO4", MIX,
       "Chloral condenses with two chlorobenzenes in sulfuric acid.",
       wiki="DDT#History", dh=-100),
     R("Hydrogenating Glucose", "Glucose + H2 -> Sorbitol", CAT,
@@ -2221,7 +2222,7 @@ E3.reactions += [
       "Henri Braconnot (1820) boiled gelatin with sulfuric acid and got 'sugar of gelatin', sweet crystals of glycine.",
       wiki="Glycine#History", exact=False),
     R("Leucine and Tyrosine", "Cheese + H2SO4 -> Leucine + Tyrosine", HEAT,
-      "Proust (1818) found leucine in fermenting cheese; Liebig (1846) found tyrosine by melting casein with potash.",
+      "Cheese curd boiled with sulfuric acid breaks into its amino acids: leucine (Proust, 1818) and tyrosine (Liebig, 1846, named from the Greek for cheese) crystallise out.",
       wiki="Tyrosine#History", exact=False),
     R("The First Amino Acid", "Asparagus -> Asparagine", COOL,
       "Vauquelin and Robiquet (1806) evaporated asparagus juice and crystals of asparagine grew out: the first amino acid discovered.",
@@ -2259,7 +2260,7 @@ E3.reactions += [
     R("Liebig's Benzoic Acid", "2 Benzaldehyde + O2 -> 2 BenzoicAcid", MIX,
       "Liebig and Wohler (1832) noticed oil of bitter almonds left in air slowly turned to crystals of benzoic acid.",
       wiki="Benzoyl_group", dh=-500),
-    R("Kirchhoff's Glucose", "Starch + H2O -> Glucose", HEAT,
+    R("Kirchhoff's Glucose", "Starch + H2O + H2SO4 -> Glucose + H2SO4", HEAT,
       "Konstantin Kirchhoff (1811) boiled potato starch with dilute sulfuric acid into a sweet syrup when Napoleon's blockade cut off cane sugar.",
       wiki="Glucose_syrup#History", exact=False),
     R("Gadolin's Yttria", "Gadolinite + HNO3 -> YNO33", MIX,
@@ -2354,7 +2355,7 @@ E4.reactions += [
     R("Praseodymium Oxide", "12 PrNO33 -> 2 Pr6O11 + 36 NO2 + 7 O2", HEAT,
       "Praseodymium nitrate calcines to a dark brown mixed oxide.",
       wiki="Praseodymium(III,IV)_oxide", T=700, dh=1000),
-    R("Welsbach Mantle", "ThO2 + CeNO33 -> GasMantle", HEAT,
+    R("Welsbach Mantle", "ThO2 + CeNO33 + Cellulose -> GasMantle", HEAT,
       "A cotton sock soaked in thorium and cerium nitrates, burned away to leave a fragile ceramic net.",
       wiki="Gas_mantle#History", exact=False),
     R("Lanthanum Carbonate", "2 LaNO33 + 3 SodaAsh -> La2CO33 + 6 NaNO3", MIX,
@@ -2427,7 +2428,7 @@ E5.reactions += [
       wiki="Propionic_acid#Production", dh=-500),
     R("First Petrochemical", "Propylene + H2O -> Isopropanol", CAT,
       "Standard Oil (1920) hydrated refinery propylene with sulfuric acid: isopropyl alcohol, the first chemical made from petroleum.",
-      wiki="Isopropyl_alcohol#History", cat="H3PO4", T=200, dh=-52),
+      wiki="Isopropyl_alcohol#History", cat="H2SO4", T=200, dh=-52),
     R("Ethanol from Ethylene", "Ethylene + H2O -> Ethanol", CAT,
       "Shell (1947) hydrated ethylene over phosphoric acid; most industrial ethanol was made this way until bioethanol.",
       wiki="Ethanol#Production", cat="H3PO4", T=300, P=70, dh=-45),
@@ -2475,7 +2476,7 @@ E4.reactions += [
     R("Benzaldehyde", "2 BenzylAlcohol + O2 -> 2 Benzaldehyde + 2 H2O", CAT,
       "Benzyl alcohol oxidised over copper.",
       wiki="Benzaldehyde#Production", cat="Cu", T=300, dh=-300),
-    R("Perkin's Cinnamic Acid", "Benzaldehyde + AceticAnhydride -> CinnamicAcid + AcOH", HEAT,
+    R("Perkin's Cinnamic Acid", "Benzaldehyde + AceticAnhydride + NaC2H3O2 -> CinnamicAcid + AcOH + NaC2H3O2", HEAT,
       "The Perkin reaction (1868): benzaldehyde condensed with acetic anhydride and sodium acetate.",
       wiki="Perkin_reaction", T=180, dh=-50),
     R("Reimer-Tiemann Reaction", "Phenol + CHCl3 + 3 NaOH -> Salicylaldehyde + 3 NaCl + 2 H2O", HEAT,
@@ -2705,12 +2706,12 @@ E7_ORGANIC = [
       "Charles-Adolphe Wurtz (1872) found two acetaldehydes join in base: the aldol reaction, a staple of carbon-carbon bond making.", wiki="Aldol_condensation", dh=-30),
     R("Diacetone Alcohol", "2 Acetone -> DiacetoneAlcohol", MIX,
       "Two acetones joined by an aldol addition with a base.", wiki="Diacetone_alcohol", dh=-30),
-    R("Wacker Process", "2 Ethylene + O2 -> 2 Acetaldehyde", MIX,
+    R("Wacker Process", "2 Ethylene + O2 + Pd + CuCl2 -> 2 Acetaldehyde + Pd + CuCl2", MIX,
       "Hoechst and Wacker (1959): ethylene bubbled with air through a solution of palladium and copper chlorides; the copper keeps regenerating the palladium. The first industrial organopalladium reaction.", wiki="Wacker_process", T=120, dh=-440),
     R("Butanone", "2 2-Butene + O2 -> 2 MEK", CAT,
       "Wacker oxidation of butene gives methyl ethyl ketone.", wiki="Butanone", cat="Pd", T=100, dh=-400),
     R("Cyclopentanone", "Adipic -> Cyclopentanone + CO2 + H2O", HEAT,
-      "Adipic acid heated with barium hydroxide loses carbon dioxide and closes into a five-membered ring.", wiki="Cyclopentanone", T=300, dh=80),
+      "Adipic acid heated to 300 C loses carbon dioxide and water and closes into a five-membered ring.", wiki="Cyclopentanone", T=300, dh=80),
     R("Friedel-Crafts Acylation", "Benzene + AceticAnhydride -> Acetophenone + AcOH", CAT,
       "Charles Friedel and James Crafts (1877) found aluminium chloride lets acyl groups attack benzene.", wiki="Friedel-Crafts_reaction", cat="AlCl3", T=50, dh=-100),
     R("Benzophenone", "Benzene + BenzoylChloride -> Benzophenone + HCl", CAT,
@@ -2963,8 +2964,8 @@ LAB_INORGANIC = [
     R('Burning Yttrium', '4 Y + 3 O2 -> 2 Y2O3', HEAT,
       'Yttrium burns when heated, giving yttrium oxide.',
       wiki='https://en.wikipedia.org/wiki/Combustion'),
-    R('Burning Uranium', 'U + O2 -> Pitchblende', HEAT,
-      'Uranium burns when finely divided, giving pitchblende.',
+    R('Burning Uranium', '3 U + 4 O2 -> U3O8', HEAT,
+      'Uranium burns when finely divided, giving olive-black triuranium octoxide, the form uranium is stored and shipped in.',
       wiki='https://en.wikipedia.org/wiki/Combustion'),
     R('Burning Germanium', 'Ge + O2 -> GeO2', HEAT,
       'Germanium oxidises when heated, giving germanium Dioxide.',
@@ -3451,7 +3452,7 @@ E3.reactions += [
     R("Baup's Itaconic Acid", "AconiticAcid -> ItaconicAcid + CO2", DISTIL,
       "Distilled further, aconitic acid loses carbon dioxide: itaconic acid, an anagram of aconitic.",
       wiki="Itaconic_acid", T=200, dh=20),
-    R("Mulder's Levulinic Acid", "Glucose -> LevulinicAcid + Formic + H2O", HEAT,
+    R("Mulder's Levulinic Acid", "Glucose + HCl -> LevulinicAcid + Formic + H2O + HCl", HEAT,
       "Gerardus Mulder (1840) boiled sugar with hydrochloric acid and got levulinic acid, now a promising biomass platform chemical.",
       wiki="Levulinic_acid", T=150, dh=-100),
     R("Hofmann's Sorbic Acid", "Rowan -> SorbicAcid", DISTIL,
@@ -3485,8 +3486,8 @@ E4.reactions += [
     R("Beta-Ionone", "Geranial + Acetone -> bIonone + H2O", HEAT,
       "With concentrated sulfuric acid the ring closes the other way: beta-ionone, the starting point for synthetic vitamin A.",
       wiki="Ionone", T=50, dh=-50),
-    R("Isomerising Eugenol", "Eugenol -> Isoeugenol", HEAT,
-      "Hot potash shifts eugenol's double bond into conjugation: isoeugenol, the carnation scent and the route to vanillin.",
+    R("Isomerising Eugenol", "Eugenol + KOH -> Isoeugenol + KOH", HEAT,
+      "Hot caustic potash shifts eugenol's double bond into conjugation: isoeugenol, the carnation scent and the route to vanillin.",
       wiki="Isoeugenol", T=200, dh=-10),
     R("Pine Oil", "Pinene + H2O -> aTerpineol", CAT,
       "Pinene hydrated with acid gives terpineol, the lilac scent of pine-oil cleaners.", wiki="Terpineol", cat="H2SO4", T=60, dh=-40),
@@ -3609,5 +3610,7 @@ import authored_tiers  # noqa: E402,F401  (extends the epochs above and sets MIL
 import authored_pages  # noqa: E402,F401
 # Industrial chemistry from the canon production list, largest first.
 import authored_canon  # noqa: E402,F401
+# Recipes whose descriptions tell of two operations, split into the two (after every route is written).
+import authored_steps  # noqa: E402,F401
 # Locked previews of later stages (medicines without a route yet); always last, after every route.
 import authored_placeholders  # noqa: E402,F401

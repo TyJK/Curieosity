@@ -226,7 +226,7 @@ E5.reactions += [
       "Mercaptobenzothiazole dissolved in caustic soda.", wiki=P["NaMBT"]),
     R("DPHP", "PhthalicAnhydride + 2 PropylHeptanol -> DPHP + H2O", FLASK,
       "Phthalic anhydride esterified with 2-propylheptanol.", wiki=P["DPHP"], T=200),
-    R("Tetrabromophthalic Anhydride", "PhthalicAnhydride + 4 Br2 -> TBPA + 4 HBr", FLASK,
+    R("Tetrabromophthalic Anhydride", "PhthalicAnhydride + 4 Br2 + Oleum -> TBPA + 4 HBr + Oleum", FLASK,
       "Phthalic anhydride brominated in oleum.", wiki=P["TBPA"], T=60),
     R("Diethylene Glycol Phenyl Ether", "Phenol + 2 EO -> DEGPh", PRESS,
       "Phenol ethoxylated twice.", wiki=P["DEGPh"], T=150),

@@ -174,7 +174,7 @@ E5.reactions += [
       "Propyne and allene interconvert over a base; allene is drawn off as it forms.", wiki=P["Allene"], cat="Alumina", T=300),
     R("beta-Phellandrene", "Eucalyptus -> bPhellandrene", COLUMN,
       "Fractionated from the phellandrene-rich eucalyptus oils.", wiki=P["bPhellandrene"], exact=False),
-    R("2-Acetylthiophene", "Thiophene + AceticAnhydride -> AcetylThiophene + AcOH", FLASK,
+    R("2-Acetylthiophene", "Thiophene + AceticAnhydride + H3PO4 -> AcetylThiophene + AcOH + H3PO4", FLASK,
       "Thiophene acetylated with phosphoric acid.", wiki=P["AcetylThiophene"], T=80),
     R("Thiophene-2-carboxylic Acid", "AcetylThiophene + 3 NaClO + HCl -> ThiopheneCA + CHCl3 + 2 NaOH + NaCl", FLASK,
       "The haloform reaction: hypochlorite cuts the acetyl group down to the acid.", wiki=P["ThiopheneCA"], T=40),

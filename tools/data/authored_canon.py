@@ -379,7 +379,7 @@ E5.reactions += [
       "Ammonia, sulfur dioxide and sulfur combined in water.", wiki=32581528),
     R("Potassium Thiosulfate", "2 KOH + SO2 + S -> K2S2O3 + H2O", MIX,
       "Caustic potash, sulfur dioxide and sulfur.", wiki=68911744),
-    R("Methylenedianiline", "2 Aniline + CH2O -> MDA + H2O", FLASK,
+    R("Methylenedianiline", "2 Aniline + CH2O + HCl -> MDA + H2O + HCl", FLASK,
       "Aniline condensed with formaldehyde in hydrochloric acid.", wiki=31504551, T=80),
     R("MDI Phosgenation", "MDA + 2 COCl2 -> MDI + 4 HCl", FLASK,
       "Methylenedianiline and phosgene in hot chlorobenzene (Bayer, 1950s).", wiki=1727620, T=150),

@@ -59,7 +59,7 @@ impl Family {
         match p {
             Heat | Smelting | BlastFurnace | Cracker => Family::Fire,
             Mix => Family::Grind,
-            Cool | AirLiquefier => Family::Cold,
+            Cool | AirLiquefier | Cryostat => Family::Cold,
             Distillation | Column | Flask => Family::Glass,
             Fermenter | Bioreactor | Wait => Family::Bio,
             Electrolysis | ApplyCurrent | ElectrolyticCell | ArcFurnace => Family::Electric,

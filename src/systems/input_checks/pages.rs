@@ -2,7 +2,9 @@
 //
 // Interaction checks for the one-pane views (the Substance and Reaction Libraries and
 // Lessons: a list across the screen, a page in its place, Back to the list where it was),
-// Lessons' search and the glossary, two-finger touch, and challenges. A child of
+// Lessons' search and the glossary, two-finger touch, and challenges; and the round-3 rules
+// around them: a target that stays put, goals set in the tech tree, recipes the tree keeps
+// until a step is made, and the header (the logo home, the count on a tap). A child of
 // input_checks.rs, so it shares its check language (targets, ops, verifies) and helpers.
 use bevy::input::touch::{TouchInput, TouchPhase};
 
@@ -13,8 +15,12 @@ use crate::ui::curriculum::{
     CurriculumEntry, CurriculumScroll, CurriculumState, CurriculumWiki, LearnLink, LessonsSearchBox, TERM_PREFIX,
 };
 use crate::ui::glossary::{OpenTerm, TermCard, TermChip, WikiLink};
-use crate::ui::hint::{HintButton, HintMore};
-use crate::ui::shell::PaneBack;
+use crate::ui::hint::{
+    choose, targets, HintButton, HintButtonText, HintClose, HintGoalTag, HintMore, HintPick, HintState, HintStop,
+};
+use crate::ui::main_menu::{MainMenu, MenuPlay, MenuStage};
+use crate::ui::shell::{CountText, HeaderProgress, HomeButton, PaneBack, Portrait};
+use crate::ui::tech_tree::{NodeState, TechAim, TechGoalFlag, TechLegendItem};
 
 /// Lessons shows a page, with its Wikipedia link laid out (and, given a key, that page).
 fn lesson_shows(key: Option<&'static str>) -> Verify {
@@ -141,7 +147,7 @@ fn next_tile() -> Target {
 struct TwoFingers([Vec2; 2]);
 
 pub fn pages_checks() -> Vec<Check> {
-    let mut v = Vec::new();
+    let mut v = goal_checks();
 
     // --- Lessons ---
     v.push(check(
@@ -380,6 +386,87 @@ pub fn pages_checks() -> Vec<Check> {
                     }
                 }),
                 30,
+            ),
+        ],
+    ));
+
+    v.push(check(
+        "Glossary",
+        "A page says what its name is built from (ethanol: eth- and -ol), and shows its NFPA 704 diamond with what each number means",
+        vec![
+            setup(|w| {
+                if let Some(id) = sub_id(w, "Ethanol") {
+                    w.resource_mut::<CodexState>().show(id);
+                }
+            }),
+            Op::Until(
+                verify(|w| {
+                    for key in ["ChainRoot", "Alcohol"] {
+                        let chip = first::<TermChip>(w, |c| c.0 == key).ok_or(format!("no {key} chip"))?;
+                        if !w.get::<ComputedNode>(chip).is_some_and(|n| n.size.x > 0.0) {
+                            return Err(format!("the {key} chip isn't laid out"));
+                        }
+                    }
+                    let safety = first::<crate::ui::codex::CodexSafety>(w, |_| true).ok_or("no Safety section")?;
+                    // (in logical pixels: a phone's interface is drawn smaller)
+                    let tall = w.get::<ComputedNode>(safety).map(|n| n.size.y * n.inverse_scale_factor()).unwrap_or(0.0);
+                    if tall <= 60.0 {
+                        return Err(format!("the diamond isn't laid out ({tall:.0} px tall)"));
+                    }
+                    Ok(())
+                }),
+                60,
+            ),
+            Op::Shot("what a name says, at the top of a page"),
+            setup(|w| {
+                // bring the diamond into view
+                let Some(e) = first::<crate::ui::codex::CodexSafety>(w, |_| true) else { return };
+                let y = w.get::<UiGlobalTransform>(e).map(|t| t.translation.y).unwrap_or(0.0);
+                let sf = w.query_filtered::<&Window, With<PrimaryWindow>>().iter(w).next().map(|w| w.scale_factor()).unwrap_or(1.0);
+                for (m, mut sp) in w.query::<(&crate::ui::codex::CodexScrollable, &mut ScrollPosition)>().iter_mut(w) {
+                    if !m.is_left {
+                        sp.0.y += (y / sf - 260.0).max(0.0);
+                    }
+                }
+            }),
+            Op::Wait(6),
+            Op::Shot("an NFPA 704 diamond on a page"),
+        ],
+    ));
+
+    v.push(check(
+        "Substance Library",
+        "A page for something no reaction uses says so under What it is used for",
+        vec![
+            setup(|w| {
+                let Some(db) = w.get_resource::<crate::resources::recipe_database::RecipeDatabase>() else { return };
+                let used: std::collections::HashSet<u32> = db
+                    .authored
+                    .iter()
+                    .flat_map(|r| r.reactants.iter().map(|s| s.substance_id).chain(r.required_catalyst()))
+                    .collect();
+                let mut unused: Vec<u32> = db
+                    .authored
+                    .iter()
+                    .flat_map(|r| r.products.iter().map(|s| s.substance_id))
+                    .filter(|id| !used.contains(id))
+                    .collect();
+                unused.sort_unstable();
+                if let Some(&id) = unused.first() {
+                    w.resource_mut::<CodexState>().show(id);
+                }
+            }),
+            Op::Until(
+                verify(|w| {
+                    let e = first::<crate::ui::codex::CodexUnused>(w, |_| true).ok_or("no 'nothing uses it' line")?;
+                    let t = w.get::<Text>(e).map(|t| t.0.clone()).unwrap_or_default();
+                    if t == crate::ui::codex::NOT_USED {
+                        Ok(())
+                    } else {
+                        Err(format!("the line says {t:?}"))
+                    }
+                }),
+                60,
             ),
         ],
     ));
@@ -629,7 +716,103 @@ pub fn pages_checks() -> Vec<Check> {
             ),
         ],
     ));
+
+    // --- pinching: the screen under the fingers zooms, and only that ---
+    v.push(check(
+        "Tech tree",
+        "Pinching the tree zooms the tree out (its canvas and scroll range with it) and leaves the bench's zoom alone; its zoom bar steps back to full size",
+        {
+            let mut ops = vec![
+                setup(new_game),
+                setup(|w| w.resource_mut::<crate::ui::tech_tree::TechTreeState>().open = true),
+                Op::Wait(10),
+            ];
+            ops.extend(pinch(shown::<crate::ui::tech_tree::TechGraphView>("the tech tree's graph"), 160.0, 40.0));
+            ops.push(Op::Until(tree_zoomed(true), 30));
+            ops.push(Op::Shot("the tech tree pinched out"));
+            for _ in 0..crate::ui::tech_tree::TECH_ZOOMS.len() {
+                ops.push(Op::Click(marked::<crate::ui::tech_tree::TechZoomIn>("the tree's Zoom in")));
+                ops.push(Op::Wait(2));
+            }
+            ops.push(Op::Until(tree_zoomed(false), 30));
+            ops
+        },
+    ));
+    v.push(check("Lab: zoom", "Pinching the bench still zooms the bench", {
+        let mut ops = vec![setup(new_game), Op::Wait(10)];
+        ops.extend(pinch(shown::<ReactionCanvasRoot>("the bench"), 160.0, 40.0));
+        ops.push(Op::Until(
+            state("the bench zoomed out", |w| w.resource::<crate::systems::drag_drop::BenchZoom>().0 < 0.99),
+            30,
+        ));
+        ops.push(setup(|w| w.resource_mut::<crate::systems::drag_drop::BenchZoom>().0 = 1.0));
+        ops.push(Op::Wait(5));
+        ops
+    }));
     v
+}
+
+/// Two fingers come down `from` px apart either side of `at`, move to `to` px apart in six
+/// steps, and lift: together zooms out, apart zooms in.
+fn pinch(at: Target, from: f32, to: f32) -> Vec<Op> {
+    let mut ops = vec![Op::Until(
+        verify(move |w| {
+            let c = (at.find)(w).ok_or_else(|| format!("could not find {} on screen", at.name))?;
+            let half = Vec2::new(from / 2.0, 0.0);
+            w.insert_resource(TwoFingers([c - half, c + half]));
+            fingers(w, TouchPhase::Started, [c - half, c + half]);
+            Ok(())
+        }),
+        30,
+    )];
+    ops.push(Op::Wait(2));
+    for i in 1..=6 {
+        ops.push(setup(move |w| {
+            let [a, b] = w.resource::<TwoFingers>().0;
+            let c = (a + b) / 2.0;
+            let half = Vec2::new((from + (to - from) * i as f32 / 6.0) / 2.0, 0.0);
+            fingers(w, TouchPhase::Moved, [c - half, c + half]);
+        }));
+        ops.push(Op::Wait(1));
+    }
+    ops.push(setup(move |w| {
+        let [a, b] = w.resource::<TwoFingers>().0;
+        let c = (a + b) / 2.0;
+        let half = Vec2::new(to / 2.0, 0.0);
+        fingers(w, TouchPhase::Ended, [c - half, c + half]);
+    }));
+    ops.push(Op::Wait(4));
+    ops
+}
+
+/// The tree is zoomed out (or back at full size): its canvas drawn at the zoom, its scroll
+/// range the canvas's size at the zoom, and the bench still at full size.
+fn tree_zoomed(out: bool) -> Verify {
+    use crate::ui::tech_tree::{TechGraphContent, TechGraphSizer, TechZoom};
+    verify(move |w| {
+        let z = w.resource::<TechZoom>().0;
+        let bench = w.resource::<crate::systems::drag_drop::BenchZoom>().0;
+        let px = |v: Val| if let Val::Px(p) = v { p } else { -1.0 };
+        let (cw, scale) = first::<TechGraphContent>(w, |_| true)
+            .map(|e| {
+                (w.get::<Node>(e).map(|n| px(n.width)).unwrap_or(-1.0), w.get::<UiTransform>(e).map(|t| t.scale.x))
+            })
+            .ok_or("no graph canvas")?;
+        let sw = first::<TechGraphSizer>(w, |_| true)
+            .and_then(|e| w.get::<Node>(e))
+            .map(|n| px(n.width))
+            .ok_or("no sizer")?;
+        if (bench - 1.0).abs() > 0.001 {
+            return Err(format!("the bench zoomed too, to {bench}"));
+        }
+        if out != (z < 0.99) {
+            return Err(format!("the tree is at {z}"));
+        }
+        if scale.is_none_or(|s| (s - z).abs() > 0.001) || (sw - cw * z).abs() > 1.0 {
+            return Err(format!("canvas scale {scale:?}, scroll range {sw} for a {cw} px canvas at {z}"));
+        }
+        Ok(())
+    })
 }
 
 /// The lab's discoveries before a challenge.
@@ -682,3 +865,317 @@ fn points_are(f: impl Fn(&[u32]) -> bool + Send + Sync + 'static) -> Verify {
 /// Numbers a check keeps between its steps.
 #[derive(Resource, Default, Clone)]
 struct Scratch(std::collections::HashMap<&'static str, f32>);
+
+/// The Hint target before something that must leave it alone.
+#[derive(Resource)]
+struct TargetBefore(Option<crate::ui::hint::Target>);
+
+/// The target is still the one recorded, its card open (or, with `folded`, folded away).
+fn same_target(folded: bool) -> Verify {
+    verify(move |w| {
+        let want = w.resource::<TargetBefore>().0;
+        let s = w.resource::<HintState>();
+        if want.is_none() || s.target != want {
+            Err(format!("the target is {:?}, was {want:?}", s.target))
+        } else if s.collapsed != folded || s.list_open {
+            Err(format!("folded: {}, list open: {}", s.collapsed, s.list_open))
+        } else {
+            Ok(())
+        }
+    })
+}
+
+/// Chase the first thing the list would offer, as picking it would.
+fn chase_first(w: &mut World) {
+    w.resource_scope(|w, mut state: Mut<HintState>| {
+        let db = w.resource::<RecipeDatabase>();
+        let p = w.resource::<PlayerProgress>();
+        let u = w.resource::<ProcessUnlocks>();
+        let first = targets(db, &|id| p.discovered.contains(&id), &|x| u.0.contains(x)).first().copied();
+        if let Some(t) = first {
+            choose(&mut state, t, db, p, u, w.resource::<Settings>().decoy_range());
+        }
+    });
+}
+
+/// A step by its name: select it in the tech tree and bring it into view.
+fn select_step(w: &mut World, name: &str) {
+    let id = w.resource::<RecipeDatabase>().authored.iter().find(|r| r.name == name).map(|r| r.id);
+    let mut t = w.resource_mut::<TechTreeState>();
+    t.open = true;
+    t.mode = TechMode::Graph;
+    t.selected = id;
+    if let Some(id) = id {
+        w.resource_mut::<TechLinks>().reveal(id);
+    }
+}
+
+/// Some text under the tech tree's detail bar reads `want`.
+fn detail_reads(w: &mut World, want: &str) -> bool {
+    let Some(bar) = first::<crate::ui::tech_tree::TechDetailBar>(w, |_| true) else { return false };
+    let mut queue = VecDeque::from([bar]);
+    while let Some(e) = queue.pop_front() {
+        if w.get::<Text>(e).is_some_and(|t| t.0.contains(want)) {
+            return true;
+        }
+        if let Some(ch) = w.get::<Children>(e) {
+            queue.extend(ch.iter());
+        }
+    }
+    false
+}
+
+/// Which of the legend's states show.
+fn legend_shows(w: &mut World) -> Vec<NodeState> {
+    w.query::<(&TechLegendItem, &Node)>()
+        .iter(w)
+        .filter(|(_, n)| n.display != Display::None)
+        .map(|(i, _)| i.0)
+        .collect()
+}
+
+fn goal_checks() -> Vec<Check> {
+    let mut v = Vec::new();
+
+    // --- a target stays put ---
+    v.push(check(
+        "Hint",
+        "A target stays until it is made or let go: a mix that doesn't react and another discovery leave it; closing folds it to the button, which wears its name; Stop lets it go",
+        vec![
+            setup(new_game),
+            setup(|w| {
+                let mut s = w.resource_mut::<Settings>();
+                s.next_step = true;
+                s.kit = false;
+            }),
+            setup(|w| place(w, ProcessType::Mix, 0)),
+            Op::Wait(5),
+            Op::Click(marked::<HintButton>("the Hint button")),
+            Op::Until(state("the list is open", |w| w.resource::<HintState>().list_open), 30),
+            Op::Click(marked::<HintPick>("the first target")),
+            Op::Until(state("a target chosen", |w| w.resource::<HintState>().target.is_some()), 30),
+            setup(|w| {
+                let t = w.resource::<HintState>().target;
+                w.insert_resource(TargetBefore(t));
+            }),
+            Op::Drag(tile("Oxygen"), card_part(ProcessType::Mix, CardPart::Art)),
+            Op::Until(has_chip(ProcessType::Mix, "Oxygen"), 30),
+            Op::Click(card_part(ProcessType::Mix, CardPart::React)),
+            Op::Wait(40),
+            Op::Expect(same_target(false)),
+            // something else new is found
+            setup(|w| {
+                let want = w.resource::<TargetBefore>().0.map(|t| t.product);
+                let other = {
+                    let db = w.resource::<RecipeDatabase>();
+                    let p = w.resource::<PlayerProgress>();
+                    let u = w.resource::<ProcessUnlocks>();
+                    targets(db, &|id| p.discovered.contains(&id), &|x| u.0.contains(x))
+                        .into_iter()
+                        .find(|o| Some(o.product) != want)
+                        .map(|o| o.product)
+                };
+                if let Some(id) = other {
+                    w.resource_mut::<PlayerProgress>().discover(id);
+                }
+            }),
+            Op::Wait(10),
+            Op::Expect(same_target(false)),
+            Op::Click(marked::<HintClose>("the card's close button")),
+            Op::Until(same_target(true), 30),
+            Op::Until(
+                verify(|w| {
+                    let label = w.query_filtered::<&Text, With<HintButtonText>>().iter(w).next().map(|t| t.0.clone());
+                    match label {
+                        Some(l) if l.starts_with("Target · ") => Ok(()),
+                        other => Err(format!("the button reads {other:?}")),
+                    }
+                }),
+                30,
+            ),
+            Op::Shot("a target folded to the button"),
+            Op::Click(marked::<HintButton>("the button wearing the target")),
+            Op::Until(same_target(false), 30),
+            Op::Click(marked::<HintStop>("Stop")),
+            Op::Until(state("the target let go", |w| w.resource::<HintState>().target.is_none()), 30),
+        ],
+    ));
+    v.push(check(
+        "Hint",
+        "The lab's target comes back after a challenge, as it was left",
+        vec![
+            setup(new_game),
+            setup(|w| w.resource_mut::<Settings>().next_step = true),
+            setup(chase_first),
+            setup(|w| {
+                let mut s = w.resource_mut::<HintState>();
+                s.level = 1;
+                s.collapsed = true;
+                let t = s.target;
+                w.insert_resource(TargetBefore(t));
+                let id = w.resource::<ChallengeMode>().challenges.first().map(|c| c.id).unwrap_or(0);
+                w.write_message(ChallengeAsk::Start { id, daily: false });
+            }),
+            Op::Until(challenge_set_up(), 60),
+            setup(|w| {
+                w.write_message(ChallengeAsk::Leave);
+            }),
+            Op::Until(
+                verify(|w| {
+                    let s = w.resource::<HintState>();
+                    let want = w.resource::<TargetBefore>().0;
+                    if w.resource::<ChallengeMode>().playing() {
+                        Err("still playing".into())
+                    } else if s.target != want || s.level != 1 || !s.collapsed {
+                        Err(format!("target {:?} (was {want:?}), level {}, folded {}", s.target, s.level, s.collapsed))
+                    } else {
+                        Ok(())
+                    }
+                }),
+                60,
+            ),
+        ],
+    ));
+
+    // --- the tech tree keeps recipes; goals ---
+    v.push(check(
+        "Tech Tree",
+        "A step not made yet keeps its recipe: nothing is marked ready and its recipe stays hidden; Show what's ready reveals both",
+        vec![
+            setup(new_game),
+            setup(|w| select_step(w, "Bronze Alloying")),
+            Op::Wait(10),
+            Op::Until(
+                verify(|w| {
+                    let ready = w.query::<&TechNodeButton>().iter(w).filter(|b| b.1 == NodeState::Available).count();
+                    let legend = legend_shows(w);
+                    if ready > 0 || legend.contains(&NodeState::Available) || !legend.contains(&NodeState::Open) {
+                        Err(format!("{ready} steps marked ready; the legend shows {legend:?}"))
+                    } else if !detail_reads(w, "Its recipe shows once you've made it") {
+                        Err("the detail bar gives the recipe away".into())
+                    } else if w.query::<&TechNeedButton>().iter(w).count() > 0 {
+                        Err("the detail bar lists what it needs".into())
+                    } else {
+                        Ok(())
+                    }
+                }),
+                60,
+            ),
+            Op::Shot("the tech tree keeping a recipe"),
+            setup(|w| w.resource_mut::<Settings>().tree_ready = true),
+            Op::Until(
+                verify(|w| {
+                    // (upright the view may hold no ready step: the summary counts them all)
+                    let summary = w
+                        .query_filtered::<&Text, With<crate::ui::tech_tree::TechSummaryText>>()
+                        .iter(w)
+                        .next()
+                        .map(|t| t.0.clone())
+                        .unwrap_or_default();
+                    let legend = legend_shows(w);
+                    if !summary.contains("ready to make")
+                        || !legend.contains(&NodeState::Available)
+                        || legend.contains(&NodeState::Open)
+                    {
+                        Err(format!("the summary reads {summary:?}; the legend shows {legend:?}"))
+                    } else if detail_reads(w, "Its recipe shows once you've made it") {
+                        Err("the recipe is still hidden".into())
+                    } else {
+                        Ok(())
+                    }
+                }),
+                60,
+            ),
+        ],
+    ));
+    v.push(check(
+        "Tech Tree",
+        "Aiming at a step makes it a goal: its step wears a flag, Hint offers the way there first, and reaching it strikes it off",
+        vec![
+            setup(new_game),
+            setup(|w| w.resource_mut::<Settings>().next_step = true),
+            setup(|w| select_step(w, "Bronze Alloying")),
+            Op::Wait(10),
+            Op::Click(marked::<TechAim>("Aim here")),
+            Op::Until(
+                verify(|w| {
+                    let bronze = sub_id(w, "Bronze").ok_or("no Bronze")?;
+                    let goals = w.resource::<PlayerProgress>().goals.clone();
+                    if goals != vec![bronze] {
+                        return Err(format!("the goals are {goals:?}"));
+                    }
+                    match w.query::<&TechGoalFlag>().iter(w).count() {
+                        0 => Err("no flag on the step".into()),
+                        _ => Ok(()),
+                    }
+                }),
+                60,
+            ),
+            Op::Shot("a goal in the tech tree"),
+            setup(|w| w.resource_mut::<TechTreeState>().open = false),
+            Op::Wait(5),
+            Op::Click(marked::<HintButton>("the Hint button")),
+            Op::Until(
+                verify(|w| {
+                    let bronze = sub_id(w, "Bronze").ok_or("no Bronze")?;
+                    let (open, lead) = {
+                        let s = w.resource::<HintState>();
+                        (s.list_open, s.offered_goal.first().copied().flatten())
+                    };
+                    let tags = w.query::<&HintGoalTag>().iter(w).count();
+                    if !open || lead != Some(bronze) || tags == 0 {
+                        Err(format!("list open {open}, first row toward {lead:?}, {tags} goal tags"))
+                    } else {
+                        Ok(())
+                    }
+                }),
+                30,
+            ),
+            Op::Shot("Hint leading toward a goal"),
+            setup(|w| {
+                if let Some(id) = sub_id(w, "Bronze") {
+                    w.resource_mut::<PlayerProgress>().discover(id);
+                }
+            }),
+            Op::Until(state("the goal struck off", |w| w.resource::<PlayerProgress>().goals.is_empty()), 30),
+            Op::Until(toast_says("Goal reached: Bronze"), 30),
+        ],
+    ));
+
+    // --- the header ---
+    v.push(check(
+        "Header",
+        "The logo goes back to the main menu, and Continue comes back to the lab",
+        vec![
+            Op::Wait(5),
+            Op::Click(marked::<HomeButton>("the logo")),
+            Op::Until(state("the menu is up", |w| w.resource::<MainMenu>().stage == MenuStage::Menu), 30),
+            Op::Wait(5),
+            Op::Click(marked::<MenuPlay>("Continue")),
+            Op::Until(state("back in the lab", |w| w.resource::<MainMenu>().stage == MenuStage::Hidden), 30),
+        ],
+    ));
+    v.push(check(
+        "Header",
+        "Upright the header leaves the count off (landscape shows it); tapping the era and bar says it",
+        vec![
+            Op::Wait(10),
+            Op::Expect(verify(|w| {
+                let upright = w.resource::<Portrait>().0;
+                let count = w
+                    .query_filtered::<&Text, With<CountText>>()
+                    .iter(w)
+                    .next()
+                    .map(|t| t.0.clone())
+                    .unwrap_or_default();
+                match (upright, count.is_empty()) {
+                    (true, true) | (false, false) => Ok(()),
+                    _ => Err(format!("upright {upright}, the count reads {count:?}")),
+                }
+            })),
+            Op::Click(marked::<HeaderProgress>("the era and the bar")),
+            Op::Until(toast_says("Discovered: "), 30),
+        ],
+    ));
+    v
+}

@@ -620,6 +620,44 @@ fn target(name: impl Into<String>, f: impl Fn(&mut World) -> Option<Vec2> + Send
     Target { name: name.into(), find: Box::new(f) }
 }
 
+/// `name` is pinned, first on the shelf, its tile showing the pin and the button reading
+/// "Unpin"; or (`pinned` false) none of that.
+fn shelf_first_is(name: &'static str, pinned: bool) -> Verify {
+    verify(move |w| {
+        let id = sub_id(w, name).ok_or(format!("no {name}"))?;
+        let in_progress = w.resource::<PlayerProgress>().pinned.contains(&id);
+        let first = w
+            .query_filtered::<&VirtualList, With<InventoryContent>>()
+            .iter(w)
+            .next()
+            .and_then(|l| l.ids().first().copied());
+        let badge = w
+            .query_filtered::<(&Ingredient, &Children), With<ShelfTile>>()
+            .iter(w)
+            .filter(|(i, _)| i.id == id)
+            .flat_map(|(_, c)| c.iter().collect::<Vec<_>>())
+            .collect::<Vec<_>>()
+            .into_iter()
+            .any(|c| {
+                w.get::<crate::ui::inventory::ShelfPinBadge>(c).is_some()
+                    && w.get::<Node>(c).is_some_and(|n| n.display != Display::None)
+            });
+        let word = w
+            .query_filtered::<&Text, With<crate::ui::detail_panel::SelectionPinInk>>()
+            .iter(w)
+            .next()
+            .map(|t| t.0.clone())
+            .unwrap_or_default();
+        let got = (in_progress, first == Some(id), badge, word == "Unpin");
+        let want = (pinned, pinned, pinned, pinned);
+        if got == want {
+            Ok(())
+        } else {
+            Err(format!("pinned, first on the shelf, pin on the tile, button says Unpin: {got:?}"))
+        }
+    })
+}
+
 fn tile(name: &'static str) -> Target {
     target(format!("the {name} tile on the shelf"), move |w| {
         let mut tiles: Vec<Entity> = w
@@ -894,6 +932,9 @@ fn fresh(world: &mut World) {
     *world.resource_mut::<crate::ui::inventory::ShelfDrag>() = Default::default();
     world.resource_mut::<crate::platform::KeyboardInset>().0 = 0.0;
     world.resource_mut::<crate::ui::hint::HintState>().stop();
+    if !world.resource::<PlayerProgress>().goals.is_empty() {
+        world.resource_mut::<PlayerProgress>().goals.clear();
+    }
     *world.resource_mut::<crate::ui::inventory::ShelfSearch>() = Default::default();
     world.resource_mut::<crate::ui::toasts::JournalUi>().open = false;
     *world.resource_mut::<InvCategory>() = InvCategory::All;
@@ -1548,6 +1589,20 @@ pub fn all_checks(world: &mut World) -> Vec<Check> {
             ),
             setup(new_game),
             Op::Wait(10),
+        ],
+    ));
+    v.push(check(
+        "Lab: shelf",
+        "Pin puts the selected substance first on the shelf with a pin on its tile; Unpin puts it back",
+        vec![
+            setup(new_game),
+            Op::Wait(5),
+            Op::Click(tile("Water")),
+            Op::Click(marked::<crate::ui::detail_panel::SelectionPinButton>("Pin")),
+            Op::Until(shelf_first_is("Water", true), 30),
+            Op::Shot("Water pinned to the front of the shelf"),
+            Op::Click(marked::<crate::ui::detail_panel::SelectionPinButton>("Unpin")),
+            Op::Until(shelf_first_is("Water", false), 30),
         ],
     ));
 
@@ -2709,8 +2764,10 @@ pub fn all_checks(world: &mut World) -> Vec<Check> {
     ));
     // Every prerequisite is expressed: checked on the steps that need the most (and the
     // first and last), whatever the content holds.
+    // (a step's needs show with "Show what's ready", or once it has been made)
     let mut ops = vec![
         setup(new_game),
+        setup(|w| w.resource_mut::<Settings>().tree_ready = true),
         setup(|w| w.resource_mut::<TechTreeState>().open = true),
         Op::Until(state("the tree's links worked out", |w| !w.resource::<TechLinks>().needs.is_empty()), 60),
     ];
@@ -2734,6 +2791,7 @@ pub fn all_checks(world: &mut World) -> Vec<Check> {
         vec![
             setup(new_game),
             setup(|w| {
+                w.resource_mut::<Settings>().tree_ready = true;
                 w.resource_mut::<TechTreeState>().open = true;
             }),
             Op::Until(state("the tree's links worked out", |w| !w.resource::<TechLinks>().needs.is_empty()), 60),

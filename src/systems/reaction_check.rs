@@ -136,6 +136,7 @@ pub fn accent_glow(p: &ProcessType) -> Color {
         ProcessType::BlastFurnace => Color::srgb(1.0, 0.50, 0.12),
         ProcessType::ArcFurnace => Color::srgb(0.70, 0.85, 1.0),
         ProcessType::AirLiquefier => Color::srgb(0.70, 0.95, 1.0),
+        ProcessType::Cryostat => Color::srgb(0.80, 0.97, 1.0),
         ProcessType::NuclearReactor => Color::srgb(0.35, 0.80, 1.0),
         ProcessType::Cyclotron => Color::srgb(1.0, 0.55, 1.0),
         ProcessType::HighPressure | ProcessType::DiamondPress => Color::srgb(1.0, 0.35, 0.30),

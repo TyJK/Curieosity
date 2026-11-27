@@ -138,7 +138,7 @@ E4.reactions += [
       "Citric acid neutralised by caustic soda; the dihydrate crystallises.", wiki=683065),
     R("Amyl Acetate", "Pentanol + AcOH -> AmylAcetate + H2O", CAT,
       "1-Pentanol esterified with acetic acid.", wiki=1829128, cat="H2SO4", T=110),
-    R("Tetrachloroethane", "Acetylene + 2 Cl2 -> TeCA", FLASK,
+    R("Tetrachloroethane", "Acetylene + 2 Cl2 + SbCl5 -> TeCA + SbCl5", FLASK,
       "Chlorine adds twice to acetylene in liquid antimony pentachloride.", wiki=12328732, T=80),
 ]
 E5.reactions += [

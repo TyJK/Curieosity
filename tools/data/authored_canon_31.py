@@ -150,7 +150,7 @@ E5.reactions += [
       wiki=P["ButyrylCl"], T=50),
     R("Heptafluorobutyryl Fluoride", "ButyrylCl + 8 HF -> HFBF + HCl + 7 H2", ECELL,
       "Electrochemical fluorination of butyryl chloride.", wiki=P["HFBF"], T=10),
-    R("Alkyl Ketene Dimer", "2 StearoylCl -> AKD + 2 HCl", HEAT,
+    R("Alkyl Ketene Dimer", "2 StearoylCl + Et3N -> AKD + 2 HCl + Et3N", HEAT,
       "Triethylamine pulls hydrogen chloride from the acid chloride; the ketene formed dimerises.", wiki=P["AKD"], T=60),
     R("Urea-Formaldehyde Resin", "Urea + CH2O -> UFResin", POLY,
       "Urea methylolated with formaldehyde in alkali, then condensed in acid.", wiki=P["UFResin"], exact=False, T=90),

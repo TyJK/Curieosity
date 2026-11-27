@@ -37,7 +37,9 @@ Run from the project root:
     python tools/data/gen_authored.py                 # validate + write both RON files
     python tools/data/gen_authored.py --check         # validate only
     python tools/data/gen_authored.py --render        # also draw library/structures/{id}.png
-                                                      # for new substances (RDKit + Pillow)
+                                                      # for every substance in play, from a
+                                                      # SMILES whose formula checks out, else
+                                                      # a name tile (RDKit + Pillow)
     python tools/data/gen_authored.py --rebind        # retry library binding for keys that
                                                       # were given a fresh id earlier
     python tools/data/gen_authored.py --pacing        # list the milestone ladder by step
@@ -73,7 +75,7 @@ FLASK, BLAST, ARC, AIRLIQ, COLUMN = "Flask", "BlastFurnace", "ArcFurnace", "AirL
 ECELL, REACTOR, CYCLO, CRACKER, HIGHP = ("ElectrolyticCell", "NuclearReactor", "Cyclotron",
                                          "Cracker", "HighPressure")
 DPRESS, FERM, BIOR, PULLER, CVD = "DiamondPress", "Fermenter", "Bioreactor", "CrystalPuller", "CvdChamber"
-CENT, ULTRA = "Centrifuge", "Ultracentrifuge"
+CENT, ULTRA, CRYO = "Centrifuge", "Ultracentrifuge", "Cryostat"
 
 # process -> (vessel name, family, tier, catalyst slot). Mirrors VESSEL_SPECS in
 # src/data/common.rs: a vessel runs its family's recipes at its tier or below, and a
@@ -84,6 +86,7 @@ VESSELS = {
     BLAST: ("Blast Furnace", "Heat", 3, False),  ARC: ("Arc Furnace", "Heat", 4, False),
     DISTIL: ("Still", "Distillation", 1, False), COLUMN: ("Fractionating Column", "Distillation", 2, False),
     COOL: ("Ice Bath", "Cool", 1, False),        AIRLIQ: ("Air Liquefier", "Cool", 2, False),
+    CRYO: ("Cryostat", "Cool", 3, False),
     ELEC: ("Voltaic Cell", "Electrolysis", 1, False),
     ECELL: ("Electrolytic Cell", "Electrolysis", 2, False),
     CAT: ("Catalyst Bed", "Catalysis", 1, True), CRACKER: ("Catalytic Cracker", "Catalysis", 2, True),
@@ -126,7 +129,7 @@ class Sub:
     wiki: str = None        # article title ("Zinc_chloride") or full URL
     props: tuple = ()
     color: str = None       # "#rrggbb", tints the vessel contents
-    smiles: str = None      # new molecular substances: drawn into structures/{id}.png
+    smiles: str = None      # a molecule's SMILES: its structure picture is drawn from it
     balance: str = None     # formula used for atom balance when `formula` is a polymer/alloy
     rename: bool = False    # for lib entries: also patch the display name
     stage: str = None       # a later stage: a locked preview with a page but no reaction yet
@@ -792,53 +795,95 @@ def write_substances(content, used_keys, out_path):
 # --------------------------------------------------------------------------------------
 # Structure images for new substances
 # --------------------------------------------------------------------------------------
-def render_structures(content, used_keys, assets, force=False):
-    from PIL import Image, ImageDraw, ImageFont
+def render_structures(content, used_keys, assets):
+    """Draws the picture of every substance in play into library/structures (the pack then
+    copies them into assets/structures). A molecule is drawn from a SMILES only when that
+    SMILES' own atoms are the substance's formula: the authored SMILES first, else the one in
+    the Chembox of the substance's own Wikipedia article (gen_pages.chembox_smiles). Anything
+    else (minerals, alloys, mixtures, hydrates, a SMILES that turns out to be another
+    compound) gets a name tile instead: a tile is never wrong, and the scrape's own pictures
+    sometimes were (potassium sulfide drawn as lithium hydroxide). Elements keep their
+    periodic-table card. Needs RDKit and Pillow."""
     try:
         from rdkit import Chem, RDLogger
         from rdkit.Chem.Draw import rdMolDraw2D
+        from rdkit.Chem.rdMolDescriptors import CalcMolFormula
         RDLogger.DisableLog("rdApp.*")
     except ImportError:
-        Chem = None
+        print("structures: RDKit is not installed (pip install rdkit); nothing drawn")
+        return
+    import gen_pages
+    wiki = gen_pages.chembox_smiles()
     out = LIBRARY / "structures"   # the pack copies the ones in play into assets/structures
     out.mkdir(parents=True, exist_ok=True)
-    drawn = tiles = 0
-    font_path = None
+    font_path = _tile_font(assets)
+    counts = collections.Counter()
+    misfits = []
+    for k in sorted(used_keys):
+        s = content.SUBSTANCES[k]
+        if is_element(s.formula) or 1000 < s.id <= 1118:
+            continue
+        want = {gen_pages.hill(f) for f in (s.formula, s.balance) if f} - {None}
+        png, how = None, "tile"
+        for source, smiles in (("authored", s.smiles), ("Wikipedia", wiki.get(s.id))):
+            mol = Chem.MolFromSmiles(smiles) if smiles else None
+            if mol is None:
+                if smiles and source == "authored":
+                    misfits.append(f"{k} ({s.name}): its SMILES doesn't parse")
+                continue
+            if _mol_atoms(mol) in want:
+                png, how = _draw_mol(mol, rdMolDraw2D), source
+                break
+            if source == "authored":
+                misfits.append(f"{k} ({s.name}): its SMILES is {CalcMolFormula(mol)}, not {s.formula}")
+        if png is None:
+            png = _png(_tile(s, font_path))
+        p = out / f"{s.id}.png"
+        if not p.exists() or p.read_bytes() != png:
+            p.write_bytes(png)
+            counts["changed"] += 1
+        counts[how] += 1
+    print(f"structures: {counts['authored']} drawn from authored SMILES, {counts['Wikipedia']} from "
+          f"Wikipedia's, {counts['tile']} name tiles; {counts['changed']} changed in {out}")
+    for m in misfits:
+        print("  SMILES left out (another compound's?):", m)
+
+
+def _mol_atoms(mol):
+    """A molecule's atoms as gen_pages.hill gives a formula's: implicit hydrogens counted, a
+    polymer's open ends ('*') left out."""
+    n = collections.Counter()
+    for a in mol.GetAtoms():
+        if a.GetAtomicNum() == 0:
+            continue
+        n[a.GetSymbol()] += 1
+        n["H"] += a.GetTotalNumHs()
+    return tuple(sorted((e, c) for e, c in n.items() if c))
+
+
+def _draw_mol(mol, rdMolDraw2D):
+    """White lines and labels on clear, 220 px: the look of every structure in the game."""
+    d = rdMolDraw2D.MolDraw2DCairo(220, 220)
+    o = d.drawOptions()
+    o.setBackgroundColour((0, 0, 0, 0))
+    o.bondLineWidth = 3
+    o.updateAtomPalette({i: (1.0, 1.0, 1.0) for i in range(-1, 119)})
+    d.DrawMolecule(mol)
+    d.FinishDrawing()
+    return d.GetDrawingText()
+
+
+def _tile_font(assets):
     for path in ("DejaVuSans-Bold.ttf", str(assets / "fonts" / "DejaVuSans.ttf"),
                  "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", "C:/Windows/Fonts/segoeuib.ttf",
                  "C:/Windows/Fonts/arialbd.ttf"):
         try:
+            from PIL import ImageFont
             ImageFont.truetype(path, 30)
-            font_path = path
-            break
+            return path
         except OSError:
             pass
-    for k in sorted(used_keys):
-        s = content.SUBSTANCES[k]
-        p = out / f"{s.id}.png"
-        # library entries usually ship a drawn structure; newly bound ones may not
-        if s.lib and (p.exists() or 1000 < s.id <= 1118 or is_element(s.formula)):
-            continue
-        if p.exists() and not force:
-            continue
-        mol = Chem.MolFromSmiles(s.smiles) if (Chem and s.smiles) else None
-        if mol is not None:
-            d = rdMolDraw2D.MolDraw2DCairo(220, 220)
-            o = d.drawOptions()
-            o.setBackgroundColour((0, 0, 0, 0))
-            o.bondLineWidth = 3
-            o.updateAtomPalette({i: (1.0, 1.0, 1.0) for i in range(-1, 119)})
-            d.DrawMolecule(mol)
-            d.FinishDrawing()
-            p.write_bytes(d.GetDrawingText())
-            drawn += 1
-            continue
-        # Non-molecular (minerals, alloys, mixtures): a rounded tile in the substance's
-        # colour with its name (the game prints the formula under the tile already).
-        img = _tile(s, font_path)
-        p.write_bytes(_png(img))
-        tiles += 1
-    print(f"structures: {drawn} molecules drawn, {tiles} formula tiles -> {out}")
+    return None
 
 
 def pages_needed(content, used, library_path):
@@ -856,30 +901,6 @@ def pages_needed(content, used, library_path):
 def is_element(formula):
     """Formulas the game shows as an element card instead of a structure picture."""
     return re.fullmatch(r"[A-Z][a-z]?[0-9]*", formula or "") is not None and len(atoms(formula)) == 1
-
-
-def render_fallbacks(content, used_keys, assets, folder):
-    """Name tiles for library substances in play. assets/structures usually already has a
-    drawn structure for these; the installer only copies a tile where one is missing."""
-    from PIL import ImageFont
-    folder.mkdir(parents=True, exist_ok=True)
-    font_path = None
-    for path in ("DejaVuSans-Bold.ttf", "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
-                 str(assets / "fonts" / "DejaVuSans.ttf"), "C:/Windows/Fonts/arialbd.ttf"):
-        try:
-            ImageFont.truetype(path, 30)
-            font_path = path
-            break
-        except OSError:
-            pass
-    n = 0
-    for k in sorted(used_keys):
-        s = content.SUBSTANCES[k]
-        if not s.lib or 1000 < s.id <= 1118:     # elements get the periodic-table card
-            continue
-        (folder / f"{s.id}.png").write_bytes(_png(_tile(s, font_path)))
-        n += 1
-    print(f"fallback tiles: {n} -> {folder}")
 
 
 def _tile(s, font_path):
@@ -1052,10 +1073,8 @@ def urllib_unquote(t):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--check", action="store_true", help="validate only, write nothing")
-    ap.add_argument("--render", action="store_true", help="also draw structure PNGs for new substances")
-    ap.add_argument("--force", action="store_true", help="with --render: redraw PNGs that already exist")
-    ap.add_argument("--fallback", type=Path, help="with --render: also draw name tiles for the library "
-                    "substances in play into this folder (to fill gaps in assets/structures)")
+    ap.add_argument("--render", action="store_true",
+                    help="also draw every in-play substance's structure picture (RDKit + Pillow)")
     ap.add_argument("--assets", type=Path, default=ROOT / "assets")
     ap.add_argument("--rebind", action="store_true", help="retry library binding for fresh ids")
     ap.add_argument("--pacing", action="store_true", help="print every milestone with its planner step")
@@ -1119,9 +1138,7 @@ def main():
     print(f"wrote {data / 'authored_reactions.ron'}")
     print(f"wrote {data / 'authored_substances.ron'}")
     if args.render:
-        render_structures(content, paged, args.assets, force=args.force)
-        if args.fallback:
-            render_fallbacks(content, paged, args.assets, args.fallback)
+        render_structures(content, paged, args.assets)
     # what the game ships follows from what the authored layer now uses
     import pack_library
     pack_library.pack()
